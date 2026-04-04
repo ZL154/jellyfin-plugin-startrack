@@ -121,14 +121,10 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             sb.AppendLine("======================================");
             sb.AppendLine($"Plugin loaded         : YES");
             sb.AppendLine($"WebPath               : {WebInjectionService.DiagWebPath}");
-            sb.AppendLine($"index.html found      : {WebInjectionService.DiagIndexFound}");
-            sb.AppendLine($"index.html patched    : {WebInjectionService.DiagIndexPatched}");
-            sb.AppendLine($"Patched at            : {WebInjectionService.DiagPatchedPath}");
-            sb.AppendLine($"FileTransformation    : {WebInjectionService.DiagFtStatus}");
-            sb.AppendLine($"Callback invocations  : {TransformationPatches.CallbackCount}");
-            sb.AppendLine($"Callback status       : {TransformationPatches.CallbackStatus}");
-            sb.AppendLine($"Callback payload type : {TransformationPatches.CallbackPayloadType}");
-            sb.AppendLine($"Callback contents len : {TransformationPatches.CallbackContentsLen}");
+            sb.AppendLine($"Injection method      : HTTP middleware (IStartupFilter)");
+            sb.AppendLine($"File fallback found   : {WebInjectionService.DiagIndexFound}");
+            sb.AppendLine($"File fallback patched : {WebInjectionService.DiagIndexPatched}");
+            sb.AppendLine($"File fallback path    : {WebInjectionService.DiagPatchedPath}");
             sb.AppendLine($"Last error            : {WebInjectionService.DiagLastError}");
             sb.AppendLine($"Widget endpoint       : /Plugins/StarTrack/Widget");
             return Content(sb.ToString(), "text/plain");
