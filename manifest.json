@@ -1,0 +1,21 @@
+[
+  {
+    "guid": "a8b5e2f3-4c1d-4e8a-b2f9-6d3c7e1a5b2f",
+    "name": "StarTrack – Internal Rating System",
+    "description": "Let every Jellyfin user rate movies and TV shows on a 1–5 star scale and see the community average inline.",
+    "overview": "StarTrack adds a compact star-rating pill to every Movie and TV Series detail page. Click it to expand a full panel where you can submit or update your rating, and see a dropdown of every individual user's score. All ratings are stored privately on your Jellyfin server — nothing leaves your network.",
+    "owner": "ZL154",
+    "category": "General",
+    "imageUrl": "https://raw.githubusercontent.com/ZL154/jellyfin-plugin-startrack/main/icon.png",
+    "versions": [
+      {
+        "version": "1.0.0.0",
+        "changelog": "Initial release — star ratings for Movies and TV Shows, community average display, expandable user score list, and remove-rating support.",
+        "targetAbi": "10.9.0.0",
+        "sourceUrl": "https://github.com/ZL154/jellyfin-plugin-startrack/releases/download/v1.0.0/Jellyfin.Plugin.InternalRating_1.0.0.0.zip",
+        "checksum": "",
+        "timestamp": "2025-04-04T00:00:00Z"
+      }
+    ]
+  }
+]
