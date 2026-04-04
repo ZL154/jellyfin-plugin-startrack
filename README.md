@@ -33,8 +33,7 @@ StarTrack is a Jellyfin plugin that adds a **1–5 star community rating system*
 | 👥 **Per-user breakdown** | Expandable dropdown of every user's score |
 | ✏️ **Update anytime** | Click any star to change your rating |
 | 🗑️ **Remove rating** | One-click removal |
-| 🔒 **100% private** | JSON file stays on your server |
-| 🎨 **Theme-agnostic** | Works with any Jellyfin CSS theme |
+| 🎨 **Theme-Compatible** | Works with any Jellyfin CSS theme |
 
 ---
 
