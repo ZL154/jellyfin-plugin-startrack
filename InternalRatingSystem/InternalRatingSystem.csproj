@@ -14,8 +14,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Single Jellyfin SDK package – no extra runtime dependencies needed -->
     <PackageReference Include="Jellyfin.Controller" Version="10.9.0" />
+    <!-- Newtonsoft.Json is already shipped by Jellyfin — reference for compile-time only, don't bundle -->
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" ExcludeAssets="runtime" />
   </ItemGroup>
 
   <ItemGroup>
