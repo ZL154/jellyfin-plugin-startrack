@@ -53,8 +53,31 @@ namespace Jellyfin.Plugin.InternalRating.Data
             finally { _lock.Release(); }
         }
 
+        /// <summary>Returns the most-recently submitted ratings across all items.</summary>
+        public async Task<List<RecentRatingDto>> GetRecentAsync(int limit = 20)
+        {
+            await _lock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                return _store.Ratings
+                    .SelectMany(kv => kv.Value.Select(r => new RecentRatingDto
+                    {
+                        ItemId   = kv.Key,
+                        UserId   = r.UserId,
+                        UserName = r.UserName,
+                        Stars    = r.Stars,
+                        Review   = r.Review,
+                        RatedAt  = r.RatedAt
+                    }))
+                    .OrderByDescending(x => x.RatedAt)
+                    .Take(limit)
+                    .ToList();
+            }
+            finally { _lock.Release(); }
+        }
+
         /// <summary>Inserts or replaces a user's rating for an item.</summary>
-        public async Task SaveRatingAsync(string itemId, string userId, string userName, double stars)
+        public async Task SaveRatingAsync(string itemId, string userId, string userName, double stars, string? review = null)
         {
             await _lock.WaitAsync().ConfigureAwait(false);
             try
@@ -68,6 +91,7 @@ namespace Jellyfin.Plugin.InternalRating.Data
                     UserId   = userId,
                     UserName = userName,
                     Stars    = stars,
+                    Review   = string.IsNullOrWhiteSpace(review) ? null : review.Trim(),
                     RatedAt  = DateTime.UtcNow
                 });
 
@@ -138,6 +162,7 @@ namespace Jellyfin.Plugin.InternalRating.Data
                         UserId   = r.UserId,
                         UserName = r.UserName,
                         Stars    = r.Stars,
+                        Review   = r.Review,
                         RatedAt  = r.RatedAt
                     })
                     .ToList()
@@ -179,10 +204,11 @@ namespace Jellyfin.Plugin.InternalRating.Data
 
         private sealed class StoredRating
         {
-            [JsonPropertyName("userId")]   public string UserId   { get; set; } = string.Empty;
-            [JsonPropertyName("userName")] public string UserName { get; set; } = string.Empty;
-            [JsonPropertyName("stars")]    public double Stars    { get; set; }
-            [JsonPropertyName("ratedAt")]  public DateTime RatedAt { get; set; }
+            [JsonPropertyName("userId")]   public string   UserId   { get; set; } = string.Empty;
+            [JsonPropertyName("userName")] public string   UserName { get; set; } = string.Empty;
+            [JsonPropertyName("stars")]    public double   Stars    { get; set; }
+            [JsonPropertyName("review")]   public string?  Review   { get; set; }
+            [JsonPropertyName("ratedAt")]  public DateTime RatedAt  { get; set; }
         }
     }
 }

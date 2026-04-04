@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net.Mime;
 using System.Reflection;
@@ -71,7 +72,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             }
 
             var userName = GetCurrentUserName();
-            await _repository.SaveRatingAsync(itemId, userId.Value.ToString("N"), userName, request.Stars)
+            await _repository.SaveRatingAsync(itemId, userId.Value.ToString("N"), userName, request.Stars, request.Review)
                 .ConfigureAwait(false);
 
             _logger.LogInformation("[StarTrack] {User} rated {Item}: {Stars}★", userName, itemId, request.Stars);
@@ -109,6 +110,18 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 return NotFound();
 
             return File(stream, "application/javascript; charset=utf-8");
+        }
+
+        /// <summary>Returns the most recently submitted ratings across all items.</summary>
+        // GET /Plugins/StarTrack/Recent?limit=20
+        [HttpGet("Recent")]
+        [ProducesResponseType(typeof(List<RecentRatingDto>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<List<RecentRatingDto>>> GetRecent([FromQuery] int limit = 20)
+        {
+            if (limit < 1) limit = 1;
+            if (limit > 100) limit = 100;
+            var result = await _repository.GetRecentAsync(limit).ConfigureAwait(false);
+            return Ok(result);
         }
 
         /// <summary>Returns server-wide rating statistics.</summary>

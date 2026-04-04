@@ -6,7 +6,7 @@
     <RootNamespace>Jellyfin.Plugin.InternalRating</RootNamespace>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <Nullable>enable</Nullable>
-    <Version>1.0.11.0</Version>
+    <Version>1.0.12.0</Version>
     <Authors>ZL154</Authors>
     <Copyright>Copyright © 2025 ZL154</Copyright>
     <Description>StarTrack – community star ratings for Jellyfin movies and TV shows</Description>
