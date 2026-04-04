@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Net.Mime;
 using System.Reflection;
+using System.Text;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.InternalRating.Data;
 using Jellyfin.Plugin.InternalRating.Models;
@@ -105,6 +106,27 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         {
             var (totalItems, totalRatings) = _repository.GetStats();
             return Ok(new { totalItems, totalRatings });
+        }
+
+        // GET /Plugins/StarTrack/Debug  – diagnostic info, no auth needed
+        [HttpGet("Debug")]
+        [AllowAnonymous]
+        [Produces("text/plain")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public IActionResult GetDebug()
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("StarTrack v1.0.2 — Diagnostic Report");
+            sb.AppendLine("======================================");
+            sb.AppendLine($"Plugin loaded         : YES");
+            sb.AppendLine($"WebPath               : {WebInjectionService.DiagWebPath}");
+            sb.AppendLine($"index.html found      : {WebInjectionService.DiagIndexFound}");
+            sb.AppendLine($"index.html patched    : {WebInjectionService.DiagIndexPatched}");
+            sb.AppendLine($"Patched at            : {WebInjectionService.DiagPatchedPath}");
+            sb.AppendLine($"FileTransformation    : {WebInjectionService.DiagFtStatus}");
+            sb.AppendLine($"Last error            : {WebInjectionService.DiagLastError}");
+            sb.AppendLine($"Widget endpoint       : /Plugins/StarTrack/Widget");
+            return Content(sb.ToString(), "text/plain");
         }
 
         // ------------------------------------------------------------------ //
