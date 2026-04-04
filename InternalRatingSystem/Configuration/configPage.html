@@ -17,26 +17,13 @@
             </div>
 
             <div class="verticalSection">
-                <h3 class="sectionTitle">Auto-Activation (Recommended)</h3>
+                <h3 class="sectionTitle">Widget Status</h3>
                 <p style="color:rgba(255,255,255,.8)">
-                    Install the <strong>Tampermonkey</strong> browser extension, then click the button below
-                    to install the StarTrack widget script. It will activate automatically on every Jellyfin page — no further action needed.
+                    The StarTrack widget is <strong style="color:#52b54b;">automatically active</strong> for all users on this server,
+                    including mobile. No browser extensions or manual steps required — just navigate to any Movie or TV Show and the ☆ pill will appear.
                 </p>
-                <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;">
-                    <a href="https://www.tampermonkey.net/" target="_blank"
-                       style="display:inline-block;padding:8px 18px;background:#cc0000;color:#fff;border-radius:6px;text-decoration:none;font-weight:600;">
-                        1. Get Tampermonkey
-                    </a>
-                    <a id="installScript"
-                       href="https://raw.githubusercontent.com/ZL154/jellyfin-plugin-startrack/main/startrack.user.js"
-                       target="_blank"
-                       style="display:inline-block;padding:8px 18px;background:#222;color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:6px;text-decoration:none;font-weight:600;">
-                        2. Install Widget Script
-                    </a>
-                </div>
-                <p style="color:rgba(255,255,255,.45);font-size:.85em;margin-top:10px;">
-                    Tampermonkey is available for Chrome, Firefox, Edge, and Safari.
-                    Once the script is installed the ☆ pill will appear automatically on every Movie and TV Show page.
+                <p style="color:rgba(255,255,255,.45);font-size:.85em;margin-top:6px;">
+                    If you don't see the widget after restarting Jellyfin, check the server logs for <code>[StarTrack]</code> messages.
                 </p>
             </div>
 

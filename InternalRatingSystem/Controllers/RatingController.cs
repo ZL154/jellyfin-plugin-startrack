@@ -1,5 +1,7 @@
 using System;
+using System.IO;
 using System.Net.Mime;
+using System.Reflection;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.InternalRating.Data;
 using Jellyfin.Plugin.InternalRating.Models;
@@ -77,6 +79,23 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             await _repository.DeleteRatingAsync(itemId, userId.Value.ToString("N"))
                 .ConfigureAwait(false);
             return Ok();
+        }
+
+        // GET /Plugins/StarTrack/Widget  – serves the embedded widget.js (no auth needed)
+        [HttpGet("Widget")]
+        [AllowAnonymous]
+        [Produces("application/javascript")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public IActionResult GetWidget()
+        {
+            var asm        = Assembly.GetExecutingAssembly();
+            const string res = "Jellyfin.Plugin.InternalRating.Web.widget.js";
+            var stream     = asm.GetManifestResourceStream(res);
+            if (stream == null)
+                return NotFound();
+
+            return File(stream, "application/javascript; charset=utf-8");
         }
 
         // GET /Plugins/StarTrack/Stats

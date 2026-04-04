@@ -13,7 +13,7 @@
         "changelog": "Initial release — star ratings for Movies and TV Shows, community average display, expandable per-user score list, and remove-rating support.",
         "targetAbi": "10.9.0.0",
         "sourceUrl": "https://github.com/ZL154/jellyfin-plugin-startrack/releases/download/v1.0.0/Jellyfin.Plugin.InternalRating_1.0.0.0.zip",
-        "checksum": "3d5ac90e47cf4114e65d8d6112000843",
+        "checksum": "43f42e376a9cdf4c439e292c0f5f5096",
         "timestamp": "2025-04-04T00:00:00Z"
       }
     ]
