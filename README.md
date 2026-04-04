@@ -7,7 +7,7 @@
 ![Jellyfin](https://img.shields.io/badge/Jellyfin-10.9%2B-CC0000?style=for-the-badge&labelColor=0d0d0d&logo=jellyfin&logoColor=white)
 ![.NET](https://img.shields.io/badge/.NET-8.0-CC0000?style=for-the-badge&labelColor=0d0d0d&logo=dotnet&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-CC0000?style=for-the-badge&labelColor=0d0d0d)
-![Version](https://img.shields.io/badge/Version-1.0.0-CC0000?style=for-the-badge&labelColor=0d0d0d)
+![Version](https://img.shields.io/badge/Version-1.0.4-CC0000?style=for-the-badge&labelColor=0d0d0d)
 
 **Community star ratings for Jellyfin — private, self-hosted, no external services.**
 
@@ -34,12 +34,35 @@ StarTrack is a Jellyfin plugin that adds a **1–5 star community rating system*
 | ✏️ **Update anytime** | Click any star to change your rating |
 | 🗑️ **Remove rating** | One-click removal |
 | 🎨 **Theme-Compatible** | Works with any Jellyfin CSS theme |
+| 📱 **Mobile-friendly** | Works for all users including mobile — no Tampermonkey needed |
 
 ---
 
-## 🚀 Setup — Two steps
+## ⚠️ Requirements
 
-### Step 1 — Install the Jellyfin server plugin
+StarTrack requires **two** Jellyfin plugins to be installed:
+
+| Plugin | Why it's needed |
+|--------|-----------------|
+| **StarTrack** *(this plugin)* | Stores ratings, serves the REST API and the widget script |
+| **[File Transformation](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation)** | Injects the widget script into Jellyfin's web app on every page load — without modifying files on disk |
+
+> **File Transformation must be installed before StarTrack.**
+
+---
+
+## 🚀 Setup
+
+### Step 1 — Install File Transformation
+
+1. In Jellyfin go to **Dashboard → Plugins → Repositories → +**
+2. Add the File Transformation repository:
+   ```
+   https://raw.githubusercontent.com/IAmParadox27/jellyfin-plugin-file-transformation/main/manifest.json
+   ```
+3. Go to **Catalogue**, find **File Transformation**, install it, and restart Jellyfin.
+
+### Step 2 — Install StarTrack
 
 **Option A — Plugin repository *(recommended)***
 
@@ -53,28 +76,20 @@ StarTrack is a Jellyfin plugin that adds a **1–5 star community rating system*
 **Option B — Manual**
 
 1. Download `Jellyfin.Plugin.InternalRating_*.zip` from [Releases](https://github.com/ZL154/jellyfin-plugin-startrack/releases)
-2. Extract the DLL into:
+2. Extract the DLL into your Jellyfin plugins folder:
    ```
    <jellyfin-data>/plugins/StarTrack/Jellyfin.Plugin.InternalRating.dll
    ```
 3. Restart Jellyfin.
 
----
+### Step 3 — Verify
 
-### Step 2 — Install the browser widget script
+After restarting Jellyfin, visit:
+```
+https://your-jellyfin-server/Plugins/StarTrack/Debug
+```
 
-The rating widget runs in your browser. Install it once and it activates **automatically on every page load** — no config page visits, no per-session steps.
-
-**1.** Install [Tampermonkey](https://www.tampermonkey.net/) for your browser
-*(Chrome, Firefox, Edge, and Safari are all supported)*
-
-**2.** Click to install the widget script:
-
-> **[⬇ Install StarTrack Widget Script](https://raw.githubusercontent.com/ZL154/jellyfin-plugin-startrack/main/startrack.user.js)**
-
-Tampermonkey will prompt you to confirm — click **Install**.
-
-That's it. Navigate to any Movie or TV Show in Jellyfin and the `☆` pill will appear automatically.
+You should see `FileTransformation: registered OK`. Then navigate to any Movie or TV Show — the `☆ Rate` pill will appear in the bottom-right corner.
 
 ---
 
@@ -82,22 +97,24 @@ That's it. Navigate to any Movie or TV Show in Jellyfin and the `☆` pill will 
 
 | State | What you see |
 |:---|:---|
-| **No ratings yet** | `☆` — click to be the first to rate |
+| **No ratings yet** | `☆ Rate` — click to be the first |
 | **Has ratings** | `★ 4.3` — click to expand |
-| **Expanded** | Large average, 5-star click-to-rate, per-user dropdown |
+| **Expanded** | Large average, 5-star click-to-rate, per-user list |
+
+The widget appears as a fixed pill in the **bottom-right corner** of every Movie and TV Show detail page. It works with any Jellyfin theme and on mobile.
 
 ---
 
 ## 🌐 API Reference
 
-All endpoints require a valid Jellyfin session token.
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/Plugins/StarTrack/Ratings/{itemId}` | Average + all user ratings |
-| `POST` | `/Plugins/StarTrack/Ratings/{itemId}` | Submit / update your rating `{"stars":4}` |
-| `DELETE` | `/Plugins/StarTrack/Ratings/{itemId}` | Remove your rating |
-| `GET` | `/Plugins/StarTrack/Stats` | Server-wide statistics |
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/Plugins/StarTrack/Ratings/{itemId}` | Required | Average + all user ratings |
+| `POST` | `/Plugins/StarTrack/Ratings/{itemId}` | Required | Submit / update your rating `{"stars":4}` |
+| `DELETE` | `/Plugins/StarTrack/Ratings/{itemId}` | Required | Remove your rating |
+| `GET` | `/Plugins/StarTrack/Stats` | Required | Server-wide statistics |
+| `GET` | `/Plugins/StarTrack/Widget` | None | Serves the widget JavaScript |
+| `GET` | `/Plugins/StarTrack/Debug` | None | Diagnostic report |
 
 ---
 
@@ -109,8 +126,6 @@ cd jellyfin-plugin-startrack
 dotnet publish InternalRatingSystem/InternalRatingSystem.csproj -c Release -o ./publish
 ```
 
-> **Version note:** targets `Jellyfin.Controller 10.9.0`. Update the `<PackageReference>` in the `.csproj` if your server version differs.
-
 ---
 
 ## 🤝 Contributing
@@ -119,16 +134,6 @@ Issues and pull requests are welcome!
 
 - 🐛 [Report a bug](https://github.com/ZL154/jellyfin-plugin-startrack/issues)
 - 💡 [Suggest a feature](https://github.com/ZL154/jellyfin-plugin-startrack/discussions)
-
----
-
-## ⭐ Support
-
-If StarTrack saves you time, the best thing you can do is **star this repo** — it helps others find it.
-
-```
-★  →  top-right of this page  →  Star
-```
 
 ---
 
