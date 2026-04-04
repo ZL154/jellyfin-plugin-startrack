@@ -136,7 +136,10 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
 
         private Guid? GetCurrentUserId()
         {
-            var value = User.FindFirst("Jellyfin-UserId")?.Value
+            // Jellyfin stores the user ID as ClaimTypes.NameIdentifier in the JWT principal.
+            // The long XML URL form must be used — short aliases ("sub", "uid") don't match.
+            var value = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("Jellyfin-UserId")?.Value
                 ?? User.FindFirst("uid")?.Value
                 ?? User.FindFirst("sub")?.Value;
 

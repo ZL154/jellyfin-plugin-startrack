@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/ZL154/jellyfin-plugin-startrack/main/assets/logo.svg",
     "versions": [
       {
+        "version": "1.0.8.0",
+        "changelog": "Fix ratings saving: corrected user ID claim lookup to use ClaimTypes.NameIdentifier so POST/DELETE endpoints correctly identify the user. Added half-star ratings (click left/right half of each star for .5 increments). Added explicit Submit button — stars select a pending rating, button sends it. Added flash feedback on save (green success/red error). Added average rating pill next to IMDb badge on detail page.",
+        "targetAbi": "10.9.0.0",
+        "sourceUrl": "https://github.com/ZL154/jellyfin-plugin-startrack/releases/download/v1.0.8/Jellyfin.Plugin.InternalRating_1.0.8.0.zip",
+        "checksum": "4109c95970ce50ec79518b634d1bb690",
+        "timestamp": "2026-04-04T00:00:00Z"
+      },
+      {
         "version": "1.0.7.0",
         "changelog": "Complete injection rewrite: replaced File Transformation reflection approach with ASP.NET Core IStartupFilter + response middleware. The middleware intercepts every index.html HTTP response and injects the widget script tag directly — no file system permissions needed, no third-party plugins required. File Transformation plugin is no longer needed.",
         "targetAbi": "10.9.0.0",
