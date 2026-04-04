@@ -84,20 +84,20 @@ namespace Jellyfin.Plugin.InternalRating
         {
             try
             {
-                var asm = AssemblyLoadContext.All
+                var ftAsm = AssemblyLoadContext.All
                     .SelectMany(c => c.Assemblies)
                     .FirstOrDefault(a => a.FullName?.Contains(".FileTransformation") ?? false);
 
-                if (asm == null)
+                if (ftAsm == null)
                 {
                     DiagFtStatus = "not installed";
                     _logger.LogWarning("[StarTrack] File Transformation plugin not present — will patch file.");
                     return false;
                 }
 
-                DiagFtStatus = $"found: {asm.GetName().Name}";
+                DiagFtStatus = $"found: {ftAsm.GetName().Name}";
 
-                var iface = asm.GetType("Jellyfin.Plugin.FileTransformation.PluginInterface");
+                var iface = ftAsm.GetType("Jellyfin.Plugin.FileTransformation.PluginInterface");
                 if (iface == null)
                 {
                     DiagFtStatus = "assembly found but PluginInterface type missing";
@@ -105,13 +105,9 @@ namespace Jellyfin.Plugin.InternalRating
                     return false;
                 }
 
-                var method = iface.GetMethod("RegisterTransformation");
-                if (method == null)
-                {
-                    // Try alternate method names
-                    method = iface.GetMethod("Register")
+                var method = iface.GetMethod("RegisterTransformation")
+                          ?? iface.GetMethod("Register")
                           ?? iface.GetMethod("AddTransformation");
-                }
 
                 if (method == null)
                 {
@@ -121,14 +117,16 @@ namespace Jellyfin.Plugin.InternalRating
                     return false;
                 }
 
-                var payload = new FileTransformPayload
+                // File Transformation expects a JObject payload.
+                // Newtonsoft.Json is already loaded in memory by File Transformation,
+                // so we create the JObject via reflection — no compile-time dependency needed.
+                var payload = BuildJObjectPayload();
+                if (payload == null)
                 {
-                    id               = Plugin.Instance!.Id.ToString(),
-                    fileNamePattern  = "index\\.html",
-                    callbackAssembly = typeof(TransformationPatches).Assembly.FullName!,
-                    callbackClass    = typeof(TransformationPatches).FullName!,
-                    callbackMethod   = nameof(TransformationPatches.PatchIndexHtml)
-                };
+                    DiagFtStatus = "could not create JObject payload (Newtonsoft.Json not in memory)";
+                    _logger.LogWarning("[StarTrack] Newtonsoft.Json not found in loaded assemblies.");
+                    return false;
+                }
 
                 method.Invoke(null, new object?[] { payload });
                 DiagFtStatus = "registered OK";
@@ -141,6 +139,57 @@ namespace Jellyfin.Plugin.InternalRating
                 DiagLastError = ex.ToString();
                 _logger.LogWarning(ex, "[StarTrack] File Transformation registration failed.");
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Creates a JObject via reflection using the Newtonsoft.Json assembly
+        /// that File Transformation has already loaded. This avoids a compile-time
+        /// dependency on Newtonsoft.Json while still passing the correct type.
+        /// </summary>
+        private static object? BuildJObjectPayload()
+        {
+            try
+            {
+                var newtonsoftAsm = AssemblyLoadContext.All
+                    .SelectMany(c => c.Assemblies)
+                    .FirstOrDefault(a => a.GetName().Name == "Newtonsoft.Json");
+
+                if (newtonsoftAsm == null) return null;
+
+                var jObjectType = newtonsoftAsm.GetType("Newtonsoft.Json.Linq.JObject");
+                var jTokenType  = newtonsoftAsm.GetType("Newtonsoft.Json.Linq.JToken");
+                if (jObjectType == null || jTokenType == null) return null;
+
+                // JToken.FromObject(object value) — converts a CLR value to a JToken
+                var fromObject = jTokenType.GetMethod("FromObject", new[] { typeof(object) });
+                if (fromObject == null) return null;
+
+                // JObject indexer: jObject["key"] = jToken
+                var indexer = jObjectType.GetProperty("Item",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance,
+                    null, null, new[] { typeof(string) }, null);
+                if (indexer == null) return null;
+
+                var jObj = Activator.CreateInstance(jObjectType)!;
+
+                void Set(string key, string value)
+                {
+                    var token = fromObject.Invoke(null, new object[] { value });
+                    indexer.SetValue(jObj, token, new object[] { key });
+                }
+
+                Set("id",               Plugin.Instance!.Id.ToString());
+                Set("fileNamePattern",  "index\\.html");
+                Set("callbackAssembly", typeof(TransformationPatches).Assembly.FullName!);
+                Set("callbackClass",    typeof(TransformationPatches).FullName!);
+                Set("callbackMethod",   nameof(TransformationPatches.PatchIndexHtml));
+
+                return jObj;
+            }
+            catch
+            {
+                return null;
             }
         }
 
@@ -215,15 +264,5 @@ namespace Jellyfin.Plugin.InternalRating
                 string.Join(", ", candidates));
         }
 
-        // ── Payload POCO (no external deps) ──────────────────────────────
-
-        private sealed class FileTransformPayload
-        {
-            public string id               { get; set; } = string.Empty;
-            public string fileNamePattern  { get; set; } = string.Empty;
-            public string callbackAssembly { get; set; } = string.Empty;
-            public string callbackClass    { get; set; } = string.Empty;
-            public string callbackMethod   { get; set; } = string.Empty;
-        }
     }
 }

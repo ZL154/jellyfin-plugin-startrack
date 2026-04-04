@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/ZL154/jellyfin-plugin-startrack/main/assets/logo.svg",
     "versions": [
       {
+        "version": "1.0.3.0",
+        "changelog": "Fix: File Transformation now receives a proper JObject payload (built via reflection from the already-loaded Newtonsoft.Json assembly) instead of a POCO that caused a cast exception. This is the root cause of the widget not appearing when index.html is read-only.",
+        "targetAbi": "10.9.0.0",
+        "sourceUrl": "https://github.com/ZL154/jellyfin-plugin-startrack/releases/download/v1.0.3/Jellyfin.Plugin.InternalRating_1.0.3.0.zip",
+        "checksum": "d969e8bf685086baba1ab8b024f86dba",
+        "timestamp": "2026-04-04T00:00:00Z"
+      },
+      {
         "version": "1.0.2.0",
         "changelog": "Diagnostic: added /Plugins/StarTrack/Debug endpoint to report injection status without needing server logs. Injection now tries multiple known Linux web paths (/usr/share/jellyfin/web, /usr/lib/jellyfin/web, etc.) in addition to the configured WebPath. Retries injection after 5 s delay. All injection log messages upgraded to Warning level so they are always visible. File Transformation registration now logs available method names if RegisterTransformation is not found.",
         "targetAbi": "10.9.0.0",
