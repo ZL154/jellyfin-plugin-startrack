@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/ZL154/jellyfin-plugin-startrack/main/assets/logo.svg",
     "versions": [
       {
+        "version": "1.0.6.0",
+        "changelog": "Fix: File Transformation registration now happens synchronously inside StartAsync instead of on a background thread. File Transformation finalises its callback list early during startup — registering on a background thread meant we always missed the window. This is why JavaScript Injector worked (it registers synchronously) but StarTrack did not.",
+        "targetAbi": "10.9.0.0",
+        "sourceUrl": "https://github.com/ZL154/jellyfin-plugin-startrack/releases/download/v1.0.6/Jellyfin.Plugin.InternalRating_1.0.6.0.zip",
+        "checksum": "11b92078dbc0439e4bcb5b885a33db62",
+        "timestamp": "2026-04-04T00:00:00Z"
+      },
+      {
         "version": "1.0.5.0",
         "changelog": "Diagnostics: callback invocation counter, status, payload type and contents length now shown in /Plugins/StarTrack/Debug. Console.log added to widget.js so browser devtools shows whether the script loads and what item IDs it detects.",
         "targetAbi": "10.9.0.0",
