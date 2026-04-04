@@ -125,6 +125,10 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             sb.AppendLine($"index.html patched    : {WebInjectionService.DiagIndexPatched}");
             sb.AppendLine($"Patched at            : {WebInjectionService.DiagPatchedPath}");
             sb.AppendLine($"FileTransformation    : {WebInjectionService.DiagFtStatus}");
+            sb.AppendLine($"Callback invocations  : {TransformationPatches.CallbackCount}");
+            sb.AppendLine($"Callback status       : {TransformationPatches.CallbackStatus}");
+            sb.AppendLine($"Callback payload type : {TransformationPatches.CallbackPayloadType}");
+            sb.AppendLine($"Callback contents len : {TransformationPatches.CallbackContentsLen}");
             sb.AppendLine($"Last error            : {WebInjectionService.DiagLastError}");
             sb.AppendLine($"Widget endpoint       : /Plugins/StarTrack/Widget");
             return Content(sb.ToString(), "text/plain");

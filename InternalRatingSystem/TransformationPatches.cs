@@ -12,28 +12,42 @@ namespace Jellyfin.Plugin.InternalRating
         private const string Marker    = "<!-- startrack-widget -->";
         private const string ScriptTag = "<script src=\"/Plugins/StarTrack/Widget\"></script>";
 
+        // Diagnostics readable by the debug endpoint
+        public static int    CallbackCount;
+        public static string CallbackStatus      = "never called";
+        public static string CallbackPayloadType = "unknown";
+        public static int    CallbackContentsLen;
+
         /// <summary>
         /// Called by File Transformation. Payload is a JObject with a "contents" key
         /// holding the current HTML string. We inject our script tag and write it back.
         /// </summary>
         public static void PatchIndexHtml(object payload)
         {
+            CallbackCount++;
+            CallbackPayloadType = payload?.GetType().FullName ?? "null";
+
             try
             {
                 var contents = GetContents(payload);
-                if (string.IsNullOrEmpty(contents)) return;
-                if (contents.Contains(Marker, StringComparison.Ordinal)) return;
-                if (!contents.Contains("</body>", StringComparison.OrdinalIgnoreCase)) return;
+                CallbackContentsLen = contents?.Length ?? -1;
+
+                if (string.IsNullOrEmpty(contents))   { CallbackStatus = "empty contents"; return; }
+                if (contents.Contains(Marker, StringComparison.Ordinal))
+                                                       { CallbackStatus = "already patched"; return; }
+                if (!contents.Contains("</body>", StringComparison.OrdinalIgnoreCase))
+                                                       { CallbackStatus = "no </body> tag found"; return; }
 
                 var modified = contents.Replace("</body>",
                     $"{Marker}{ScriptTag}</body>",
                     StringComparison.OrdinalIgnoreCase);
 
                 SetContents(payload, modified);
+                CallbackStatus = "patched OK";
             }
-            catch
+            catch (Exception ex)
             {
-                // Fail silently — File Transformation will log its own errors
+                CallbackStatus = "exception: " + ex.Message;
             }
         }
 

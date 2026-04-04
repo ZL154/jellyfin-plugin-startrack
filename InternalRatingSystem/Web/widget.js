@@ -1,6 +1,8 @@
 (function () {
     'use strict';
 
+    console.log('[StarTrack] widget.js loaded — v1.0.5');
+
     // Start immediately — don't wait for window.ApiClient.
     // Auth is resolved lazily from multiple sources.
     init();
@@ -328,10 +330,13 @@
 
         if (!id) { hide(); return; }
 
+        console.log('[StarTrack] item detected:', id, '| hash:', window.location.hash, '| search:', window.location.search);
+
         // Show pill immediately, then filter out episodes
         showFor(id);
         getItemType(id).then(function (type) {
             if (id !== _curId) return; // navigated away
+            console.log('[StarTrack] item type:', type);
             if (type !== null && type !== 'Movie' && type !== 'Series') hide();
         });
     }
