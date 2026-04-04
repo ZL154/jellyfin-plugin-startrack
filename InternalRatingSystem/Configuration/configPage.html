@@ -1,31 +1,42 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Internal Rating System</title>
+    <title>StarTrack</title>
 </head>
 <body>
 
-<!-- ===== Admin Config Page ===== -->
-<div id="InternalRatingConfigPage" data-role="page" class="page type-interior withTabs">
+<div id="StarTrackConfigPage" data-role="page" class="page type-interior withTabs">
     <div data-role="content">
         <div class="content-primary">
 
             <div class="verticalSection">
-                <h2 class="sectionTitle">⭐ Internal Rating System</h2>
-                <p>Allows every Jellyfin user to give movies and TV shows a 1–5 star rating.
-                   The widget shows the community average next to the item and lets you drill
-                   into individual user scores.</p>
+                <h2 class="sectionTitle">⭐ StarTrack – Internal Rating System</h2>
+                <p style="color:rgba(255,255,255,.7)">
+                    Community star ratings for movies and TV shows, stored privately on your server.
+                </p>
             </div>
 
             <div class="verticalSection">
-                <h3 class="sectionTitle">Widget Status</h3>
-                <p id="irStatusMsg" style="color:#52b54b;font-weight:600;">
-                    ✓ Rating widget is active for this session.
-                    Navigate to any Movie or TV Show page to see it.
+                <h3 class="sectionTitle">Auto-Activation (Recommended)</h3>
+                <p style="color:rgba(255,255,255,.8)">
+                    Install the <strong>Tampermonkey</strong> browser extension, then click the button below
+                    to install the StarTrack widget script. It will activate automatically on every Jellyfin page — no further action needed.
                 </p>
-                <p style="color:rgba(255,255,255,.6);font-size:.9em;">
-                    The widget stays active as long as you keep Jellyfin open.
-                    Simply revisit this page to re-activate it after a full page reload.
+                <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;">
+                    <a href="https://www.tampermonkey.net/" target="_blank"
+                       style="display:inline-block;padding:8px 18px;background:#cc0000;color:#fff;border-radius:6px;text-decoration:none;font-weight:600;">
+                        1. Get Tampermonkey
+                    </a>
+                    <a id="installScript"
+                       href="https://raw.githubusercontent.com/ZL154/jellyfin-plugin-startrack/main/startrack.user.js"
+                       target="_blank"
+                       style="display:inline-block;padding:8px 18px;background:#222;color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:6px;text-decoration:none;font-weight:600;">
+                        2. Install Widget Script
+                    </a>
+                </div>
+                <p style="color:rgba(255,255,255,.45);font-size:.85em;margin-top:10px;">
+                    Tampermonkey is available for Chrome, Firefox, Edge, and Safari.
+                    Once the script is installed the ☆ pill will appear automatically on every Movie and TV Show page.
                 </p>
             </div>
 
@@ -38,155 +49,113 @@
     </div>
 </div>
 
-<!-- ===== Rating Widget Styles ===== -->
 <style id="ir-styles">
 #ir-widget {
-    display: inline-flex;
-    align-items: center;
-    margin: 10px 4px 4px;
-    position: relative;
-    z-index: 10;
-    font-family: inherit;
+    display: inline-flex !important;
+    align-items: center !important;
+    position: relative !important;
+    z-index: 500 !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+    margin: 8px 6px !important;
+    vertical-align: middle !important;
+    box-sizing: border-box !important;
 }
+#ir-widget * { box-sizing: border-box !important; }
 
-/* ---- collapsed pill ---- */
 .ir-collapsed {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    cursor: pointer;
-    padding: 5px 12px;
-    border-radius: 20px;
-    background: rgba(255,255,255,.08);
-    border: 1px solid rgba(255,255,255,.18);
-    transition: background .2s, border-color .2s;
-    user-select: none;
+    display: flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    cursor: pointer !important;
+    padding: 5px 13px !important;
+    border-radius: 20px !important;
+    background: rgba(255,255,255,.1) !important;
+    border: 1px solid rgba(255,255,255,.25) !important;
+    transition: background .2s !important;
+    user-select: none !important;
+    line-height: 1 !important;
 }
-.ir-collapsed:hover { background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.35); }
+.ir-collapsed:hover { background: rgba(255,255,255,.2) !important; }
 
-.ir-star-icon { color: #f4c430; font-size: 1.15em; line-height: 1; }
-.ir-avg-text  { color: #fff; font-size: .95em; font-weight: 600; letter-spacing: .02em; }
-.ir-caret     { color: rgba(255,255,255,.5); font-size: .7em; margin-left: 2px; }
+.ir-star-icon { color: #f4c430 !important; font-size: 1.15em !important; line-height: 1 !important; }
+.ir-avg-text  { color: #fff !important; font-size: .95em !important; font-weight: 700 !important; letter-spacing: .02em !important; }
+.ir-caret     { color: rgba(255,255,255,.5) !important; font-size: .7em !important; }
 
-/* ---- expanded panel ---- */
 .ir-panel {
-    position: absolute;
-    top: calc(100% + 6px);
-    left: 0;
-    min-width: 300px;
-    background: rgba(20,20,20,.96);
-    border: 1px solid rgba(255,255,255,.15);
-    border-radius: 10px;
-    padding: 16px;
-    backdrop-filter: blur(10px);
-    box-shadow: 0 8px 32px rgba(0,0,0,.6);
-    z-index: 1000;
+    position: absolute !important;
+    top: calc(100% + 8px) !important;
+    left: 0 !important;
+    min-width: 300px !important;
+    background: rgba(18,18,18,.97) !important;
+    border: 1px solid rgba(255,255,255,.18) !important;
+    border-radius: 10px !important;
+    padding: 16px !important;
+    backdrop-filter: blur(12px) !important;
+    box-shadow: 0 10px 40px rgba(0,0,0,.7) !important;
+    z-index: 9999 !important;
+    color: #fff !important;
 }
-
-/* header row */
 .ir-panel-header {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid rgba(255,255,255,.1);
-    margin-bottom: 12px;
+    display: flex !important; align-items: baseline !important; gap: 8px !important;
+    padding-bottom: 12px !important; border-bottom: 1px solid rgba(255,255,255,.1) !important;
+    margin-bottom: 12px !important;
 }
-.ir-big-star { color: #f4c430; font-size: 2em; line-height: 1; }
-.ir-big-avg  { color: #fff; font-size: 2em; font-weight: 700; line-height: 1; }
-.ir-count    { color: rgba(255,255,255,.55); font-size: .85em; }
+.ir-big-star { color: #f4c430 !important; font-size: 2em !important; line-height: 1 !important; }
+.ir-big-avg  { color: #fff !important; font-size: 2em !important; font-weight: 700 !important; line-height: 1 !important; }
+.ir-count    { color: rgba(255,255,255,.55) !important; font-size: .85em !important; }
 
-/* your rating row */
 .ir-your-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 12px;
-    flex-wrap: wrap;
+    display: flex !important; align-items: center !important; gap: 8px !important;
+    margin-bottom: 12px !important; flex-wrap: wrap !important;
 }
-.ir-your-label { color: rgba(255,255,255,.7); font-size: .9em; white-space: nowrap; }
-.ir-star-input { display: flex; gap: 3px; }
+.ir-your-label { color: rgba(255,255,255,.7) !important; font-size: .88em !important; }
+.ir-star-input { display: flex !important; gap: 3px !important; }
 .ir-star-btn {
-    cursor: pointer;
-    font-size: 1.6em;
-    color: rgba(255,255,255,.25);
-    transition: color .1s, transform .1s;
-    line-height: 1;
-    user-select: none;
+    cursor: pointer !important; font-size: 1.6em !important;
+    color: rgba(255,255,255,.2) !important;
+    transition: color .1s, transform .1s !important;
+    line-height: 1 !important; user-select: none !important;
+    background: none !important; border: none !important; padding: 0 !important;
 }
-.ir-star-btn:hover,
-.ir-star-btn.ir-active { color: #f4c430; transform: scale(1.12); }
-.ir-your-current { color: rgba(255,255,255,.45); font-size: .8em; }
-
-/* remove button */
+.ir-star-btn:hover, .ir-star-btn.ir-active { color: #f4c430 !important; transform: scale(1.12) !important; }
+.ir-your-current { color: rgba(255,255,255,.45) !important; font-size: .8em !important; }
+.ir-flash { font-size: .8em !important; color: #52b54b !important; opacity: 0 !important; transition: opacity .3s !important; }
+.ir-flash.ir-show { opacity: 1 !important; }
 .ir-remove-btn {
-    background: none;
-    border: 1px solid rgba(255,80,80,.45);
-    color: rgba(255,100,100,.8);
-    border-radius: 4px;
-    padding: 2px 8px;
-    font-size: .78em;
-    cursor: pointer;
-    margin-left: auto;
-    transition: all .2s;
+    background: none !important; border: 1px solid rgba(255,80,80,.4) !important;
+    color: rgba(255,100,100,.8) !important; border-radius: 4px !important;
+    padding: 2px 8px !important; font-size: .78em !important; cursor: pointer !important;
+    margin-left: auto !important; transition: all .2s !important;
 }
-.ir-remove-btn:hover { background: rgba(255,50,50,.15); color: #ff6060; }
-
-/* toggle button */
+.ir-remove-btn:hover { background: rgba(255,50,50,.15) !important; color: #ff7070 !important; }
 .ir-toggle-btn {
-    width: 100%;
-    background: none;
-    border: 1px solid rgba(255,255,255,.15);
-    color: rgba(255,255,255,.6);
-    border-radius: 6px;
-    padding: 5px 10px;
-    font-size: .82em;
-    cursor: pointer;
-    text-align: left;
-    transition: all .2s;
+    width: 100% !important; background: none !important;
+    border: 1px solid rgba(255,255,255,.15) !important;
+    color: rgba(255,255,255,.6) !important; border-radius: 6px !important;
+    padding: 5px 10px !important; font-size: .82em !important; cursor: pointer !important;
+    text-align: left !important; transition: all .2s !important;
 }
-.ir-toggle-btn:hover { background: rgba(255,255,255,.08); color: #fff; }
-
-/* user list */
+.ir-toggle-btn:hover { background: rgba(255,255,255,.08) !important; color: #fff !important; }
 .ir-list {
-    margin-top: 8px;
-    max-height: 220px;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255,255,255,.2) transparent;
+    margin-top: 8px !important; max-height: 220px !important;
+    overflow-y: auto !important; scrollbar-width: thin !important;
+    scrollbar-color: rgba(255,255,255,.2) transparent !important;
 }
 .ir-list-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 7px 2px;
-    border-bottom: 1px solid rgba(255,255,255,.05);
-    color: rgba(255,255,255,.8);
-    font-size: .88em;
+    display: flex !important; align-items: center !important; gap: 8px !important;
+    padding: 6px 2px !important; border-bottom: 1px solid rgba(255,255,255,.06) !important;
+    color: rgba(255,255,255,.8) !important; font-size: .88em !important;
 }
-.ir-list-item:last-child { border-bottom: none; }
-.ir-list-name  { flex: 1; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ir-list-stars { color: #f4c430; letter-spacing: 1px; font-size: .95em; }
-.ir-list-val   { color: rgba(255,255,255,.5); min-width: 28px; text-align: right; }
-.ir-empty      { color: rgba(255,255,255,.4); text-align: center; padding: 14px 0; font-size: .9em; }
-
-/* feedback flash */
-.ir-flash {
-    font-size: .8em;
-    margin-left: 8px;
-    color: #52b54b;
-    opacity: 0;
-    transition: opacity .3s;
-}
-.ir-flash.show { opacity: 1; }
+.ir-list-item:last-child { border-bottom: none !important; }
+.ir-list-name  { flex: 1 !important; font-weight: 500 !important; overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; color: #fff !important; }
+.ir-list-stars { color: #f4c430 !important; letter-spacing: 1px !important; }
+.ir-list-val   { color: rgba(255,255,255,.5) !important; min-width: 30px !important; text-align: right !important; }
+.ir-empty      { color: rgba(255,255,255,.4) !important; text-align: center !important; padding: 14px 0 !important; margin: 0 !important; font-size: .9em !important; }
 </style>
 
-<!-- ===== Rating Widget Script ===== -->
 <script>
 (function () {
     'use strict';
-
-    // ── Utilities ─────────────────────────────────────────────────────────
 
     function esc(str) {
         const d = document.createElement('div');
@@ -195,55 +164,44 @@
     }
 
     function starsHtml(val, total = 5) {
-        const full = Math.round(Math.max(0, Math.min(total, val)));
-        return '★'.repeat(full) + '☆'.repeat(total - full);
+        const f = Math.round(Math.max(0, Math.min(total, val)));
+        return '★'.repeat(f) + '☆'.repeat(total - f);
     }
-
-    // ── Jellyfin API client helpers ───────────────────────────────────────
 
     function getClient() {
         return window.ApiClient
-            || (window.connectionManager && window.connectionManager.currentApiClient
-                ? window.connectionManager.currentApiClient()
-                : null)
+            || (window.connectionManager?.currentApiClient?.())
             || null;
     }
 
-    function getAuthHeader() {
+    function getAuth() {
         const c = getClient();
         if (!c) return null;
-        const tok = typeof c.accessToken === 'function' ? c.accessToken() : c._accessToken;
-        return tok ? `MediaBrowser Token="${tok}"` : null;
+        const t = typeof c.accessToken === 'function' ? c.accessToken() : c._accessToken;
+        return t ? `MediaBrowser Token="${t}"` : null;
     }
 
-    function getCurrentUserId() {
+    function getUserId() {
         const c = getClient();
         if (!c) return null;
         if (typeof c.getCurrentUserId === 'function') return c.getCurrentUserId();
         return c._currentUser?.Id ?? c.currentUserId ?? null;
     }
 
-    // ── URL / page detection ──────────────────────────────────────────────
-
-    function getItemIdFromUrl() {
-        // Search both hash and query string
+    function getItemId() {
         const src = decodeURIComponent(window.location.hash + window.location.search);
         const m   = src.match(/[?&#]id=([a-f0-9]{20,})/i);
         return m ? m[1] : null;
     }
 
-    function isDetailPage() {
-        // Check URL patterns used across Jellyfin versions / themes
+    function onDetailPage() {
         const loc = window.location.hash + window.location.pathname + window.location.search;
         if (/details/i.test(loc)) return true;
-        // Fallback: DOM-based check — play button + an item ID in the URL
-        return !!(document.querySelector('.btnPlay, [class*="btnPlay"]') && getItemIdFromUrl());
+        return !!(document.querySelector('.btnPlay, [class*="btnPlay"]') && getItemId());
     }
 
-    // ── StarTrack REST calls ──────────────────────────────────────────────
-
     async function apiFetch(path, opts = {}) {
-        const auth = getAuthHeader();
+        const auth = getAuth();
         if (!auth) return null;
         try {
             const res = await fetch(path, {
@@ -254,25 +212,31 @@
         } catch { return null; }
     }
 
-    const apiGet    = id       => apiFetch(`/Plugins/StarTrack/Ratings/${id}`).then(r => r ? r.json() : null);
-    const apiPost   = (id, s)  => apiFetch(`/Plugins/StarTrack/Ratings/${id}`, { method: 'POST',   body: JSON.stringify({ stars: s }) }).then(Boolean);
-    const apiDelete = id       => apiFetch(`/Plugins/StarTrack/Ratings/${id}`, { method: 'DELETE' }).then(Boolean);
+    const apiGet    = id      => apiFetch(`/Plugins/StarTrack/Ratings/${id}`).then(r => r ? r.json() : null);
+    const apiPost   = (id, s) => apiFetch(`/Plugins/StarTrack/Ratings/${id}`, { method: 'POST',   body: JSON.stringify({ stars: s }) }).then(Boolean);
+    const apiDelete = id      => apiFetch(`/Plugins/StarTrack/Ratings/${id}`, { method: 'DELETE' }).then(Boolean);
 
-    // Returns item type or null if call fails – null means "assume OK, show widget anyway"
-    async function getItemType(itemId) {
-        const c = getClient(), uid = getCurrentUserId();
+    async function getItemType(id) {
+        const c = getClient(), uid = getUserId();
         if (!c || !uid) return null;
-        try { return (await c.getItem(uid, itemId))?.Type ?? null; }
+        try { return (await c.getItem(uid, id))?.Type ?? null; }
         catch { return null; }
     }
 
-    // ── Widget HTML ───────────────────────────────────────────────────────
+    function injectStyles() {
+        if (document.getElementById('ir-styles-injected')) return;
+        const src = document.getElementById('ir-styles');
+        if (!src) return;
+        const clone = src.cloneNode(true);
+        clone.id = 'ir-styles-injected';
+        document.head.appendChild(clone);
+    }
 
     function buildWidget() {
         const w = document.createElement('div');
         w.id = 'ir-widget';
         w.innerHTML = `
-            <div class="ir-collapsed" title="StarTrack ratings — click to expand">
+            <div class="ir-collapsed" title="StarTrack – click to rate">
                 <span class="ir-star-icon">☆</span>
                 <span class="ir-avg-text" style="display:none"></span>
                 <span class="ir-caret">▾</span>
@@ -289,8 +253,8 @@
                         ${[1,2,3,4,5].map(n => `<span class="ir-star-btn" data-v="${n}" title="${n} star${n>1?'s':''}">★</span>`).join('')}
                     </div>
                     <span class="ir-your-current"></span>
-                    <span class="ir-flash">Saved!</span>
-                    <button class="ir-remove-btn" style="display:none" title="Remove your rating">✕ Remove</button>
+                    <span class="ir-flash">✓ Saved</span>
+                    <button class="ir-remove-btn" style="display:none">✕ Remove</button>
                 </div>
                 <button class="ir-toggle-btn">Show individual ratings ▾</button>
                 <div class="ir-list" style="display:none"></div>
@@ -298,33 +262,22 @@
         return w;
     }
 
-    // ── Render ────────────────────────────────────────────────────────────
-
     function renderWidget(widget, data) {
-        if (!widget || !widget.isConnected) return;
-        const myUid = getCurrentUserId();
+        if (!widget?.isConnected) return;
+        const myUid = getUserId();
         const total = data?.totalRatings ?? 0;
         const avg   = data?.averageRating ?? 0;
-
-        // Collapsed pill
         const starIcon = widget.querySelector('.ir-star-icon');
         const avgText  = widget.querySelector('.ir-avg-text');
         if (total > 0) {
-            starIcon.textContent   = '★';
-            starIcon.style.opacity = '1';
-            avgText.textContent    = avg.toFixed(1);
-            avgText.style.display  = '';
+            starIcon.textContent   = '★'; starIcon.style.opacity = '1';
+            avgText.textContent    = avg.toFixed(1); avgText.style.display = '';
         } else {
-            starIcon.textContent   = '☆';
-            starIcon.style.opacity = '0.45';
+            starIcon.textContent   = '☆'; starIcon.style.opacity = '0.45';
             avgText.style.display  = 'none';
         }
-
-        // Expanded header
-        widget.querySelector('.ir-big-avg').textContent   = total > 0 ? avg.toFixed(1) : '–';
-        widget.querySelector('.ir-count').textContent     = `(${total} rating${total !== 1 ? 's' : ''})`;
-
-        // My rating
+        widget.querySelector('.ir-big-avg').textContent = total > 0 ? avg.toFixed(1) : '–';
+        widget.querySelector('.ir-count').textContent   = `(${total} rating${total !== 1 ? 's' : ''})`;
         const myRating = (data?.userRatings ?? []).find(r => r.userId === myUid);
         const myVal    = myRating?.stars ?? 0;
         widget.querySelectorAll('.ir-star-btn').forEach((b, i) =>
@@ -332,8 +285,6 @@
         widget.querySelector('.ir-your-current').textContent =
             myVal ? `(current: ${myVal.toFixed(1)})` : '';
         widget.querySelector('.ir-remove-btn').style.display = myVal ? '' : 'none';
-
-        // Per-user list
         const items = data?.userRatings ?? [];
         widget.querySelector('.ir-list').innerHTML = items.length
             ? items.map(r => `
@@ -344,8 +295,6 @@
                 </div>`).join('')
             : '<p class="ir-empty">No ratings yet – be the first!</p>';
     }
-
-    // ── Interactions ──────────────────────────────────────────────────────
 
     function bindInteractions(widget, itemId) {
         const collapsed = widget.querySelector('.ir-collapsed');
@@ -361,21 +310,17 @@
             panel.style.display = panelOpen ? 'block' : 'none';
             widget.querySelector('.ir-caret').textContent = panelOpen ? '▴' : '▾';
         });
-
         document.addEventListener('click', e => {
             if (panelOpen && !widget.contains(e.target)) {
-                panelOpen = false;
-                panel.style.display = 'none';
+                panelOpen = false; panel.style.display = 'none';
                 widget.querySelector('.ir-caret').textContent = '▾';
             }
         });
-
         toggleBtn.addEventListener('click', () => {
             listOpen = !listOpen;
             list.style.display = listOpen ? 'block' : 'none';
             toggleBtn.textContent = listOpen ? 'Hide individual ratings ▴' : 'Show individual ratings ▾';
         });
-
         starBtns.forEach((btn, idx) => {
             btn.addEventListener('mouseenter', () =>
                 starBtns.forEach((b, i) => b.classList.toggle('ir-active', i <= idx)));
@@ -387,154 +332,97 @@
             btn.addEventListener('click', async () => {
                 if (await apiPost(itemId, idx + 1)) {
                     const fl = widget.querySelector('.ir-flash');
-                    fl.classList.add('show');
-                    setTimeout(() => fl.classList.remove('show'), 1800);
+                    fl.classList.add('ir-show');
+                    setTimeout(() => fl.classList.remove('ir-show'), 1800);
                     renderWidget(widget, await apiGet(itemId));
                 }
             });
         });
-
         removeBtn.addEventListener('click', async () => {
             if (await apiDelete(itemId)) renderWidget(widget, await apiGet(itemId));
         });
     }
 
-    // ── Styles injection ──────────────────────────────────────────────────
-
-    function injectStyles() {
-        if (document.getElementById('ir-styles-injected')) return;
-        const src = document.getElementById('ir-styles');
-        if (!src) return;
-        const clone = src.cloneNode(true);
-        clone.id = 'ir-styles-injected';
-        document.head.appendChild(clone);
-    }
-
-    // ── Find where to inject (theme-agnostic) ─────────────────────────────
-    // Tries 3 strategies in order. Works on stock Jellyfin, Finntroller,
-    // Jelly-Flix, Jellyskin, and any other custom CSS theme.
-
-    function findInjectionTarget() {
-        // Strategy 1 – locate the play button and walk up to its button-row parent
+    function findTarget() {
         const playBtn = document.querySelector(
-            '.btnPlay, [class*="btnPlay"], [data-action="play"], button[title*="Play"]'
+            '.btnPlay, [class*="btnPlay"], [class*="BtnPlay"], button[title*="Play"], button[aria-label*="Play"]'
         );
         if (playBtn) {
             let el = playBtn.parentElement;
             for (let i = 0; i < 5; i++) {
-                // Look for a container holding 2+ children (the buttons row)
                 if (el && el.children.length >= 2) return el;
                 el = el?.parentElement;
             }
             if (playBtn.parentElement) return playBtn.parentElement;
         }
-
-        // Strategy 2 – named button containers (stock Jellyfin + common themes)
         for (const s of [
-            '.mainDetailButtons', '.itemButtons', '.detailButtons',
+            '.mainDetailButtons', '.detailButtons', '.itemButtons',
             '[class*="detailButton"]', '[class*="DetailButton"]',
             '[class*="actionButton"]', '[class*="ActionButton"]',
-            '[class*="mediaButton"]', '[class*="playbackButton"]',
+            '.itemMiscInfo-secondary', '.itemMiscInfo', '.itemOverview',
+            '.detailPagePrimaryContent', '.detailPageContent', '[class*="detailPage"]', 'main'
         ]) {
             const el = document.querySelector(s);
             if (el) return el;
         }
-
-        // Strategy 3 – content-area fallback (always present on detail pages)
-        for (const s of [
-            '.itemMiscInfo-secondary', '.itemMiscInfo',
-            '.itemOverview', '.overview',
-            '.detailPagePrimaryContent', '.detailPageContent',
-            'main',
-        ]) {
-            const el = document.querySelector(s);
-            if (el) return el;
-        }
-
         return null;
     }
 
-    // ── Injection with retry ──────────────────────────────────────────────
-
-    let _injectAttempts = 0;
-    let _injectItemId   = null;
+    let _injectItemId = null, _injectAttempts = 0;
 
     async function startInject(itemId) {
+        if (!itemId) return;
         document.getElementById('ir-widget')?.remove();
-        _injectItemId   = itemId;
-        _injectAttempts = 0;
+        _injectItemId = itemId; _injectAttempts = 0;
+        injectStyles();
         tryInject();
     }
 
     async function tryInject() {
         const itemId = _injectItemId;
-        if (!itemId || _injectAttempts++ > 30) return; // give up after ~15 s
-        if (document.getElementById('ir-widget')) return; // already injected
-
-        const target = findInjectionTarget();
+        if (!itemId || _injectAttempts++ > 40) return;
+        if (document.getElementById('ir-widget')) return;
+        if (getItemId() !== itemId) return;
+        const target = findTarget();
         if (!target) { setTimeout(tryInject, 500); return; }
-
-        // Type guard: only skip if we DEFINITIVELY know it's not a Movie/Series.
-        // null = API call failed → still show the widget.
         const type = await getItemType(itemId);
         if (type !== null && type !== 'Movie' && type !== 'Series') return;
-
-        // Guard: user may have navigated away while we awaited
-        if (getItemIdFromUrl() !== itemId) return;
-
-        injectStyles();
-
+        if (getItemId() !== itemId) return;
         const widget = buildWidget();
         target.insertAdjacentElement('afterend', widget);
         renderWidget(widget, await apiGet(itemId));
         bindInteractions(widget, itemId);
     }
 
-    // ── Navigation watcher ────────────────────────────────────────────────
-    // Poll every 800 ms — the only truly reliable method across every
-    // SPA router and custom Jellyfin theme.
-
     let _lastUrl = '';
-
-    function checkNavigation() {
-        const url = window.location.href;
+    function checkNav() {
+        const url = window.location.href, itemId = getItemId();
         if (url === _lastUrl) return;
         _lastUrl = url;
-
-        const itemId = getItemIdFromUrl();
-        const onDetail = isDetailPage();
-
-        if (onDetail && itemId && !document.getElementById('ir-widget')) {
-            setTimeout(() => startInject(itemId), 700);
-        } else if (!onDetail) {
-            document.getElementById('ir-widget')?.remove();
-            _injectItemId = null;
-        }
+        document.getElementById('ir-widget')?.remove();
+        _injectItemId = null;
+        if (onDetailPage() && itemId) setTimeout(() => startInject(itemId), 700);
     }
 
-    setInterval(checkNavigation, 800);
-    window.addEventListener('hashchange', () => setTimeout(checkNavigation, 400));
-    window.addEventListener('popstate',   () => setTimeout(checkNavigation, 400));
+    setInterval(checkNav, 800);
+    window.addEventListener('hashchange', () => setTimeout(checkNav, 400));
+    window.addEventListener('popstate',   () => setTimeout(checkNav, 400));
+    if (onDetailPage()) setTimeout(() => startInject(getItemId()), 1000);
 
-    // ── Config page stats ─────────────────────────────────────────────────
-
+    // Config page stats
     async function loadStats() {
-        const auth = getAuthHeader();
+        const auth = getAuth();
         if (!auth) return;
         try {
             const r = await fetch('/Plugins/StarTrack/Stats', { headers: { Authorization: auth } });
             if (!r.ok) return;
-            const d  = await r.json();
-            const el = document.getElementById('irStats');
+            const d = await r.json(), el = document.getElementById('irStats');
             if (el) el.innerHTML =
                 `<b>${d.totalRatings}</b> total rating${d.totalRatings !== 1 ? 's' : ''} across ` +
                 `<b>${d.totalItems}</b> item${d.totalItems !== 1 ? 's' : ''}`;
-        } catch { /* no-op */ }
+        } catch {}
     }
-
     loadStats();
-    if (isDetailPage()) setTimeout(() => startInject(getItemIdFromUrl()), 1000);
-
 })();
 </script>
 

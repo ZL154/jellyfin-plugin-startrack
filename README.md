@@ -11,7 +11,7 @@
 
 **Community star ratings for Jellyfin — private, self-hosted, no external services.**
 
-⭐ [If you find this useful, please consider starring the repo!](#-support) ⭐
+⭐ *If StarTrack is useful to you, please consider starring this repo!* ⭐
 
 </div>
 
@@ -19,75 +19,90 @@
 
 ## 📖 Overview
 
-StarTrack is a Jellyfin plugin that adds a **1–5 star community rating system** to your movie and TV library. Every user on your server can rate content and see what everyone else gave it — all stored privately in a SQLite database on your own machine.
-
-No external APIs. No tracking. No data leaving your server.
+StarTrack is a Jellyfin plugin that adds a **1–5 star community rating system** to your movie and TV library. Every user on your server can rate content and see what everyone else gave it — stored in a JSON file on your own machine. Nothing leaves your server.
 
 ---
 
 ## ✨ Features
 
-| Feature | Details |
+| | |
 |---|---|
 | ⭐ **Star ratings** | 1–5 stars per user per item |
-| 📊 **Community average** | Shown inline as a compact `★ 4.3` pill |
-| 🎬 **Movies & TV Shows** | Works on both, ignores episodes |
-| 👥 **Per-user breakdown** | Expandable dropdown showing everyone's score |
+| 📊 **Community average** | Shown as a compact `★ 4.3` pill on detail pages |
+| 🎬 **Movies & TV Shows** | Works on both, skips episodes |
+| 👥 **Per-user breakdown** | Expandable dropdown of every user's score |
 | ✏️ **Update anytime** | Click any star to change your rating |
-| 🗑️ **Remove rating** | One-click removal of your own score |
-| 🔒 **100% private** | SQLite database stays on your server |
+| 🗑️ **Remove rating** | One-click removal |
+| 🔒 **100% private** | JSON file stays on your server |
+| 🎨 **Theme-agnostic** | Works with any Jellyfin CSS theme |
 
 ---
 
-## 🖥️ Screenshots
+## 🚀 Setup — Two steps
 
-> Screenshots coming soon — install the plugin and see it for yourself!
+### Step 1 — Install the Jellyfin server plugin
 
-| View | Description |
-|:---:|:---|
-| `★ 4.3` | Compact pill shown next to item controls |
-| Expanded panel | Large average, click-to-rate stars, user list dropdown |
+**Option A — Plugin repository *(recommended)***
 
----
-
-## 🚀 Installation
-
-### Option A — Plugin Repository *(recommended)*
-
-1. In Jellyfin, go to **Dashboard → Plugins → Repositories**
-2. Click **+** and add:
+1. Jellyfin → **Dashboard → Plugins → Repositories → +**
+2. Add:
    ```
    https://raw.githubusercontent.com/ZL154/jellyfin-plugin-startrack/main/manifest.json
    ```
-3. Go to **Catalogue**, find **StarTrack**, and install
-4. Restart Jellyfin
+3. Go to **Catalogue**, find **StarTrack**, install, and restart Jellyfin.
 
-### Option B — Manual
+**Option B — Manual**
 
 1. Download `Jellyfin.Plugin.InternalRating_*.zip` from [Releases](https://github.com/ZL154/jellyfin-plugin-startrack/releases)
-2. Extract the DLL into your Jellyfin plugins folder:
+2. Extract the DLL into:
    ```
    <jellyfin-data>/plugins/StarTrack/Jellyfin.Plugin.InternalRating.dll
    ```
-3. Restart Jellyfin
+3. Restart Jellyfin.
 
 ---
 
-## ⚡ Activating the Widget
+### Step 2 — Install the browser widget script
 
-Because Jellyfin's web client is a single-page app, the rating widget needs to be activated once per browser session:
+The rating widget runs in your browser. Install it once and it activates **automatically on every page load** — no config page visits, no per-session steps.
 
-1. Go to **Dashboard → Plugins → StarTrack**
-2. You'll see a green **"Widget is active"** confirmation
-3. Navigate to any Movie or TV Show — the `★` pill appears automatically
+**1.** Install [Tampermonkey](https://www.tampermonkey.net/) for your browser
+*(Chrome, Firefox, Edge, and Safari are all supported)*
 
-> 💡 **Tip:** Bookmark the config page and visit it on startup for a seamless experience.
+**2.** Click to install the widget script:
+
+> **[⬇ Install StarTrack Widget Script](https://raw.githubusercontent.com/ZL154/jellyfin-plugin-startrack/main/startrack.user.js)**
+
+Tampermonkey will prompt you to confirm — click **Install**.
+
+That's it. Navigate to any Movie or TV Show in Jellyfin and the `☆` pill will appear automatically.
 
 ---
 
-## 🔧 Building from Source
+## 🖥️ How it looks
 
-**Requirements:** .NET 8 SDK
+| State | What you see |
+|:---|:---|
+| **No ratings yet** | `☆` — click to be the first to rate |
+| **Has ratings** | `★ 4.3` — click to expand |
+| **Expanded** | Large average, 5-star click-to-rate, per-user dropdown |
+
+---
+
+## 🌐 API Reference
+
+All endpoints require a valid Jellyfin session token.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/Plugins/StarTrack/Ratings/{itemId}` | Average + all user ratings |
+| `POST` | `/Plugins/StarTrack/Ratings/{itemId}` | Submit / update your rating `{"stars":4}` |
+| `DELETE` | `/Plugins/StarTrack/Ratings/{itemId}` | Remove your rating |
+| `GET` | `/Plugins/StarTrack/Stats` | Server-wide statistics |
+
+---
+
+## 🔧 Building from source
 
 ```bash
 git clone https://github.com/ZL154/jellyfin-plugin-startrack.git
@@ -95,26 +110,7 @@ cd jellyfin-plugin-startrack
 dotnet publish InternalRatingSystem/InternalRatingSystem.csproj -c Release -o ./publish
 ```
 
-To create a release ZIP:
-```bash
-zip Jellyfin.Plugin.InternalRating_1.0.0.0.zip publish/Jellyfin.Plugin.InternalRating.dll
-```
-
-> **Jellyfin version note:** The project targets `Jellyfin.Controller 10.9.0`.
-> If you run a different server version, update the `<PackageReference>` in the `.csproj` to match (e.g. `10.10.0`, `10.11.0`).
-
----
-
-## 🌐 API Reference
-
-All endpoints require a valid Jellyfin session token in the `Authorization` header.
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/Plugins/StarTrack/Ratings/{itemId}` | Average + all user ratings |
-| `POST` | `/Plugins/StarTrack/Ratings/{itemId}` | Submit / update your rating `{ "stars": 4 }` |
-| `DELETE` | `/Plugins/StarTrack/Ratings/{itemId}` | Remove your rating |
-| `GET` | `/Plugins/StarTrack/Stats` | Server-wide statistics |
+> **Version note:** targets `Jellyfin.Controller 10.9.0`. Update the `<PackageReference>` in the `.csproj` if your server version differs.
 
 ---
 
@@ -122,21 +118,18 @@ All endpoints require a valid Jellyfin session token in the `Authorization` head
 
 Issues and pull requests are welcome!
 
-- Found a bug? Open an [issue](https://github.com/ZL154/jellyfin-plugin-startrack/issues)
-- Got a feature idea? Start a [discussion](https://github.com/ZL154/jellyfin-plugin-startrack/discussions)
-- Works on a Jellyfin version not listed? Let us know!
+- 🐛 [Report a bug](https://github.com/ZL154/jellyfin-plugin-startrack/issues)
+- 💡 [Suggest a feature](https://github.com/ZL154/jellyfin-plugin-startrack/discussions)
 
 ---
 
 ## ⭐ Support
 
-If StarTrack is useful to you, the best thing you can do is **star this repository** — it helps others find it!
+If StarTrack saves you time, the best thing you can do is **star this repo** — it helps others find it.
 
 ```
-★ → top right of this page → Star
+★  →  top-right of this page  →  Star
 ```
-
-> 🙏 Thank you to everyone who tries it, reports bugs, or suggests improvements.
 
 ---
 
