@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/ZL154/jellyfin-plugin-startrack/main/assets/logo.svg",
     "versions": [
       {
+        "version": "1.0.11.0",
+        "changelog": "Fix: compile against Jellyfin.Controller 10.11.6 (exact match for server version) instead of 10.11.7 which caused NotSupported/plugin load failure due to ABI mismatch. All v1.0.10 fixes included: IAuthorizationContext for user ID, no IUserManager.GetUserById, net9.0 target.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/ZL154/jellyfin-plugin-startrack/releases/download/v1.0.11/Jellyfin.Plugin.InternalRating_1.0.11.0.zip",
+        "checksum": "da84f0e42395aa5521db442ed6e4a36c",
+        "timestamp": "2026-04-04T00:00:00Z"
+      },
+      {
         "version": "1.0.10.0",
         "changelog": "Breaking fix: upgraded from Jellyfin 10.9/net8 to Jellyfin 10.11/net9 to match current Jellyfin releases. Removed IUserManager.GetUserById call which caused MissingMethodException on Jellyfin 10.10+ (method signature changed). Username now resolved from JWT claims instead. Ratings saving should now work on Jellyfin 10.11.x.",
         "targetAbi": "10.11.0.0",
