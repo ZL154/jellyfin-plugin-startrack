@@ -243,7 +243,7 @@
         const auth = getAuthHeader();
         if (!auth) return null;
         try {
-            const r = await fetch(`/Plugins/InternalRating/Ratings/${itemId}`, {
+            const r = await fetch(`/Plugins/StarTrack/Ratings/${itemId}`, {
                 headers: { Authorization: auth }
             });
             return r.ok ? r.json() : null;
@@ -254,7 +254,7 @@
         const auth = getAuthHeader();
         if (!auth) return false;
         try {
-            const r = await fetch(`/Plugins/InternalRating/Ratings/${itemId}`, {
+            const r = await fetch(`/Plugins/StarTrack/Ratings/${itemId}`, {
                 method:  'POST',
                 headers: { Authorization: auth, 'Content-Type': 'application/json' },
                 body:    JSON.stringify({ stars })
@@ -267,7 +267,7 @@
         const auth = getAuthHeader();
         if (!auth) return false;
         try {
-            const r = await fetch(`/Plugins/InternalRating/Ratings/${itemId}`, {
+            const r = await fetch(`/Plugins/StarTrack/Ratings/${itemId}`, {
                 method:  'DELETE',
                 headers: { Authorization: auth }
             });
@@ -540,7 +540,7 @@
         const auth = getAuthHeader();
         if (!auth) return;
         try {
-            const r = await fetch('/Plugins/InternalRating/Stats', {
+            const r = await fetch('/Plugins/StarTrack/Stats', {
                 headers: { Authorization: auth }
             });
             if (!r.ok) return;

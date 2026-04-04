@@ -1,143 +1,145 @@
 <div align="center">
 
-# ⭐ StarTrack — Internal Rating System
+<img src="assets/logo.svg" alt="StarTrack Logo" width="600"/>
 
-**A Jellyfin plugin that lets your users rate movies and TV shows with 1–5 stars and see the community average, right on the detail page.**
+<br/>
 
-![Jellyfin](https://img.shields.io/badge/Jellyfin-10.9%2B-00A4DC?style=for-the-badge&logo=jellyfin&logoColor=white)
-![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
+![Jellyfin](https://img.shields.io/badge/Jellyfin-10.9%2B-CC0000?style=for-the-badge&labelColor=0d0d0d&logo=jellyfin&logoColor=white)
+![.NET](https://img.shields.io/badge/.NET-8.0-CC0000?style=for-the-badge&labelColor=0d0d0d&logo=dotnet&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-CC0000?style=for-the-badge&labelColor=0d0d0d)
+![Version](https://img.shields.io/badge/Version-1.0.0-CC0000?style=for-the-badge&labelColor=0d0d0d)
+
+**Community star ratings for Jellyfin — private, self-hosted, no external services.**
+
+⭐ [If you find this useful, please consider starring the repo!](#-support) ⭐
 
 </div>
 
 ---
 
-## What it does
+## 📖 Overview
 
-StarTrack injects a small rating pill onto every **Movie** and **TV Series** detail page in your Jellyfin library.
+StarTrack is a Jellyfin plugin that adds a **1–5 star community rating system** to your movie and TV library. Every user on your server can rate content and see what everyone else gave it — all stored privately in a SQLite database on your own machine.
 
-```
-★ 4.3
-```
-
-Click the pill to expand a full panel:
-
-- See the community average in large type
-- Submit or update your own 1–5 star rating with a single click
-- Hit **Show individual ratings** to see exactly what each user gave it
-- Remove your rating at any time with the **Remove** button
-
-All data is stored in a SQLite database on your Jellyfin server — nothing ever leaves your network.
+No external APIs. No tracking. No data leaving your server.
 
 ---
 
-## Screenshots
+## ✨ Features
 
-> *(Add screenshots here once the plugin is installed)*
-
-| Collapsed pill | Expanded panel |
-|:-:|:-:|
-| `★ 4.3` next to the play button | Full average + your rating + user list |
+| Feature | Details |
+|---|---|
+| ⭐ **Star ratings** | 1–5 stars per user per item |
+| 📊 **Community average** | Shown inline as a compact `★ 4.3` pill |
+| 🎬 **Movies & TV Shows** | Works on both, ignores episodes |
+| 👥 **Per-user breakdown** | Expandable dropdown showing everyone's score |
+| ✏️ **Update anytime** | Click any star to change your rating |
+| 🗑️ **Remove rating** | One-click removal of your own score |
+| 🔒 **100% private** | SQLite database stays on your server |
 
 ---
 
-## Installation
+## 🖥️ Screenshots
 
-### Option A — Manual (recommended for now)
+> Screenshots coming soon — install the plugin and see it for yourself!
 
-1. Build the plugin (see below) or grab the ZIP from [Releases](https://github.com/ZL154/jellyfin-plugin-startrack/releases).
-2. Extract the DLL into your Jellyfin plugins directory:
+| View | Description |
+|:---:|:---|
+| `★ 4.3` | Compact pill shown next to item controls |
+| Expanded panel | Large average, click-to-rate stars, user list dropdown |
+
+---
+
+## 🚀 Installation
+
+### Option A — Plugin Repository *(recommended)*
+
+1. In Jellyfin, go to **Dashboard → Plugins → Repositories**
+2. Click **+** and add:
+   ```
+   https://raw.githubusercontent.com/ZL154/jellyfin-plugin-startrack/main/manifest.json
+   ```
+3. Go to **Catalogue**, find **StarTrack**, and install
+4. Restart Jellyfin
+
+### Option B — Manual
+
+1. Download `Jellyfin.Plugin.InternalRating_*.zip` from [Releases](https://github.com/ZL154/jellyfin-plugin-startrack/releases)
+2. Extract the DLL into your Jellyfin plugins folder:
    ```
    <jellyfin-data>/plugins/StarTrack/Jellyfin.Plugin.InternalRating.dll
    ```
-3. Restart Jellyfin.
-
-### Option B — Plugin repository
-
-Add this URL as a custom plugin repository in **Dashboard → Plugins → Repositories**:
-
-```
-https://raw.githubusercontent.com/ZL154/jellyfin-plugin-startrack/main/manifest.json
-```
-
-Then install **StarTrack** from the catalogue and restart.
+3. Restart Jellyfin
 
 ---
 
-## Build from source
+## ⚡ Activating the Widget
+
+Because Jellyfin's web client is a single-page app, the rating widget needs to be activated once per browser session:
+
+1. Go to **Dashboard → Plugins → StarTrack**
+2. You'll see a green **"Widget is active"** confirmation
+3. Navigate to any Movie or TV Show — the `★` pill appears automatically
+
+> 💡 **Tip:** Bookmark the config page and visit it on startup for a seamless experience.
+
+---
+
+## 🔧 Building from Source
 
 **Requirements:** .NET 8 SDK
 
 ```bash
 git clone https://github.com/ZL154/jellyfin-plugin-startrack.git
 cd jellyfin-plugin-startrack
-dotnet build InternalRatingSystem/InternalRatingSystem.csproj -c Release
+dotnet publish InternalRatingSystem/InternalRatingSystem.csproj -c Release -o ./publish
 ```
 
-Output: `InternalRatingSystem/bin/Release/net8.0/Jellyfin.Plugin.InternalRating.dll`
+To create a release ZIP:
+```bash
+zip Jellyfin.Plugin.InternalRating_1.0.0.0.zip publish/Jellyfin.Plugin.InternalRating.dll
+```
 
-> **Version note:** The project targets `Jellyfin.Controller 10.9.0`.
-> If your server is on 10.10.x or 10.11.x, update the package version in the `.csproj` to match.
-
----
-
-## Activating the widget
-
-Because Jellyfin's web client is a single-page app, the rating widget is activated via the plugin's config page:
-
-1. Go to **Dashboard → Plugins → StarTrack**
-2. The widget script loads automatically — you'll see a green **"Widget is active"** message
-3. Navigate to any Movie or TV Show — the `★` pill will appear
-
-> You only need to do this **once per browser session**. Bookmark the config page and visit it on startup for the smoothest experience.
+> **Jellyfin version note:** The project targets `Jellyfin.Controller 10.9.0`.
+> If you run a different server version, update the `<PackageReference>` in the `.csproj` to match (e.g. `10.10.0`, `10.11.0`).
 
 ---
 
-## API reference
+## 🌐 API Reference
 
-All endpoints require a valid Jellyfin `Authorization` header.
+All endpoints require a valid Jellyfin session token in the `Authorization` header.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/Plugins/InternalRating/Ratings/{itemId}` | Get average + all user ratings for an item |
-| `POST` | `/Plugins/InternalRating/Ratings/{itemId}` | Submit or update your rating `{ "stars": 4 }` |
-| `DELETE` | `/Plugins/InternalRating/Ratings/{itemId}` | Remove your rating |
-| `GET` | `/Plugins/InternalRating/Stats` | Server-wide statistics (total items rated, total ratings) |
+| `GET` | `/Plugins/StarTrack/Ratings/{itemId}` | Average + all user ratings |
+| `POST` | `/Plugins/StarTrack/Ratings/{itemId}` | Submit / update your rating `{ "stars": 4 }` |
+| `DELETE` | `/Plugins/StarTrack/Ratings/{itemId}` | Remove your rating |
+| `GET` | `/Plugins/StarTrack/Stats` | Server-wide statistics |
 
 ---
 
-## Project layout
+## 🤝 Contributing
+
+Issues and pull requests are welcome!
+
+- Found a bug? Open an [issue](https://github.com/ZL154/jellyfin-plugin-startrack/issues)
+- Got a feature idea? Start a [discussion](https://github.com/ZL154/jellyfin-plugin-startrack/discussions)
+- Works on a Jellyfin version not listed? Let us know!
+
+---
+
+## ⭐ Support
+
+If StarTrack is useful to you, the best thing you can do is **star this repository** — it helps others find it!
 
 ```
-jellyfin-plugin-startrack/
-├── manifest.json                          ← Jellyfin plugin repository manifest
-├── build.yaml                             ← Jellyfin build config
-├── meta.yaml                              ← Plugin metadata
-└── InternalRatingSystem/
-    ├── InternalRatingSystem.csproj
-    ├── Plugin.cs                          ← Entry point & web page registration
-    ├── PluginConfiguration.cs             ← Config model (extendable)
-    ├── PluginServiceRegistrator.cs        ← DI service registration
-    ├── Controllers/
-    │   └── RatingController.cs            ← REST API
-    ├── Data/
-    │   └── RatingRepository.cs            ← SQLite storage layer
-    ├── Models/
-    │   ├── Rating.cs
-    │   ├── RatingsResponse.cs
-    │   └── SubmitRatingRequest.cs
-    └── Configuration/
-        └── configPage.html                ← Admin page + widget JS/CSS
+★ → top right of this page → Star
 ```
 
----
-
-## Contributing
-
-Issues and PRs are welcome. If you hit a Jellyfin version where the widget doesn't inject correctly, open an issue with your Jellyfin version and browser and I'll get it sorted.
+> 🙏 Thank you to everyone who tries it, reports bugs, or suggests improvements.
 
 ---
 
-## License
+## 📄 License
 
 [MIT](LICENSE) — © 2025 ZL154

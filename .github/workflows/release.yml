@@ -1,0 +1,81 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Plugin
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore InternalRatingSystem/InternalRatingSystem.csproj
+
+      - name: Build
+        run: dotnet publish InternalRatingSystem/InternalRatingSystem.csproj -c Release -o ./publish
+
+      - name: Package ZIP
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          ZIP="Jellyfin.Plugin.InternalRating_${VERSION}.zip"
+          zip -j "$ZIP" publish/Jellyfin.Plugin.InternalRating.dll
+          echo "ZIP=$ZIP" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Compute MD5 checksum
+        id: checksum
+        run: |
+          MD5=$(md5sum "$ZIP" | awk '{print $1}')
+          echo "md5=$MD5" >> $GITHUB_OUTPUT
+          echo "Checksum: $MD5"
+
+      - name: Update manifest checksum
+        run: |
+          sed -i \
+            "s|\"checksum\": \".*\"|\"checksum\": \"${{ steps.checksum.outputs.md5 }}\"|" \
+            manifest.json
+          sed -i \
+            "s|\"version\": \".*\"|\"version\": \"${VERSION}.0\"|" \
+            manifest.json
+          sed -i \
+            "s|/download/v[^/]*/|/download/${GITHUB_REF_NAME}/|" \
+            manifest.json
+
+      - name: Commit updated manifest
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add manifest.json
+          git diff --cached --quiet || git commit -m "chore: update manifest for ${GITHUB_REF_NAME}"
+          git push origin HEAD:main || true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ZIP }}
+          generate_release_notes: true
+          body: |
+            ## StarTrack ${{ env.VERSION }}
+
+            ### Install via Jellyfin Plugin Repository
+            Add this URL in **Dashboard → Plugins → Repositories**:
+            ```
+            https://raw.githubusercontent.com/ZL154/jellyfin-plugin-startrack/main/manifest.json
+            ```
+
+            ### Manual Install
+            Download the ZIP below and extract the DLL into your Jellyfin plugins directory.

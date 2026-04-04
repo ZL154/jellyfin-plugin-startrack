@@ -12,12 +12,12 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.InternalRating.Controllers
 {
     /// <summary>
-    /// REST API controller for the Internal Rating System.
-    /// All endpoints require Jellyfin authentication.
+    /// REST API controller for StarTrack.
+    /// All endpoints require a valid Jellyfin session token.
     /// </summary>
     [ApiController]
     [Authorize]
-    [Route("Plugins/InternalRating")]
+    [Route("Plugins/StarTrack")]
     [Produces(MediaTypeNames.Application.Json)]
     public class RatingController : ControllerBase
     {
@@ -25,38 +25,27 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         private readonly IUserManager _userManager;
         private readonly ILogger<RatingController> _logger;
 
-        public RatingController(
-            RatingRepository repository,
-            IUserManager userManager,
-            ILogger<RatingController> logger)
+        public RatingController(IUserManager userManager, ILogger<RatingController> logger)
         {
-            _repository  = repository;
+            // Repository is held on the Plugin singleton – no extra DI registration needed
+            _repository  = Plugin.Instance!.Repository;
             _userManager = userManager;
             _logger      = logger;
         }
 
-        // ---------------------------------------------------------------
-        // GET /Plugins/InternalRating/Ratings/{itemId}
-        // Returns average rating + all individual user ratings for an item.
-        // ---------------------------------------------------------------
+        // GET /Plugins/StarTrack/Ratings/{itemId}
         [HttpGet("Ratings/{itemId}")]
         [ProducesResponseType(typeof(RatingsResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<ActionResult<RatingsResponse>> GetRatings([FromRoute] string itemId)
         {
             var result = await _repository.GetRatingsAsync(itemId).ConfigureAwait(false);
             return Ok(result);
         }
 
-        // ---------------------------------------------------------------
-        // POST /Plugins/InternalRating/Ratings/{itemId}
-        // Submit (or update) the authenticated user's rating for an item.
-        // Body: { "stars": 4 }
-        // ---------------------------------------------------------------
+        // POST /Plugins/StarTrack/Ratings/{itemId}   body: { "stars": 4 }
         [HttpPost("Ratings/{itemId}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> SubmitRating(
             [FromRoute] string itemId,
             [FromBody]  SubmitRatingRequest request)
@@ -69,21 +58,16 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 return Unauthorized();
 
             var userName = GetCurrentUserName(userId.Value);
-
             await _repository.SaveRatingAsync(itemId, userId.Value.ToString("N"), userName, request.Stars)
                 .ConfigureAwait(false);
 
-            _logger.LogInformation("User {UserName} rated item {ItemId}: {Stars} stars", userName, itemId, request.Stars);
+            _logger.LogInformation("[StarTrack] {User} rated {Item}: {Stars}★", userName, itemId, request.Stars);
             return Ok();
         }
 
-        // ---------------------------------------------------------------
-        // DELETE /Plugins/InternalRating/Ratings/{itemId}
-        // Remove the authenticated user's rating for an item.
-        // ---------------------------------------------------------------
+        // DELETE /Plugins/StarTrack/Ratings/{itemId}
         [HttpDelete("Ratings/{itemId}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> DeleteRating([FromRoute] string itemId)
         {
             var userId = GetCurrentUserId();
@@ -92,14 +76,10 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
 
             await _repository.DeleteRatingAsync(itemId, userId.Value.ToString("N"))
                 .ConfigureAwait(false);
-
             return Ok();
         }
 
-        // ---------------------------------------------------------------
-        // GET /Plugins/InternalRating/Stats
-        // Returns server-wide rating statistics.
-        // ---------------------------------------------------------------
+        // GET /Plugins/StarTrack/Stats
         [HttpGet("Stats")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         public IActionResult GetStats()
@@ -108,13 +88,12 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             return Ok(new { totalItems, totalRatings });
         }
 
-        // ---------------------------------------------------------------
+        // ------------------------------------------------------------------ //
         // Helpers
-        // ---------------------------------------------------------------
+        // ------------------------------------------------------------------ //
 
         private Guid? GetCurrentUserId()
         {
-            // Jellyfin stores the user ID in the "Jellyfin-UserId" claim
             var value = User.FindFirst("Jellyfin-UserId")?.Value
                 ?? User.FindFirst("uid")?.Value
                 ?? User.FindFirst("sub")?.Value;
@@ -124,15 +103,8 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
 
         private string GetCurrentUserName(Guid userId)
         {
-            try
-            {
-                var user = _userManager.GetUserById(userId);
-                return user?.Username ?? "Unknown";
-            }
-            catch
-            {
-                return User.Identity?.Name ?? "Unknown";
-            }
+            try { return _userManager.GetUserById(userId)?.Username ?? "Unknown"; }
+            catch { return User.Identity?.Name ?? "Unknown"; }
         }
     }
 }

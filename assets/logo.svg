@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 160" width="600" height="160">
+  <defs>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="glitch1">
+      <feOffset dx="2" dy="0" result="r"/>
+      <feFlood flood-color="#ff0000" flood-opacity="0.7" result="rc"/>
+      <feComposite in="rc" in2="r" operator="in" result="rr"/>
+      <feOffset dx="-2" dy="0" in="SourceGraphic" result="b"/>
+      <feFlood flood-color="#0000ff" flood-opacity="0.7" result="bc"/>
+      <feComposite in="bc" in2="b" operator="in" result="bb"/>
+      <feMerge>
+        <feMergeNode in="rr"/>
+        <feMergeNode in="bb"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="600" height="160" fill="#0d0d0d" rx="12"/>
+  <rect width="600" height="160" fill="url(#scanlines)" rx="12" opacity="0.05"/>
+
+  <!-- Red accent line top -->
+  <rect x="0" y="0" width="600" height="3" fill="#cc0000" rx="2"/>
+  <!-- Red accent line bottom -->
+  <rect x="0" y="157" width="600" height="3" fill="#cc0000" rx="2"/>
+
+  <!-- Star icon -->
+  <text x="38" y="105" font-size="72" fill="#cc0000" filter="url(#glow)" font-family="monospace" text-anchor="middle">★</text>
+
+  <!-- Main title -->
+  <text x="310" y="85"
+    font-family="'Courier New', Courier, monospace"
+    font-size="58"
+    font-weight="900"
+    letter-spacing="6"
+    fill="#ffffff"
+    filter="url(#glitch1)"
+    text-anchor="middle">STARTRACK</text>
+
+  <!-- Subtitle -->
+  <text x="310" y="118"
+    font-family="'Courier New', Courier, monospace"
+    font-size="15"
+    letter-spacing="8"
+    fill="#cc0000"
+    text-anchor="middle">INTERNAL RATING SYSTEM</text>
+
+  <!-- Corner brackets -->
+  <text x="10" y="25" font-family="monospace" font-size="18" fill="#cc0000" opacity="0.6">[</text>
+  <text x="578" y="25" font-family="monospace" font-size="18" fill="#cc0000" opacity="0.6">]</text>
+  <text x="10" y="155" font-family="monospace" font-size="18" fill="#cc0000" opacity="0.6">[</text>
+  <text x="578" y="155" font-family="monospace" font-size="18" fill="#cc0000" opacity="0.6">]</text>
+</svg>
