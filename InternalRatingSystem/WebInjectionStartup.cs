@@ -10,13 +10,10 @@ using MediaBrowser.Controller.Plugins;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json.Linq;
 
 namespace Jellyfin.Plugin.InternalRating
 {
-    /// <summary>
-    /// Registers the widget injection hosted service.
-    /// </summary>
+    /// <summary>Registers plugin services.</summary>
     public class PluginServiceRegistrator : IPluginServiceRegistrator
     {
         public void RegisterServices(IServiceCollection services, IServerApplicationHost applicationHost)
@@ -26,17 +23,13 @@ namespace Jellyfin.Plugin.InternalRating
     }
 
     /// <summary>
-    /// On startup:
-    ///   1. Registers with the File Transformation plugin so it injects the widget
-    ///      script on every index.html response (non-destructive, preferred).
-    ///   2. Falls back to patching index.html on disk if File Transformation is absent.
+    /// Runs at startup. Tries File Transformation plugin first (preferred — no file writes),
+    /// then falls back to patching index.html directly on disk.
     /// </summary>
     public class WebInjectionService : IHostedService
     {
         private const string Marker    = "<!-- startrack-widget -->";
-        private const string Injection =
-            "<!-- startrack-widget -->" +
-            "<script src=\"/Plugins/StarTrack/Widget\"></script>";
+        private const string ScriptTag = "<script src=\"/Plugins/StarTrack/Widget\"></script>";
 
         private readonly IApplicationPaths _appPaths;
         private readonly ILogger<WebInjectionService> _logger;
@@ -49,59 +42,53 @@ namespace Jellyfin.Plugin.InternalRating
 
         public Task StartAsync(CancellationToken cancellationToken)
         {
-            // Try File Transformation plugin first (best — no file modification needed)
-            if (!TryRegisterFileTransformation())
-            {
-                // Fallback: patch index.html directly on disk
+            _logger.LogInformation("[StarTrack] WebInjectionService starting. WebPath={P}", _appPaths.WebPath);
+
+            if (!TryRegisterWithFileTransformation())
                 TryPatchIndexHtml();
-            }
 
             return Task.CompletedTask;
         }
 
         public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
-        // ── Strategy 1: File Transformation plugin ────────────────────────
+        // ── Strategy 1: File Transformation plugin (preferred) ────────────
 
-        private bool TryRegisterFileTransformation()
+        private bool TryRegisterWithFileTransformation()
         {
             try
             {
-                var ftAssembly = AssemblyLoadContext.All
-                    .SelectMany(ctx => ctx.Assemblies)
+                var asm = AssemblyLoadContext.All
+                    .SelectMany(c => c.Assemblies)
                     .FirstOrDefault(a => a.FullName?.Contains(".FileTransformation") ?? false);
 
-                if (ftAssembly == null)
+                if (asm == null)
                 {
-                    _logger.LogDebug("[StarTrack] File Transformation plugin not found — will patch file instead.");
+                    _logger.LogInformation("[StarTrack] File Transformation plugin not present — will patch file.");
                     return false;
                 }
 
-                var pluginInterface = ftAssembly.GetType("Jellyfin.Plugin.FileTransformation.PluginInterface");
-                if (pluginInterface == null)
+                var iface = asm.GetType("Jellyfin.Plugin.FileTransformation.PluginInterface");
+                var method = iface?.GetMethod("RegisterTransformation");
+                if (method == null)
                 {
-                    _logger.LogWarning("[StarTrack] PluginInterface type not found in File Transformation assembly.");
+                    _logger.LogWarning("[StarTrack] RegisterTransformation method not found in File Transformation.");
                     return false;
                 }
 
-                var registerMethod = pluginInterface.GetMethod("RegisterTransformation");
-                if (registerMethod == null)
+                // Plain POCO — no Newtonsoft.Json dependency needed.
+                // File Transformation reads these via reflection / JObject.FromObject().
+                var payload = new FileTransformPayload
                 {
-                    _logger.LogWarning("[StarTrack] RegisterTransformation method not found.");
-                    return false;
-                }
-
-                var payload = new JObject
-                {
-                    ["id"]              = Plugin.Instance!.Id.ToString(),
-                    ["fileNamePattern"] = "index\\.html",
-                    ["callbackAssembly"]= typeof(TransformationPatches).Assembly.FullName,
-                    ["callbackClass"]   = typeof(TransformationPatches).FullName,
-                    ["callbackMethod"]  = nameof(TransformationPatches.PatchIndexHtml)
+                    id              = Plugin.Instance!.Id.ToString(),
+                    fileNamePattern = "index\\.html",
+                    callbackAssembly = typeof(TransformationPatches).Assembly.FullName!,
+                    callbackClass   = typeof(TransformationPatches).FullName!,
+                    callbackMethod  = nameof(TransformationPatches.PatchIndexHtml)
                 };
 
-                registerMethod.Invoke(null, new object?[] { payload });
-                _logger.LogInformation("[StarTrack] Registered with File Transformation plugin — widget will be injected dynamically.");
+                method.Invoke(null, new object?[] { payload });
+                _logger.LogInformation("[StarTrack] Registered with File Transformation — widget will be injected per-request.");
                 return true;
             }
             catch (Exception ex)
@@ -111,44 +98,50 @@ namespace Jellyfin.Plugin.InternalRating
             }
         }
 
-        // ── Strategy 2: patch index.html on disk ──────────────────────────
+        // ── Strategy 2: patch index.html on disk ─────────────────────────
 
         private void TryPatchIndexHtml()
         {
             try
             {
-                // IApplicationPaths.WebPath is Jellyfin's actual web root — correct for all installs
-                var indexPath = Path.Combine(_appPaths.WebPath, "index.html");
+                var path = Path.Combine(_appPaths.WebPath, "index.html");
+                _logger.LogInformation("[StarTrack] Attempting to patch {P}", path);
 
-                if (!File.Exists(indexPath))
+                if (!File.Exists(path))
                 {
-                    _logger.LogWarning("[StarTrack] index.html not found at {Path}", indexPath);
+                    _logger.LogWarning("[StarTrack] index.html not found at {P}", path);
                     return;
                 }
 
-                var html = File.ReadAllText(indexPath);
-
+                var html = File.ReadAllText(path);
                 if (html.Contains(Marker, StringComparison.Ordinal))
                 {
-                    _logger.LogDebug("[StarTrack] index.html already patched.");
+                    _logger.LogInformation("[StarTrack] index.html already patched.");
                     return;
                 }
 
-                if (!html.Contains("</body>", StringComparison.OrdinalIgnoreCase))
-                {
-                    _logger.LogWarning("[StarTrack] index.html has no </body> tag — cannot patch.");
-                    return;
-                }
+                File.WriteAllText(path,
+                    html.Replace("</body>",
+                        $"{Marker}{ScriptTag}</body>",
+                        StringComparison.OrdinalIgnoreCase));
 
-                File.WriteAllText(indexPath,
-                    html.Replace("</body>", Injection + "</body>", StringComparison.OrdinalIgnoreCase));
-
-                _logger.LogInformation("[StarTrack] Patched index.html at {Path}", indexPath);
+                _logger.LogInformation("[StarTrack] Patched index.html successfully.");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "[StarTrack] Failed to patch index.html.");
             }
+        }
+
+        // ── Payload POCO (no external deps) ──────────────────────────────
+
+        private sealed class FileTransformPayload
+        {
+            public string id              { get; set; } = string.Empty;
+            public string fileNamePattern { get; set; } = string.Empty;
+            public string callbackAssembly{ get; set; } = string.Empty;
+            public string callbackClass   { get; set; } = string.Empty;
+            public string callbackMethod  { get; set; } = string.Empty;
         }
     }
 }
