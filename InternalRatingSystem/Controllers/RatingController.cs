@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Linq;
 using System.Net.Mime;
 using System.Reflection;
@@ -7,7 +6,6 @@ using System.Text;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.InternalRating.Data;
 using Jellyfin.Plugin.InternalRating.Models;
-using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -27,21 +25,22 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
     public class RatingController : ControllerBase
     {
         private readonly RatingRepository _repository;
-        private readonly IUserManager _userManager;
         private readonly IAuthorizationContext _authContext;
         private readonly ILogger<RatingController> _logger;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="RatingController"/> class.
+        /// </summary>
         public RatingController(
-            IUserManager userManager,
             IAuthorizationContext authContext,
             ILogger<RatingController> logger)
         {
             _repository  = Plugin.Instance!.Repository;
-            _userManager = userManager;
             _authContext = authContext;
             _logger      = logger;
         }
 
+        /// <summary>Gets all ratings for an item.</summary>
         // GET /Plugins/StarTrack/Ratings/{itemId}
         [HttpGet("Ratings/{itemId}")]
         [ProducesResponseType(typeof(RatingsResponse), StatusCodes.Status200OK)]
@@ -51,6 +50,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             return Ok(result);
         }
 
+        /// <summary>Submits or updates the current user's rating for an item.</summary>
         // POST /Plugins/StarTrack/Ratings/{itemId}   body: { "stars": 4 }
         [HttpPost("Ratings/{itemId}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
@@ -70,7 +70,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 return Unauthorized();
             }
 
-            var userName = GetCurrentUserName(userId.Value);
+            var userName = GetCurrentUserName();
             await _repository.SaveRatingAsync(itemId, userId.Value.ToString("N"), userName, request.Stars)
                 .ConfigureAwait(false);
 
@@ -78,6 +78,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             return Ok();
         }
 
+        /// <summary>Removes the current user's rating for an item.</summary>
         // DELETE /Plugins/StarTrack/Ratings/{itemId}
         [HttpDelete("Ratings/{itemId}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
@@ -92,7 +93,8 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             return Ok();
         }
 
-        // GET /Plugins/StarTrack/Widget  – serves the embedded widget.js (no auth needed)
+        /// <summary>Serves the embedded widget.js (no auth needed).</summary>
+        // GET /Plugins/StarTrack/Widget
         [HttpGet("Widget")]
         [AllowAnonymous]
         [Produces("application/javascript")]
@@ -100,15 +102,16 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public IActionResult GetWidget()
         {
-            var asm        = Assembly.GetExecutingAssembly();
+            var asm = Assembly.GetExecutingAssembly();
             const string res = "Jellyfin.Plugin.InternalRating.Web.widget.js";
-            var stream     = asm.GetManifestResourceStream(res);
+            var stream = asm.GetManifestResourceStream(res);
             if (stream == null)
                 return NotFound();
 
             return File(stream, "application/javascript; charset=utf-8");
         }
 
+        /// <summary>Returns server-wide rating statistics.</summary>
         // GET /Plugins/StarTrack/Stats
         [HttpGet("Stats")]
         [ProducesResponseType(StatusCodes.Status200OK)]
@@ -118,7 +121,8 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             return Ok(new { totalItems, totalRatings });
         }
 
-        // GET /Plugins/StarTrack/WhoAmI  – returns auth info for debugging
+        /// <summary>Returns auth info for the current user — useful for debugging save failures.</summary>
+        // GET /Plugins/StarTrack/WhoAmI
         [HttpGet("WhoAmI")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> GetWhoAmI()
@@ -139,11 +143,13 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 authCtxUserId,
                 authCtxError,
                 resolvedUserId   = await GetCurrentUserIdAsync().ConfigureAwait(false),
+                resolvedUserName = GetCurrentUserName(),
                 claims
             });
         }
 
-        // GET /Plugins/StarTrack/Debug  – diagnostic info, no auth needed
+        /// <summary>Diagnostic info — no auth needed.</summary>
+        // GET /Plugins/StarTrack/Debug
         [HttpGet("Debug")]
         [AllowAnonymous]
         [Produces("text/plain")]
@@ -172,17 +178,17 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
 
         private async Task<Guid?> GetCurrentUserIdAsync()
         {
-            // Primary: use Jellyfin's IAuthorizationContext — most reliable
+            // Primary: use Jellyfin's IAuthorizationContext — most reliable and version-stable
             try
             {
                 var info = await _authContext.GetAuthorizationInfo(HttpContext).ConfigureAwait(false);
                 if (info?.UserId != null && info.UserId != Guid.Empty)
                     return info.UserId;
             }
-            catch { /* fall through */ }
+            catch { /* fall through to claim parsing */ }
 
-            // Fallback: parse JWT claims directly
-            // Jellyfin 10.9 uses "Jellyfin-UserId" (InternalClaimTypes.UserId)
+            // Fallback: parse claims directly.
+            // Jellyfin 10.9–10.11 uses "Jellyfin-UserId" (InternalClaimTypes.UserId) with ToString("N") value.
             var value = User.FindFirst("Jellyfin-UserId")?.Value
                 ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
                 ?? User.FindFirst("uid")?.Value
@@ -191,10 +197,14 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             return Guid.TryParse(value, out var id) ? id : null;
         }
 
-        private string GetCurrentUserName(Guid userId)
+        private string GetCurrentUserName()
         {
-            try { return _userManager.GetUserById(userId)?.Username ?? "Unknown"; }
-            catch { return User.Identity?.Name ?? "Unknown"; }
+            // Get username from claims — avoids calling IUserManager.GetUserById which
+            // changed its signature between Jellyfin 10.9 and 10.11 (MissingMethodException).
+            return User.FindFirst("Jellyfin-User")?.Value
+                ?? User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value
+                ?? User.Identity?.Name
+                ?? "Unknown";
         }
     }
 }
