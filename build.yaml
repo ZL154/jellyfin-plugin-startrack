@@ -1,0 +1,5 @@
+---
+version: 1
+
+dotnetprojects:
+  - src: InternalRatingSystem/InternalRatingSystem.csproj

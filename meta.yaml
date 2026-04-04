@@ -1,0 +1,14 @@
+---
+guid: "a8b5e2f3-4c1d-4e8a-b2f9-6d3c7e1a5b2f"
+name: "Internal Rating System"
+description: "Allows Jellyfin users to rate movies and TV shows internally and view community star ratings."
+overview: "Rate your media library items (movies and TV shows) on a 1–5 star scale. Displays the community average inline on detail pages. Click to expand and see individual user scores or update your own rating."
+owner: "ZL154"
+category: "General"
+versions:
+  - version: "1.0.0.0"
+    changelog: "Initial release – star ratings for movies and TV shows with average display, expandable user list, and remove rating support."
+    targetAbi: "10.9.0.0"
+    sourceUrl: ""
+    checksum: ""
+    timestamp: "2025-01-01T00:00:00Z"

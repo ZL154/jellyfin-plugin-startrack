@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Internal Rating System</title>
+</head>
+<body>
+
+<!-- ===== Admin Config Page ===== -->
+<div id="InternalRatingConfigPage" data-role="page" class="page type-interior withTabs">
+    <div data-role="content">
+        <div class="content-primary">
+
+            <div class="verticalSection">
+                <h2 class="sectionTitle">⭐ Internal Rating System</h2>
+                <p>Allows every Jellyfin user to give movies and TV shows a 1–5 star rating.
+                   The widget shows the community average next to the item and lets you drill
+                   into individual user scores.</p>
+            </div>
+
+            <div class="verticalSection">
+                <h3 class="sectionTitle">Widget Status</h3>
+                <p id="irStatusMsg" style="color:#52b54b;font-weight:600;">
+                    ✓ Rating widget is active for this session.
+                    Navigate to any Movie or TV Show page to see it.
+                </p>
+                <p style="color:rgba(255,255,255,.6);font-size:.9em;">
+                    The widget stays active as long as you keep Jellyfin open.
+                    Simply revisit this page to re-activate it after a full page reload.
+                </p>
+            </div>
+
+            <div class="verticalSection">
+                <h3 class="sectionTitle">Server Statistics</h3>
+                <div id="irStats" style="color:rgba(255,255,255,.8);">Loading…</div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- ===== Rating Widget Styles ===== -->
+<style id="ir-styles">
+#ir-widget {
+    display: inline-flex;
+    align-items: center;
+    margin: 10px 4px 4px;
+    position: relative;
+    z-index: 10;
+    font-family: inherit;
+}
+
+/* ---- collapsed pill ---- */
+.ir-collapsed {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    padding: 5px 12px;
+    border-radius: 20px;
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.18);
+    transition: background .2s, border-color .2s;
+    user-select: none;
+}
+.ir-collapsed:hover { background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.35); }
+
+.ir-star-icon { color: #f4c430; font-size: 1.15em; line-height: 1; }
+.ir-avg-text  { color: #fff; font-size: .95em; font-weight: 600; letter-spacing: .02em; }
+.ir-caret     { color: rgba(255,255,255,.5); font-size: .7em; margin-left: 2px; }
+
+/* ---- expanded panel ---- */
+.ir-panel {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    min-width: 300px;
+    background: rgba(20,20,20,.96);
+    border: 1px solid rgba(255,255,255,.15);
+    border-radius: 10px;
+    padding: 16px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 8px 32px rgba(0,0,0,.6);
+    z-index: 1000;
+}
+
+/* header row */
+.ir-panel-header {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255,255,255,.1);
+    margin-bottom: 12px;
+}
+.ir-big-star { color: #f4c430; font-size: 2em; line-height: 1; }
+.ir-big-avg  { color: #fff; font-size: 2em; font-weight: 700; line-height: 1; }
+.ir-count    { color: rgba(255,255,255,.55); font-size: .85em; }
+
+/* your rating row */
+.ir-your-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+.ir-your-label { color: rgba(255,255,255,.7); font-size: .9em; white-space: nowrap; }
+.ir-star-input { display: flex; gap: 3px; }
+.ir-star-btn {
+    cursor: pointer;
+    font-size: 1.6em;
+    color: rgba(255,255,255,.25);
+    transition: color .1s, transform .1s;
+    line-height: 1;
+    user-select: none;
+}
+.ir-star-btn:hover,
+.ir-star-btn.ir-active { color: #f4c430; transform: scale(1.12); }
+.ir-your-current { color: rgba(255,255,255,.45); font-size: .8em; }
+
+/* remove button */
+.ir-remove-btn {
+    background: none;
+    border: 1px solid rgba(255,80,80,.45);
+    color: rgba(255,100,100,.8);
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: .78em;
+    cursor: pointer;
+    margin-left: auto;
+    transition: all .2s;
+}
+.ir-remove-btn:hover { background: rgba(255,50,50,.15); color: #ff6060; }
+
+/* toggle button */
+.ir-toggle-btn {
+    width: 100%;
+    background: none;
+    border: 1px solid rgba(255,255,255,.15);
+    color: rgba(255,255,255,.6);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: .82em;
+    cursor: pointer;
+    text-align: left;
+    transition: all .2s;
+}
+.ir-toggle-btn:hover { background: rgba(255,255,255,.08); color: #fff; }
+
+/* user list */
+.ir-list {
+    margin-top: 8px;
+    max-height: 220px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,.2) transparent;
+}
+.ir-list-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 2px;
+    border-bottom: 1px solid rgba(255,255,255,.05);
+    color: rgba(255,255,255,.8);
+    font-size: .88em;
+}
+.ir-list-item:last-child { border-bottom: none; }
+.ir-list-name  { flex: 1; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ir-list-stars { color: #f4c430; letter-spacing: 1px; font-size: .95em; }
+.ir-list-val   { color: rgba(255,255,255,.5); min-width: 28px; text-align: right; }
+.ir-empty      { color: rgba(255,255,255,.4); text-align: center; padding: 14px 0; font-size: .9em; }
+
+/* feedback flash */
+.ir-flash {
+    font-size: .8em;
+    margin-left: 8px;
+    color: #52b54b;
+    opacity: 0;
+    transition: opacity .3s;
+}
+.ir-flash.show { opacity: 1; }
+</style>
+
+<!-- ===== Rating Widget Script ===== -->
+<script>
+(function () {
+    'use strict';
+
+    // ------------------------------------------------------------------ //
+    //  Helpers
+    // ------------------------------------------------------------------ //
+
+    function esc(str) {
+        const d = document.createElement('div');
+        d.appendChild(document.createTextNode(String(str)));
+        return d.innerHTML;
+    }
+
+    function debounce(fn, ms) {
+        let t;
+        return function (...a) { clearTimeout(t); t = setTimeout(() => fn.apply(this, a), ms); };
+    }
+
+    function getClient() { return window.ApiClient || null; }
+
+    function getAuthHeader() {
+        const c = getClient();
+        if (!c) return null;
+        const tok = typeof c.accessToken === 'function' ? c.accessToken() : c._accessToken;
+        return tok ? `MediaBrowser Token="${tok}"` : null;
+    }
+
+    function getCurrentUserId() {
+        const c = getClient();
+        if (!c) return null;
+        return typeof c.getCurrentUserId === 'function'
+            ? c.getCurrentUserId()
+            : (c._currentUser?.Id ?? null);
+    }
+
+    function getItemIdFromUrl() {
+        const hash = decodeURIComponent(window.location.hash);
+        const m = hash.match(/[?&]id=([a-f0-9]+)/i);
+        return m ? m[1] : null;
+    }
+
+    function isDetailPage() {
+        const h = window.location.hash;
+        return h.includes('/details') || h.includes('#!/details');
+    }
+
+    function starsHtml(val, total = 5) {
+        const full  = Math.round(val);
+        const empty = total - full;
+        return '★'.repeat(Math.max(0, full)) + '☆'.repeat(Math.max(0, empty));
+    }
+
+    // ------------------------------------------------------------------ //
+    //  API calls
+    // ------------------------------------------------------------------ //
+
+    async function apiGet(itemId) {
+        const auth = getAuthHeader();
+        if (!auth) return null;
+        try {
+            const r = await fetch(`/Plugins/InternalRating/Ratings/${itemId}`, {
+                headers: { Authorization: auth }
+            });
+            return r.ok ? r.json() : null;
+        } catch { return null; }
+    }
+
+    async function apiPost(itemId, stars) {
+        const auth = getAuthHeader();
+        if (!auth) return false;
+        try {
+            const r = await fetch(`/Plugins/InternalRating/Ratings/${itemId}`, {
+                method:  'POST',
+                headers: { Authorization: auth, 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ stars })
+            });
+            return r.ok;
+        } catch { return false; }
+    }
+
+    async function apiDelete(itemId) {
+        const auth = getAuthHeader();
+        if (!auth) return false;
+        try {
+            const r = await fetch(`/Plugins/InternalRating/Ratings/${itemId}`, {
+                method:  'DELETE',
+                headers: { Authorization: auth }
+            });
+            return r.ok;
+        } catch { return false; }
+    }
+
+    // Check item type via Jellyfin API (only show widget for Movie / Series)
+    async function getItemType(itemId) {
+        const c   = getClient();
+        const uid = getCurrentUserId();
+        if (!c || !uid) return null;
+        try {
+            const item = await c.getItem(uid, itemId);
+            return item?.Type ?? null;
+        } catch { return null; }
+    }
+
+    // ------------------------------------------------------------------ //
+    //  Widget DOM builder
+    // ------------------------------------------------------------------ //
+
+    function buildWidget() {
+        const w = document.createElement('div');
+        w.id = 'ir-widget';
+        w.innerHTML = `
+          <div class="ir-collapsed" title="Click to see ratings">
+            <span class="ir-star-icon">★</span>
+            <span class="ir-avg-text">–</span>
+            <span class="ir-caret">▾</span>
+          </div>
+          <div class="ir-panel" style="display:none">
+            <div class="ir-panel-header">
+              <span class="ir-big-star">★</span>
+              <span class="ir-big-avg">–</span>
+              <span class="ir-count">(0 ratings)</span>
+            </div>
+            <div class="ir-your-row">
+              <span class="ir-your-label">Your rating:</span>
+              <div class="ir-star-input">
+                ${[1,2,3,4,5].map(n =>
+                  `<span class="ir-star-btn" data-v="${n}" title="${n} star${n>1?'s':''}">★</span>`
+                ).join('')}
+              </div>
+              <span class="ir-your-current"></span>
+              <span class="ir-flash">Saved!</span>
+              <button class="ir-remove-btn" style="display:none" title="Remove your rating">Remove</button>
+            </div>
+            <button class="ir-toggle-btn">Show individual ratings ▾</button>
+            <div class="ir-list" style="display:none"></div>
+          </div>
+        `;
+        return w;
+    }
+
+    // ------------------------------------------------------------------ //
+    //  Render / update
+    // ------------------------------------------------------------------ //
+
+    function renderWidget(widget, data) {
+        if (!widget) return;
+        const myUid = getCurrentUserId();
+        const total = data?.totalRatings ?? 0;
+        const avg   = data?.averageRating ?? 0;
+
+        // Collapsed pill
+        widget.querySelector('.ir-avg-text').textContent =
+            total > 0 ? avg.toFixed(1) : 'Rate';
+
+        // Panel header
+        widget.querySelector('.ir-big-avg').textContent =
+            total > 0 ? avg.toFixed(1) : '–';
+        widget.querySelector('.ir-count').textContent =
+            `(${total} rating${total !== 1 ? 's' : ''})`;
+
+        // My rating
+        const myRating = (data?.userRatings ?? []).find(r => r.userId === myUid);
+        const myVal    = myRating ? myRating.stars : 0;
+
+        widget.querySelectorAll('.ir-star-btn').forEach((btn, i) => {
+            btn.classList.toggle('ir-active', i < Math.round(myVal));
+        });
+        widget.querySelector('.ir-your-current').textContent =
+            myVal ? `(current: ${myVal.toFixed(1)})` : '';
+        widget.querySelector('.ir-remove-btn').style.display = myVal ? '' : 'none';
+
+        // User list
+        const list = widget.querySelector('.ir-list');
+        const items = data?.userRatings ?? [];
+        if (items.length === 0) {
+            list.innerHTML = '<p class="ir-empty">No ratings yet – be the first!</p>';
+        } else {
+            list.innerHTML = items.map(r => `
+              <div class="ir-list-item">
+                <span class="ir-list-name">${esc(r.userName)}</span>
+                <span class="ir-list-stars">${starsHtml(r.stars)}</span>
+                <span class="ir-list-val">${r.stars.toFixed(1)}</span>
+              </div>
+            `).join('');
+        }
+    }
+
+    function flash(widget) {
+        const el = widget.querySelector('.ir-flash');
+        el.classList.add('show');
+        setTimeout(() => el.classList.remove('show'), 1800);
+    }
+
+    // ------------------------------------------------------------------ //
+    //  Wire up interactions
+    // ------------------------------------------------------------------ //
+
+    function bindInteractions(widget, itemId) {
+        const collapsed  = widget.querySelector('.ir-collapsed');
+        const panel      = widget.querySelector('.ir-panel');
+        const toggleBtn  = widget.querySelector('.ir-toggle-btn');
+        const list       = widget.querySelector('.ir-list');
+        const starBtns   = widget.querySelectorAll('.ir-star-btn');
+        const removeBtn  = widget.querySelector('.ir-remove-btn');
+
+        let panelOpen = false;
+        let listOpen  = false;
+
+        // Toggle panel
+        collapsed.addEventListener('click', () => {
+            panelOpen = !panelOpen;
+            panel.style.display = panelOpen ? 'block' : 'none';
+            widget.querySelector('.ir-caret').textContent = panelOpen ? '▴' : '▾';
+        });
+
+        // Close panel on outside click
+        document.addEventListener('click', (e) => {
+            if (panelOpen && !widget.contains(e.target)) {
+                panelOpen = false;
+                panel.style.display = 'none';
+                widget.querySelector('.ir-caret').textContent = '▾';
+            }
+        });
+
+        // Toggle user list
+        toggleBtn.addEventListener('click', () => {
+            listOpen = !listOpen;
+            list.style.display = listOpen ? 'block' : 'none';
+            toggleBtn.textContent = listOpen
+                ? 'Hide individual ratings ▴'
+                : 'Show individual ratings ▾';
+        });
+
+        // Star hover / click
+        starBtns.forEach((btn, idx) => {
+            btn.addEventListener('mouseenter', () => {
+                starBtns.forEach((b, i) =>
+                    b.classList.toggle('ir-active', i <= idx));
+            });
+            btn.addEventListener('mouseleave', () => {
+                // Restore to saved state
+                const cur = widget.querySelector('.ir-your-current').textContent;
+                const m   = cur.match(/([\d.]+)/);
+                const val = m ? parseFloat(m[1]) : 0;
+                starBtns.forEach((b, i) =>
+                    b.classList.toggle('ir-active', i < Math.round(val)));
+            });
+            btn.addEventListener('click', async () => {
+                const stars = idx + 1;
+                const ok    = await apiPost(itemId, stars);
+                if (ok) {
+                    flash(widget);
+                    const data = await apiGet(itemId);
+                    renderWidget(widget, data);
+                }
+            });
+        });
+
+        // Remove rating
+        removeBtn.addEventListener('click', async () => {
+            const ok = await apiDelete(itemId);
+            if (ok) {
+                const data = await apiGet(itemId);
+                renderWidget(widget, data);
+            }
+        });
+    }
+
+    // ------------------------------------------------------------------ //
+    //  Inject widget into the detail page
+    // ------------------------------------------------------------------ //
+
+    async function injectWidget() {
+        const itemId = getItemIdFromUrl();
+        if (!itemId || !isDetailPage()) return;
+
+        // Remove stale widget
+        const old = document.getElementById('ir-widget');
+        if (old) old.remove();
+
+        // Verify item type – only Movies and Series
+        const type = await getItemType(itemId);
+        if (type !== 'Movie' && type !== 'Series') return;
+
+        // Find a good injection point (Jellyfin's detail page selectors)
+        const selectors = [
+            '.mainDetailButtons',
+            '.itemButtons',
+            '.detailButtons',
+            '.detailPageContent .buttons',
+            '[class*="itemButton"]',
+            '.itemMiscInfo',
+            '.detailPageContent',
+        ];
+        let target = null;
+        for (const sel of selectors) {
+            target = document.querySelector(sel);
+            if (target) break;
+        }
+
+        if (!target) {
+            // Page still loading – retry shortly
+            setTimeout(injectWidget, 800);
+            return;
+        }
+
+        // Inject styles once
+        if (!document.getElementById('ir-styles')) {
+            const s = document.querySelector('style[id="ir-styles"]');
+            if (s) document.head.appendChild(s.cloneNode(true));
+        }
+
+        const widget = buildWidget();
+        target.insertAdjacentElement('afterend', widget);
+
+        // Load data and render
+        const data = await apiGet(itemId);
+        renderWidget(widget, data);
+        bindInteractions(widget, itemId);
+    }
+
+    // ------------------------------------------------------------------ //
+    //  Navigation watcher – Jellyfin is a SPA, detect route changes
+    // ------------------------------------------------------------------ //
+
+    let _lastHash = '';
+    const _onNav = debounce(async () => {
+        const hash = window.location.hash;
+        if (hash === _lastHash) return;
+        _lastHash = hash;
+        if (isDetailPage()) {
+            // Wait for DOM to settle after route change
+            setTimeout(injectWidget, 600);
+        } else {
+            const w = document.getElementById('ir-widget');
+            if (w) w.remove();
+        }
+    }, 150);
+
+    window.addEventListener('hashchange', _onNav);
+    window.addEventListener('popstate',   _onNav);
+
+    // MutationObserver as fallback for SPA navigation that doesn't change hash
+    const _mo = new MutationObserver(debounce(() => {
+        const hash = window.location.hash;
+        if (isDetailPage() && hash !== _lastHash) _onNav();
+    }, 400));
+    _mo.observe(document.body, { childList: true, subtree: true });
+
+    // ------------------------------------------------------------------ //
+    //  Config page – show server stats
+    // ------------------------------------------------------------------ //
+
+    async function loadStats() {
+        const auth = getAuthHeader();
+        if (!auth) return;
+        try {
+            const r = await fetch('/Plugins/InternalRating/Stats', {
+                headers: { Authorization: auth }
+            });
+            if (!r.ok) return;
+            const d = await r.json();
+            const el = document.getElementById('irStats');
+            if (el) {
+                el.innerHTML =
+                    `<b>${d.totalRatings}</b> rating${d.totalRatings !== 1 ? 's' : ''} across ` +
+                    `<b>${d.totalItems}</b> item${d.totalItems !== 1 ? 's' : ''}`;
+            }
+        } catch { /* no-op */ }
+    }
+
+    // Run on config page load
+    loadStats();
+
+    // Run widget if we're already on a detail page (e.g. user refreshed)
+    if (isDetailPage()) setTimeout(injectWidget, 800);
+
+})();
+</script>
+
+</body>
+</html>
