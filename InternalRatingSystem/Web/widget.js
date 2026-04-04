@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    console.log('[StarTrack] widget.js loaded — v1.0.8');
+    console.log('[StarTrack] widget.js loaded — v1.0.9');
     init();
 
     // ── Auth ──────────────────────────────────────────────────────────────
@@ -73,10 +73,17 @@
     // ── API ───────────────────────────────────────────────────────────────
 
     function apiFetch(path, opts) {
-        var auth = getAuth(); if (!auth) return Promise.resolve(null);
+        var auth = getAuth();
+        if (!auth) {
+            console.warn('[StarTrack] apiFetch: no auth token found');
+            return Promise.resolve(null);
+        }
         opts = opts || {};
         opts.headers = { Authorization: auth, 'Content-Type': 'application/json' };
-        return fetch(path, opts).then(function (r) { return r.ok ? r : null; }).catch(function () { return null; });
+        return fetch(path, opts).then(function (r) {
+            if (!r.ok) console.warn('[StarTrack] apiFetch', opts.method || 'GET', path, '→', r.status);
+            return r.ok ? r : null;
+        }).catch(function (e) { console.error('[StarTrack] apiFetch error:', e); return null; });
     }
 
     function apiGet(id)         { return apiFetch('/Plugins/StarTrack/Ratings/' + id).then(function (r) { return r ? r.json() : null; }); }
@@ -113,7 +120,7 @@
             '.ir-sw{position:relative!important;display:inline-block!important;font-size:1.8em!important;width:1.1em!important;line-height:1!important;cursor:pointer!important;color:rgba(255,255,255,.2)!important;transition:transform .1s!important}',
             '.ir-sw::before{content:"★"!important}',
             '.ir-sw.ir-full{color:#f4c430!important}',
-            '.ir-sw.ir-half::after{content:"★"!important;position:absolute!important;left:0!important;top:0!important;width:50%!important;overflow:hidden!important;color:#f4c430!important;display:block!important}',
+            '.ir-sw.ir-half::after{content:"★"!important;position:absolute!important;left:0!important;top:0!important;width:100%!important;height:100%!important;color:#f4c430!important;display:block!important;clip-path:inset(0 50% 0 0)!important}',
             '.ir-sw:hover{transform:scale(1.2)!important}',
             '.ir-sl{position:absolute!important;left:0!important;top:0!important;width:50%!important;height:100%!important;z-index:1!important}',
             '.ir-sr{position:absolute!important;left:50%!important;top:0!important;width:50%!important;height:100%!important;z-index:1!important}',
@@ -421,7 +428,7 @@
         showFor(id);
         getItemType(id).then(function (type) {
             if (id !== _curId) return;
-            if (type !== null && type !== 'Movie' && type !== 'Series') hide();
+            if (type !== null && type !== 'Movie' && type !== 'Series' && type !== 'Episode') hide();
         });
     }
 

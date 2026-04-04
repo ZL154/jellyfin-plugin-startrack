@@ -12,7 +12,7 @@ namespace Jellyfin.Plugin.InternalRating.Models
         /// Star rating between 1 and 5 (whole numbers or half stars).
         /// </summary>
         [Required]
-        [Range(1, 5)]
+        [Range(0.5, 5)]
         [JsonPropertyName("stars")]
         public double Stars { get; set; }
     }

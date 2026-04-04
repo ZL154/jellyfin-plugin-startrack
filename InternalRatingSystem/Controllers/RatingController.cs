@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Net.Mime;
 using System.Reflection;
 using System.Text;
@@ -7,6 +8,7 @@ using System.Threading.Tasks;
 using Jellyfin.Plugin.InternalRating.Data;
 using Jellyfin.Plugin.InternalRating.Models;
 using MediaBrowser.Controller.Library;
+using MediaBrowser.Controller.Net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -26,13 +28,17 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
     {
         private readonly RatingRepository _repository;
         private readonly IUserManager _userManager;
+        private readonly IAuthorizationContext _authContext;
         private readonly ILogger<RatingController> _logger;
 
-        public RatingController(IUserManager userManager, ILogger<RatingController> logger)
+        public RatingController(
+            IUserManager userManager,
+            IAuthorizationContext authContext,
+            ILogger<RatingController> logger)
         {
-            // Repository is held on the Plugin singleton – no extra DI registration needed
             _repository  = Plugin.Instance!.Repository;
             _userManager = userManager;
+            _authContext = authContext;
             _logger      = logger;
         }
 
@@ -53,12 +59,16 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             [FromRoute] string itemId,
             [FromBody]  SubmitRatingRequest request)
         {
-            if (request.Stars is < 1 or > 5)
-                return BadRequest("Stars must be between 1 and 5.");
+            if (request.Stars < 0.5 || request.Stars > 5)
+                return BadRequest("Stars must be between 0.5 and 5.");
 
-            var userId = GetCurrentUserId();
+            var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
             if (userId == null)
+            {
+                _logger.LogWarning("[StarTrack] SubmitRating: could not resolve user ID. Claims: {Claims}",
+                    string.Join(", ", User.Claims.Select(c => $"{c.Type}={c.Value}")));
                 return Unauthorized();
+            }
 
             var userName = GetCurrentUserName(userId.Value);
             await _repository.SaveRatingAsync(itemId, userId.Value.ToString("N"), userName, request.Stars)
@@ -73,7 +83,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> DeleteRating([FromRoute] string itemId)
         {
-            var userId = GetCurrentUserId();
+            var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
             if (userId == null)
                 return Unauthorized();
 
@@ -108,6 +118,31 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             return Ok(new { totalItems, totalRatings });
         }
 
+        // GET /Plugins/StarTrack/WhoAmI  – returns auth info for debugging
+        [HttpGet("WhoAmI")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetWhoAmI()
+        {
+            Guid? authCtxUserId = null;
+            string authCtxError = "none";
+            try
+            {
+                var info = await _authContext.GetAuthorizationInfo(HttpContext).ConfigureAwait(false);
+                authCtxUserId = info?.UserId;
+            }
+            catch (Exception ex) { authCtxError = ex.Message; }
+
+            var claims = User.Claims.Select(c => new { c.Type, c.Value }).ToList();
+            return Ok(new
+            {
+                isAuthenticated  = User.Identity?.IsAuthenticated,
+                authCtxUserId,
+                authCtxError,
+                resolvedUserId   = await GetCurrentUserIdAsync().ConfigureAwait(false),
+                claims
+            });
+        }
+
         // GET /Plugins/StarTrack/Debug  – diagnostic info, no auth needed
         [HttpGet("Debug")]
         [AllowAnonymous]
@@ -127,6 +162,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             sb.AppendLine($"File fallback path    : {WebInjectionService.DiagPatchedPath}");
             sb.AppendLine($"Last error            : {WebInjectionService.DiagLastError}");
             sb.AppendLine($"Widget endpoint       : /Plugins/StarTrack/Widget");
+            sb.AppendLine($"WhoAmI endpoint       : /Plugins/StarTrack/WhoAmI (auth required)");
             return Content(sb.ToString(), "text/plain");
         }
 
@@ -134,12 +170,21 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         // Helpers
         // ------------------------------------------------------------------ //
 
-        private Guid? GetCurrentUserId()
+        private async Task<Guid?> GetCurrentUserIdAsync()
         {
-            // Jellyfin stores the user ID as ClaimTypes.NameIdentifier in the JWT principal.
-            // The long XML URL form must be used — short aliases ("sub", "uid") don't match.
-            var value = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-                ?? User.FindFirst("Jellyfin-UserId")?.Value
+            // Primary: use Jellyfin's IAuthorizationContext — most reliable
+            try
+            {
+                var info = await _authContext.GetAuthorizationInfo(HttpContext).ConfigureAwait(false);
+                if (info?.UserId != null && info.UserId != Guid.Empty)
+                    return info.UserId;
+            }
+            catch { /* fall through */ }
+
+            // Fallback: parse JWT claims directly
+            // Jellyfin 10.9 uses "Jellyfin-UserId" (InternalClaimTypes.UserId)
+            var value = User.FindFirst("Jellyfin-UserId")?.Value
+                ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
                 ?? User.FindFirst("uid")?.Value
                 ?? User.FindFirst("sub")?.Value;
 

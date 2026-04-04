@@ -58,7 +58,7 @@ namespace Jellyfin.Plugin.InternalRating
         public async Task StartAsync(CancellationToken cancellationToken)
         {
             DiagWebPath = _appPaths.WebPath ?? "null";
-            _logger.LogInformation("[StarTrack] v1.0.7 WebInjectionService starting (fallback). WebPath={P}", _appPaths.WebPath);
+            _logger.LogInformation("[StarTrack] v1.0.9 WebInjectionService starting (fallback). WebPath={P}", _appPaths.WebPath);
 
             await TryPatchIndexHtmlAsync().ConfigureAwait(false);
 
