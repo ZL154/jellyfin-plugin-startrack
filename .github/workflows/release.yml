@@ -43,25 +43,8 @@ jobs:
           echo "md5=$MD5" >> $GITHUB_OUTPUT
           echo "Checksum: $MD5"
 
-      - name: Update manifest checksum
-        run: |
-          sed -i \
-            "s|\"checksum\": \".*\"|\"checksum\": \"${{ steps.checksum.outputs.md5 }}\"|" \
-            manifest.json
-          sed -i \
-            "s|\"version\": \".*\"|\"version\": \"${VERSION}.0\"|" \
-            manifest.json
-          sed -i \
-            "s|/download/v[^/]*/|/download/${GITHUB_REF_NAME}/|" \
-            manifest.json
-
-      - name: Commit updated manifest
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add manifest.json
-          git diff --cached --quiet || git commit -m "chore: update manifest for ${GITHUB_REF_NAME}"
-          git push origin HEAD:main || true
+      - name: Show checksum (update manifest.json manually before tagging)
+        run: echo "MD5 checksum for manifest.json -> ${{ steps.checksum.outputs.md5 }}"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
