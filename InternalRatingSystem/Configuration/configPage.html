@@ -333,9 +333,19 @@
         const total = data?.totalRatings ?? 0;
         const avg   = data?.averageRating ?? 0;
 
-        // Collapsed pill
-        widget.querySelector('.ir-avg-text').textContent =
-            total > 0 ? avg.toFixed(1) : 'Rate';
+        // Collapsed pill — show average only when ratings exist; empty star otherwise
+        const starIcon = widget.querySelector('.ir-star-icon');
+        const avgText  = widget.querySelector('.ir-avg-text');
+        if (total > 0) {
+            starIcon.textContent = '★';
+            starIcon.style.opacity = '1';
+            avgText.textContent = avg.toFixed(1);
+            avgText.style.display = '';
+        } else {
+            starIcon.textContent = '☆';
+            starIcon.style.opacity = '0.45';
+            avgText.style.display = 'none'; // no number when unrated
+        }
 
         // Panel header
         widget.querySelector('.ir-big-avg').textContent =

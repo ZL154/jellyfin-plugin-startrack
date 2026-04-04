@@ -2,85 +2,126 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.InternalRating.Models;
 using MediaBrowser.Common.Configuration;
-using Microsoft.Data.Sqlite;
 
 namespace Jellyfin.Plugin.InternalRating.Data
 {
     /// <summary>
-    /// Manages persistent storage of user ratings using SQLite.
-    /// Database is stored in Jellyfin's data directory under InternalRating/ratings.db
+    /// Stores ratings as a JSON file in Jellyfin's data directory.
+    /// No external dependencies required — uses only System.Text.Json (built into .NET 8).
+    /// File location: &lt;jellyfin-data&gt;/data/InternalRating/ratings.json
     /// </summary>
-    public class RatingRepository : IDisposable
+    public sealed class RatingRepository : IDisposable
     {
-        private readonly string _dbPath;
-        private bool _disposed;
+        private readonly string _filePath;
+        private readonly SemaphoreSlim _lock = new SemaphoreSlim(1, 1);
+        private RatingsStore _store = new();
+
+        private static readonly JsonSerializerOptions _jsonOptions = new()
+        {
+            WriteIndented             = true,
+            PropertyNameCaseInsensitive = true,
+            DefaultIgnoreCondition    = JsonIgnoreCondition.WhenWritingNull
+        };
 
         public RatingRepository(IApplicationPaths applicationPaths)
         {
-            var dataDir = Path.Combine(applicationPaths.DataPath, "InternalRating");
-            Directory.CreateDirectory(dataDir);
-            _dbPath = Path.Combine(dataDir, "ratings.db");
-            InitializeDatabase();
+            var dir = Path.Combine(applicationPaths.DataPath, "InternalRating");
+            Directory.CreateDirectory(dir);
+            _filePath = Path.Combine(dir, "ratings.json");
+            Load();
         }
 
-        private void InitializeDatabase()
-        {
-            using var conn = CreateConnection();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = @"
-                CREATE TABLE IF NOT EXISTS Ratings (
-                    Id        INTEGER PRIMARY KEY AUTOINCREMENT,
-                    ItemId    TEXT    NOT NULL,
-                    UserId    TEXT    NOT NULL,
-                    UserName  TEXT    NOT NULL,
-                    Stars     REAL    NOT NULL,
-                    RatedAt   TEXT    NOT NULL,
-                    UNIQUE(ItemId, UserId)
-                );
-                CREATE INDEX IF NOT EXISTS idx_ratings_itemid ON Ratings(ItemId);
-            ";
-            cmd.ExecuteNonQuery();
-        }
+        // ------------------------------------------------------------------ //
+        // Public API
+        // ------------------------------------------------------------------ //
 
-        private SqliteConnection CreateConnection()
-        {
-            var conn = new SqliteConnection($"Data Source={_dbPath}");
-            conn.Open();
-            return conn;
-        }
-
-        /// <summary>
-        /// Returns all ratings for an item plus computed average.
-        /// </summary>
+        /// <summary>Returns the average rating and all individual scores for an item.</summary>
         public async Task<RatingsResponse> GetRatingsAsync(string itemId)
         {
-            var ratings = new List<UserRatingDto>();
-
-            using var conn = CreateConnection();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = @"
-                SELECT UserId, UserName, Stars, RatedAt
-                FROM   Ratings
-                WHERE  ItemId = @itemId
-                ORDER  BY RatedAt DESC
-            ";
-            cmd.Parameters.AddWithValue("@itemId", itemId);
-
-            using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
-            while (await reader.ReadAsync().ConfigureAwait(false))
+            await _lock.WaitAsync().ConfigureAwait(false);
+            try
             {
-                ratings.Add(new UserRatingDto
-                {
-                    UserId   = reader.GetString(0),
-                    UserName = reader.GetString(1),
-                    Stars    = reader.GetDouble(2),
-                    RatedAt  = DateTime.Parse(reader.GetString(3))
-                });
+                var ratings = GetItemRatings(itemId);
+                return BuildResponse(itemId, ratings);
             }
+            finally { _lock.Release(); }
+        }
 
+        /// <summary>Inserts or replaces a user's rating for an item.</summary>
+        public async Task SaveRatingAsync(string itemId, string userId, string userName, double stars)
+        {
+            await _lock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                var ratings = GetItemRatings(itemId);
+                var existing = ratings.FirstOrDefault(r => r.UserId == userId);
+                if (existing != null) ratings.Remove(existing);
+
+                ratings.Add(new StoredRating
+                {
+                    UserId   = userId,
+                    UserName = userName,
+                    Stars    = stars,
+                    RatedAt  = DateTime.UtcNow
+                });
+
+                _store.Ratings[itemId] = ratings;
+                await SaveAsync().ConfigureAwait(false);
+            }
+            finally { _lock.Release(); }
+        }
+
+        /// <summary>Removes a user's rating for an item.</summary>
+        public async Task DeleteRatingAsync(string itemId, string userId)
+        {
+            await _lock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                var ratings = GetItemRatings(itemId);
+                ratings.RemoveAll(r => r.UserId == userId);
+
+                if (ratings.Count == 0)
+                    _store.Ratings.Remove(itemId);
+                else
+                    _store.Ratings[itemId] = ratings;
+
+                await SaveAsync().ConfigureAwait(false);
+            }
+            finally { _lock.Release(); }
+        }
+
+        /// <summary>Server-wide statistics.</summary>
+        public (int TotalItems, int TotalRatings) GetStats()
+        {
+            _lock.Wait();
+            try
+            {
+                var totalItems   = _store.Ratings.Count;
+                var totalRatings = _store.Ratings.Values.Sum(v => v.Count);
+                return (totalItems, totalRatings);
+            }
+            finally { _lock.Release(); }
+        }
+
+        // ------------------------------------------------------------------ //
+        // Private helpers
+        // ------------------------------------------------------------------ //
+
+        private List<StoredRating> GetItemRatings(string itemId)
+        {
+            return _store.Ratings.TryGetValue(itemId, out var list)
+                ? list
+                : new List<StoredRating>();
+        }
+
+        private static RatingsResponse BuildResponse(string itemId, List<StoredRating> ratings)
+        {
             var avg = ratings.Count > 0
                 ? Math.Round(ratings.Average(r => r.Stars), 1)
                 : 0.0;
@@ -91,68 +132,57 @@ namespace Jellyfin.Plugin.InternalRating.Data
                 AverageRating = avg,
                 TotalRatings  = ratings.Count,
                 UserRatings   = ratings
+                    .OrderByDescending(r => r.RatedAt)
+                    .Select(r => new UserRatingDto
+                    {
+                        UserId   = r.UserId,
+                        UserName = r.UserName,
+                        Stars    = r.Stars,
+                        RatedAt  = r.RatedAt
+                    })
+                    .ToList()
             };
         }
 
-        /// <summary>
-        /// Inserts or updates a user's rating for an item.
-        /// </summary>
-        public async Task SaveRatingAsync(string itemId, string userId, string userName, double stars)
+        private void Load()
         {
-            using var conn = CreateConnection();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = @"
-                INSERT INTO Ratings (ItemId, UserId, UserName, Stars, RatedAt)
-                VALUES (@itemId, @userId, @userName, @stars, @ratedAt)
-                ON CONFLICT(ItemId, UserId) DO UPDATE SET
-                    Stars    = excluded.Stars,
-                    UserName = excluded.UserName,
-                    RatedAt  = excluded.RatedAt
-            ";
-            cmd.Parameters.AddWithValue("@itemId",   itemId);
-            cmd.Parameters.AddWithValue("@userId",   userId);
-            cmd.Parameters.AddWithValue("@userName", userName);
-            cmd.Parameters.AddWithValue("@stars",    stars);
-            cmd.Parameters.AddWithValue("@ratedAt",  DateTime.UtcNow.ToString("O"));
-
-            await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
-        }
-
-        /// <summary>
-        /// Removes a user's rating for an item.
-        /// </summary>
-        public async Task DeleteRatingAsync(string itemId, string userId)
-        {
-            using var conn = CreateConnection();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = "DELETE FROM Ratings WHERE ItemId = @itemId AND UserId = @userId";
-            cmd.Parameters.AddWithValue("@itemId", itemId);
-            cmd.Parameters.AddWithValue("@userId", userId);
-
-            await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
-        }
-
-        /// <summary>
-        /// Returns total number of rated items and total ratings across the server.
-        /// </summary>
-        public (int TotalItems, int TotalRatings) GetStats()
-        {
-            using var conn = CreateConnection();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT COUNT(DISTINCT ItemId), COUNT(*) FROM Ratings";
-            using var reader = cmd.ExecuteReader();
-            if (reader.Read())
-                return (reader.GetInt32(0), reader.GetInt32(1));
-            return (0, 0);
-        }
-
-        public void Dispose()
-        {
-            if (!_disposed)
+            if (!File.Exists(_filePath)) return;
+            try
             {
-                _disposed = true;
-                GC.SuppressFinalize(this);
+                var json = File.ReadAllText(_filePath);
+                _store = JsonSerializer.Deserialize<RatingsStore>(json, _jsonOptions)
+                         ?? new RatingsStore();
             }
+            catch
+            {
+                _store = new RatingsStore();
+            }
+        }
+
+        private async Task SaveAsync()
+        {
+            var json = JsonSerializer.Serialize(_store, _jsonOptions);
+            await File.WriteAllTextAsync(_filePath, json).ConfigureAwait(false);
+        }
+
+        public void Dispose() => _lock.Dispose();
+
+        // ------------------------------------------------------------------ //
+        // Internal storage models (not exposed via API)
+        // ------------------------------------------------------------------ //
+
+        private sealed class RatingsStore
+        {
+            [JsonPropertyName("ratings")]
+            public Dictionary<string, List<StoredRating>> Ratings { get; set; } = new();
+        }
+
+        private sealed class StoredRating
+        {
+            [JsonPropertyName("userId")]   public string UserId   { get; set; } = string.Empty;
+            [JsonPropertyName("userName")] public string UserName { get; set; } = string.Empty;
+            [JsonPropertyName("stars")]    public double Stars    { get; set; }
+            [JsonPropertyName("ratedAt")]  public DateTime RatedAt { get; set; }
         }
     }
 }

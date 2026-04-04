@@ -9,14 +9,13 @@
     <Version>1.0.0.0</Version>
     <Authors>ZL154</Authors>
     <Copyright>Copyright © 2025 ZL154</Copyright>
-    <Description>Internal Rating System plugin for Jellyfin - allows users to rate movies and TV shows with star ratings</Description>
+    <Description>StarTrack – community star ratings for Jellyfin movies and TV shows</Description>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Jellyfin plugin SDK - update version to match your Jellyfin server -->
+    <!-- Single Jellyfin SDK package – no extra runtime dependencies needed -->
     <PackageReference Include="Jellyfin.Controller" Version="10.9.0" />
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>
