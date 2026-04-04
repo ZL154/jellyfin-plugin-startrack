@@ -116,7 +116,8 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         public IActionResult GetDebug()
         {
             var sb = new StringBuilder();
-            sb.AppendLine("StarTrack v1.0.2 — Diagnostic Report");
+            var version = GetType().Assembly.GetName().Version?.ToString() ?? "unknown";
+            sb.AppendLine($"StarTrack v{version} — Diagnostic Report");
             sb.AppendLine("======================================");
             sb.AppendLine($"Plugin loaded         : YES");
             sb.AppendLine($"WebPath               : {WebInjectionService.DiagWebPath}");

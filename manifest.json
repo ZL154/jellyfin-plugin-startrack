@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/ZL154/jellyfin-plugin-startrack/main/assets/logo.svg",
     "versions": [
       {
+        "version": "1.0.4.0",
+        "changelog": "Fix: TransformationPatches.SetContents now wraps the modified HTML in a JValue before assigning it back to the JObject payload, fixing the silent ArgumentException that prevented File Transformation from injecting the script tag. Also: debug report now shows the real assembly version instead of hardcoded string.",
+        "targetAbi": "10.9.0.0",
+        "sourceUrl": "https://github.com/ZL154/jellyfin-plugin-startrack/releases/download/v1.0.4/Jellyfin.Plugin.InternalRating_1.0.4.0.zip",
+        "checksum": "5e1722899b8195afa8a317351f04cfd3",
+        "timestamp": "2026-04-04T00:00:00Z"
+      },
+      {
         "version": "1.0.3.0",
         "changelog": "Fix: File Transformation now receives a proper JObject payload (built via reflection from the already-loaded Newtonsoft.Json assembly) instead of a POCO that caused a cast exception. This is the root cause of the widget not appearing when index.html is read-only.",
         "targetAbi": "10.9.0.0",

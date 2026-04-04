@@ -65,6 +65,7 @@ namespace Jellyfin.Plugin.InternalRating
         {
             var type = payload.GetType();
 
+            // Plain POCO property
             var prop = type.GetProperty("contents", BindingFlags.Public | BindingFlags.Instance)
                     ?? type.GetProperty("Contents", BindingFlags.Public | BindingFlags.Instance);
             if (prop != null && prop.CanWrite)
@@ -73,10 +74,28 @@ namespace Jellyfin.Plugin.InternalRating
                 return;
             }
 
+            // JObject indexer — the setter expects a JToken, NOT a plain string.
+            // Passing a raw string via reflection throws ArgumentException (silently swallowed).
+            // Fix: wrap the string in a JValue first, using reflection against the already-loaded assembly.
             var indexer = type.GetProperty("Item",
                 BindingFlags.Public | BindingFlags.Instance,
                 null, null, new[] { typeof(string) }, null);
-            indexer?.SetValue(payload, value, new object[] { "contents" });
+            if (indexer == null) return;
+
+            object tokenValue = value; // fallback (may fail, but worth trying)
+            try
+            {
+                var jValueType = type.Assembly.GetType("Newtonsoft.Json.Linq.JValue");
+                if (jValueType != null)
+                {
+                    var ctor = jValueType.GetConstructor(new[] { typeof(string) });
+                    if (ctor != null)
+                        tokenValue = ctor.Invoke(new object[] { value });
+                }
+            }
+            catch { /* keep plain string fallback */ }
+
+            indexer.SetValue(payload, tokenValue, new object[] { "contents" });
         }
     }
 }
