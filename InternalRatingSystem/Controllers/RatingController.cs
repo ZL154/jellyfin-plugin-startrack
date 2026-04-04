@@ -112,6 +112,20 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             return File(stream, "application/javascript; charset=utf-8");
         }
 
+        /// <summary>Returns all ratings submitted by the current user, newest first.</summary>
+        // GET /Plugins/StarTrack/MyRatings?limit=1000
+        [HttpGet("MyRatings")]
+        [ProducesResponseType(typeof(List<UserRatingEntry>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<List<UserRatingEntry>>> GetMyRatings([FromQuery] int limit = 10000)
+        {
+            var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
+            if (userId == null) return Unauthorized();
+            if (limit < 1) limit = 1;
+            if (limit > 10000) limit = 10000;
+            var result = await _repository.GetUserRatingsAsync(userId.Value.ToString("N"), limit).ConfigureAwait(false);
+            return Ok(result);
+        }
+
         /// <summary>Returns the most recently submitted ratings across all items.</summary>
         // GET /Plugins/StarTrack/Recent?limit=20
         [HttpGet("Recent")]

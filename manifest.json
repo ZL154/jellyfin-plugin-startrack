@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/ZL154/jellyfin-plugin-startrack/main/assets/logo.svg",
     "versions": [
       {
+        "version": "1.0.13.0",
+        "changelog": "New: personal ratings library overlay — click 'My Ratings' in the sidebar to open a full-screen Letterboxd-style grid of everything you've rated with 10 sort options (newest/oldest rated, film year ↑↓, your rating ↑↓, avg rating ↑↓, length ↑↓). New: 'My Ratings' sidebar link injected into the Jellyfin nav. Fix: recent ratings pill on home screen now shows only your own ratings instead of all users.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/ZL154/jellyfin-plugin-startrack/releases/download/v1.0.13/Jellyfin.Plugin.InternalRating_1.0.13.0.zip",
+        "checksum": "23e0e7139860de8cfca1831b368a6482",
+        "timestamp": "2026-04-04T00:00:00Z"
+      },
+      {
         "version": "1.0.12.0",
         "changelog": "New: text reviews — add an optional written review when submitting a star rating. Click a username in the ratings list to expand their review. New: recent ratings panel — when browsing the home screen or library (no item selected), the widget shows a live feed of the latest ratings across all users with item names and review previews. Fix: page badge now injects on its own row above the IMDb/MDBList badges instead of colliding inline.",
         "targetAbi": "10.11.0.0",

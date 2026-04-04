@@ -53,6 +53,29 @@ namespace Jellyfin.Plugin.InternalRating.Data
             finally { _lock.Release(); }
         }
 
+        /// <summary>Returns all ratings submitted by a specific user, newest first.</summary>
+        public async Task<List<UserRatingEntry>> GetUserRatingsAsync(string userId, int limit = 10000)
+        {
+            await _lock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                return _store.Ratings
+                    .SelectMany(kv => kv.Value
+                        .Where(r => r.UserId == userId)
+                        .Select(r => new UserRatingEntry
+                        {
+                            ItemId  = kv.Key,
+                            Stars   = r.Stars,
+                            Review  = r.Review,
+                            RatedAt = r.RatedAt
+                        }))
+                    .OrderByDescending(x => x.RatedAt)
+                    .Take(limit)
+                    .ToList();
+            }
+            finally { _lock.Release(); }
+        }
+
         /// <summary>Returns the most-recently submitted ratings across all items.</summary>
         public async Task<List<RecentRatingDto>> GetRecentAsync(int limit = 20)
         {

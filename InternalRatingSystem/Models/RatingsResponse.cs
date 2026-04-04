@@ -39,6 +39,22 @@ namespace Jellyfin.Plugin.InternalRating.Models
         public DateTime RatedAt { get; set; }
     }
 
+    /// <summary>A single rating entry belonging to the current user (for MyRatings / recent panels).</summary>
+    public class UserRatingEntry
+    {
+        [JsonPropertyName("itemId")]
+        public string ItemId { get; set; } = string.Empty;
+
+        [JsonPropertyName("stars")]
+        public double Stars { get; set; }
+
+        [JsonPropertyName("review")]
+        public string? Review { get; set; }
+
+        [JsonPropertyName("ratedAt")]
+        public DateTime RatedAt { get; set; }
+    }
+
     /// <summary>A single entry in the recent-activity feed.</summary>
     public class RecentRatingDto
     {
