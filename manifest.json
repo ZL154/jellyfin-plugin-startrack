@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/ZL154/jellyfin-plugin-startrack/main/assets/logo.svg",
     "versions": [
       {
+        "version": "1.0.15.0",
+        "changelog": "Fix: sidebar 'My Ratings' link now injects by finding the navMenuSection parent container directly — works with all Jellyfin sidebar customisations including KefinTweaks. Redesign: My Ratings cards are now Letterboxd-style poster-only with gradient overlay, stars badge, and a play-arrow reveal on hover. Topbar separated from scroll area for cleaner layout.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/ZL154/jellyfin-plugin-startrack/releases/download/v1.0.15/Jellyfin.Plugin.InternalRating_1.0.15.0.zip",
+        "checksum": "818ad8291184096f3f184efb3c4fb5bd",
+        "timestamp": "2026-04-05T00:00:00Z"
+      },
+      {
         "version": "1.0.14.0",
         "changelog": "Fix: sidebar 'My Ratings' link now injects reliably using broader nav selectors and inserts before the User section. Fix: rating pill no longer appears during video playback. New: My Ratings is now a solid-background full page (no see-through). New: tab buttons (All / Movies / TV Shows / Episodes) to filter your library by type. The sort dropdown applies within each tab.",
         "targetAbi": "10.11.0.0",

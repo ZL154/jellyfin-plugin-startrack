@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    console.log('[StarTrack] widget.js loaded — v1.0.14');
+    console.log('[StarTrack] widget.js loaded — v1.0.15');
     init();
 
     // ── Auth ──────────────────────────────────────────────────────────────
@@ -214,33 +214,41 @@
             '#ir-page-badge{display:block!important;margin-bottom:8px!important;background:rgba(10,10,10,.85)!important;border:1px solid rgba(244,196,48,.5)!important;border-radius:4px!important;padding:3px 10px!important;font-size:.82em!important;font-weight:700!important;color:#f4c430!important;cursor:pointer!important;white-space:nowrap!important;line-height:1.6!important;width:fit-content!important}',
             '#ir-page-badge:hover{background:rgba(30,30,30,.95)!important}',
             // Overlay (My Ratings library)
-            '#ir-overlay{position:fixed!important;inset:0!important;z-index:2147483646!important;background:#0d0d0d!important;display:none!important;flex-direction:column!important;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;color:#fff!important}',
+            '#ir-overlay{position:fixed!important;inset:0!important;z-index:2147483646!important;background:#111!important;display:none!important;flex-direction:column!important;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif!important;color:#fff!important}',
             '#ir-overlay.ir-ov-open{display:flex!important}',
-            '.ir-ov-inner{display:flex!important;flex-direction:column!important;height:100%!important;max-width:1400px!important;margin:0 auto!important;width:100%!important;padding:20px 24px!important}',
-            '.ir-ov-header{display:flex!important;align-items:center!important;gap:12px!important;padding-bottom:14px!important;border-bottom:1px solid rgba(255,255,255,.1)!important;margin-bottom:0!important;flex-shrink:0!important;flex-wrap:wrap!important}',
-            '.ir-ov-title{font-size:1.4em!important;font-weight:700!important;color:#f4c430!important;margin:0!important;flex:1!important;min-width:140px!important}',
-            '.ir-ov-count{font-size:.82em!important;color:rgba(255,255,255,.4)!important;white-space:nowrap!important}',
-            '.ir-ov-sort{background:rgba(255,255,255,.08)!important;border:1px solid rgba(255,255,255,.2)!important;color:#fff!important;border-radius:6px!important;padding:7px 12px!important;font-size:.82em!important;cursor:pointer!important;outline:none!important}',
+            '.ir-ov-topbar{background:#161616!important;border-bottom:1px solid rgba(255,255,255,.07)!important;flex-shrink:0!important;padding:0 32px!important}',
+            '.ir-ov-header{display:flex!important;align-items:center!important;gap:14px!important;height:60px!important;flex-wrap:wrap!important}',
+            '.ir-ov-title{font-size:1.15em!important;font-weight:700!important;color:#f4c430!important;margin:0!important;flex:1!important;min-width:120px!important;letter-spacing:-.01em!important}',
+            '.ir-ov-count{font-size:.78em!important;color:rgba(255,255,255,.35)!important;white-space:nowrap!important;background:rgba(255,255,255,.07)!important;padding:3px 10px!important;border-radius:20px!important}',
+            '.ir-ov-sort{background:rgba(255,255,255,.07)!important;border:1px solid rgba(255,255,255,.12)!important;color:#fff!important;border-radius:8px!important;padding:7px 12px!important;font-size:.8em!important;cursor:pointer!important;outline:none!important;transition:background .15s!important}',
+            '.ir-ov-sort:hover{background:rgba(255,255,255,.12)!important}',
             '.ir-ov-sort option{background:#1a1a1a!important;color:#fff!important}',
-            '.ir-ov-close{background:none!important;border:1px solid rgba(255,255,255,.2)!important;color:rgba(255,255,255,.7)!important;border-radius:6px!important;padding:7px 14px!important;font-size:.85em!important;cursor:pointer!important;transition:all .15s!important;white-space:nowrap!important}',
-            '.ir-ov-close:hover{background:rgba(255,255,255,.08)!important;color:#fff!important}',
+            '.ir-ov-close{background:none!important;border:1px solid rgba(255,255,255,.14)!important;color:rgba(255,255,255,.55)!important;border-radius:8px!important;padding:7px 16px!important;font-size:.82em!important;cursor:pointer!important;transition:all .15s!important;white-space:nowrap!important}',
+            '.ir-ov-close:hover{border-color:rgba(255,255,255,.35)!important;color:#fff!important}',
             // Tab bar
-            '.ir-ov-tabs{display:flex!important;gap:6px!important;padding:14px 0 0!important;flex-shrink:0!important;border-bottom:1px solid rgba(255,255,255,.1)!important;margin-bottom:18px!important}',
-            '.ir-ov-tab{background:none!important;border:none!important;border-bottom:2px solid transparent!important;color:rgba(255,255,255,.45)!important;font-size:.88em!important;font-weight:600!important;padding:8px 16px!important;cursor:pointer!important;transition:color .15s,border-color .15s!important;margin-bottom:-1px!important;white-space:nowrap!important}',
-            '.ir-ov-tab:hover{color:rgba(255,255,255,.8)!important}',
+            '.ir-ov-tabs{display:flex!important;gap:0!important;padding:0!important;flex-shrink:0!important;margin-top:0!important}',
+            '.ir-ov-tab{background:none!important;border:none!important;border-bottom:2px solid transparent!important;color:rgba(255,255,255,.4)!important;font-size:.82em!important;font-weight:600!important;padding:12px 20px!important;cursor:pointer!important;transition:color .15s,border-color .15s!important;margin-bottom:0!important;white-space:nowrap!important;letter-spacing:.02em!important;text-transform:uppercase!important}',
+            '.ir-ov-tab:hover{color:rgba(255,255,255,.75)!important}',
             '.ir-ov-tab.ir-ov-tab-active{color:#f4c430!important;border-bottom-color:#f4c430!important}',
-            '.ir-ov-body{flex:1!important;overflow-y:auto!important;scrollbar-width:thin!important}',
-            '.ir-ov-loading{text-align:center!important;color:rgba(255,255,255,.4)!important;padding:60px 0!important;font-size:.95em!important}',
-            '.ir-ov-empty{text-align:center!important;color:rgba(255,255,255,.35)!important;padding:60px 0!important;font-size:.95em!important}',
-            '.ir-ov-grid{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))!important;gap:14px!important;padding-bottom:32px!important}',
-            '.ir-ov-card{background:rgba(255,255,255,.04)!important;border-radius:8px!important;overflow:hidden!important;cursor:pointer!important;transition:transform .15s,background .15s!important;border:1px solid rgba(255,255,255,.07)!important}',
-            '.ir-ov-card:hover{transform:translateY(-3px)!important;background:rgba(255,255,255,.08)!important}',
-            '.ir-ov-poster{width:100%!important;aspect-ratio:2/3!important;object-fit:cover!important;display:block!important;background:rgba(255,255,255,.06)!important}',
-            '.ir-ov-card-body{padding:8px!important}',
-            '.ir-ov-card-name{font-weight:600!important;font-size:.82em!important;color:#fff!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;margin-bottom:3px!important}',
-            '.ir-ov-card-meta{font-size:.7em!important;color:rgba(255,255,255,.4)!important;margin-bottom:4px!important}',
-            '.ir-ov-card-stars{font-size:.85em!important;color:#f4c430!important;font-weight:700!important}',
-            '.ir-ov-card-rev{font-size:.7em!important;color:rgba(255,255,255,.35)!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;font-style:italic!important;margin-top:3px!important}',
+            '.ir-ov-inner{display:flex!important;flex-direction:column!important;flex:1!important;overflow:hidden!important;padding:28px 32px!important}',
+            '.ir-ov-body{flex:1!important;overflow-y:auto!important;scrollbar-width:thin!important;scrollbar-color:rgba(255,255,255,.15) transparent!important}',
+            '.ir-ov-loading{text-align:center!important;color:rgba(255,255,255,.35)!important;padding:80px 0!important;font-size:.9em!important;letter-spacing:.04em!important}',
+            '.ir-ov-empty{text-align:center!important;color:rgba(255,255,255,.3)!important;padding:80px 0!important;font-size:.9em!important}',
+            '.ir-ov-grid{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(160px,1fr))!important;gap:16px!important;padding-bottom:40px!important}',
+            // Card — poster-only design with gradient overlay (Letterboxd style)
+            '.ir-ov-card{position:relative!important;border-radius:10px!important;overflow:hidden!important;cursor:pointer!important;transition:transform .2s cubic-bezier(.34,1.56,.64,1),box-shadow .2s!important;box-shadow:0 2px 12px rgba(0,0,0,.5)!important;aspect-ratio:2/3!important;background:#1a1a1a!important}',
+            '.ir-ov-card:hover{transform:translateY(-5px) scale(1.02)!important;box-shadow:0 12px 36px rgba(0,0,0,.7)!important}',
+            '.ir-ov-card:hover .ir-ov-card-overlay{opacity:1!important}',
+            '.ir-ov-poster{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;object-fit:cover!important;display:block!important}',
+            '.ir-ov-poster-ph{position:absolute!important;inset:0!important;display:flex!important;align-items:center!important;justify-content:center!important;color:rgba(255,255,255,.1)!important;font-size:3em!important}',
+            '.ir-ov-card-gradient{position:absolute!important;inset:0!important;background:linear-gradient(to top,rgba(0,0,0,.92) 0%,rgba(0,0,0,.3) 50%,rgba(0,0,0,0) 100%)!important;pointer-events:none!important}',
+            '.ir-ov-card-overlay{position:absolute!important;inset:0!important;background:rgba(0,0,0,.5)!important;display:flex!important;align-items:center!important;justify-content:center!important;opacity:0!important;transition:opacity .2s!important}',
+            '.ir-ov-card-play{width:44px!important;height:44px!important;border-radius:50%!important;background:rgba(244,196,48,.9)!important;display:flex!important;align-items:center!important;justify-content:center!important;color:#000!important;font-size:1.1em!important;font-weight:900!important}',
+            '.ir-ov-card-info{position:absolute!important;bottom:0!important;left:0!important;right:0!important;padding:10px 10px 8px!important;z-index:1!important}',
+            '.ir-ov-card-stars-badge{display:inline-flex!important;align-items:center!important;gap:3px!important;background:rgba(244,196,48,.18)!important;border:1px solid rgba(244,196,48,.35)!important;border-radius:4px!important;padding:2px 7px!important;font-size:.75em!important;font-weight:700!important;color:#f4c430!important;margin-bottom:5px!important}',
+            '.ir-ov-card-name{font-weight:700!important;font-size:.78em!important;color:#fff!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;line-height:1.3!important;text-shadow:0 1px 4px rgba(0,0,0,.8)!important}',
+            '.ir-ov-card-meta{font-size:.68em!important;color:rgba(255,255,255,.5)!important;margin-top:2px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}',
+            '.ir-ov-card-rev{font-size:.68em!important;color:rgba(255,255,255,.4)!important;margin-top:3px!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;font-style:italic!important}',
             // Sidebar link
             '#ir-nav-link{display:flex!important;align-items:center!important;gap:12px!important;padding:10px 20px!important;cursor:pointer!important;background:none!important;border:none!important;width:100%!important;color:inherit!important;text-decoration:none!important;transition:background .15s!important;font-size:inherit!important}',
             '#ir-nav-link:hover{background:rgba(255,255,255,.07)!important}',
@@ -376,7 +384,7 @@
         _overlay = document.createElement('div');
         _overlay.id = 'ir-overlay';
         _overlay.innerHTML =
-            '<div class="ir-ov-inner">' +
+            '<div class="ir-ov-topbar">' +
                 '<div class="ir-ov-header">' +
                     '<h2 class="ir-ov-title">\u2605 My Ratings</h2>' +
                     '<span class="ir-ov-count"></span>' +
@@ -400,7 +408,9 @@
                     '<button class="ir-ov-tab" data-tab="Series">TV Shows</button>' +
                     '<button class="ir-ov-tab" data-tab="Episode">Episodes</button>' +
                 '</div>' +
-                '<div class="ir-ov-body"><div class="ir-ov-loading">Loading your ratings\u2026</div></div>' +
+            '</div>' +
+            '<div class="ir-ov-inner">' +
+                '<div class="ir-ov-body"><div class="ir-ov-loading">Loading\u2026</div></div>' +
             '</div>';
 
         _overlay.querySelector('.ir-ov-close').addEventListener('click', function () {
@@ -459,7 +469,7 @@
             card.dataset.id = item.itemId;
 
             var posterSrc = item.imageTag
-                ? '/Items/' + item.itemId + '/Images/Primary?fillHeight=300&fillWidth=200&quality=90&tag=' + item.imageTag
+                ? '/Items/' + item.itemId + '/Images/Primary?fillHeight=450&fillWidth=300&quality=90&tag=' + item.imageTag
                 : '';
 
             var metaParts = [];
@@ -470,16 +480,19 @@
             card.innerHTML =
                 (posterSrc
                     ? '<img class="ir-ov-poster" src="' + esc(posterSrc) + '" loading="lazy" alt="">'
-                    : '<div class="ir-ov-poster" style="display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.15);font-size:2em">\u2605</div>') +
-                '<div class="ir-ov-card-body">' +
+                    : '<div class="ir-ov-poster-ph">\u2605</div>') +
+                '<div class="ir-ov-card-gradient"></div>' +
+                '<div class="ir-ov-card-overlay"><div class="ir-ov-card-play">\u25b6</div></div>' +
+                '<div class="ir-ov-card-info">' +
+                    '<div class="ir-ov-card-stars-badge">\u2605 ' + item.stars.toFixed(1) + '</div>' +
                     '<div class="ir-ov-card-name" title="' + esc(item.name) + '">' + esc(item.name) + '</div>' +
-                    '<div class="ir-ov-card-meta">' + esc(metaParts.join(' \u00b7 ')) + '</div>' +
-                    '<div class="ir-ov-card-stars">' + item.stars.toFixed(1) + ' \u2605</div>' +
+                    (metaParts.length ? '<div class="ir-ov-card-meta">' + esc(metaParts.join(' \u00b7 ')) + '</div>' : '') +
                     (item.review ? '<div class="ir-ov-card-rev">' + esc(item.review) + '</div>' : '') +
                 '</div>';
 
             card.addEventListener('click', function () {
                 _overlay.classList.remove('ir-ov-open');
+                document.documentElement.style.overflow = '';
                 window.location.hash = '#!/details?id=' + item.itemId;
             });
 
@@ -535,24 +548,22 @@
     function injectSidebar() {
         if (document.getElementById('ir-nav-link')) return;
 
-        // Try multiple strategies to find the Jellyfin sidebar nav
-        var nav = document.querySelector('.mainDrawer-scrollContainer nav')
-               || document.querySelector('.mainDrawer nav')
-               || document.querySelector('#mainDrawer nav')
-               || document.querySelector('nav.navMenuList')
-               || document.querySelector('[class*="Drawer"] nav')
-               || document.querySelector('[class*="drawer"] nav')
-               || document.querySelector('.scrollContainer nav')
-               || (function () {
-                      // Find any nav that contains home/settings style links
-                      var navs = document.querySelectorAll('nav');
-                      for (var ni = 0; ni < navs.length; ni++) {
-                          var n = navs[ni];
-                          if (n.querySelectorAll('a').length > 2) return n;
-                      }
-                      return null;
-                  })();
-        if (!nav) return;
+        // Strategy: find the parent of any existing navMenuSection elements.
+        // This works regardless of whether the sidebar uses <nav> or a <div>.
+        var existingSections = document.querySelectorAll('.navMenuSection');
+        var container = null;
+        if (existingSections.length) {
+            container = existingSections[0].parentElement;
+        }
+        // Fallback: try known Jellyfin scroll-container selectors
+        if (!container) {
+            container = document.querySelector('.mainDrawer-scrollContainer')
+                     || document.querySelector('.scrollContainer')
+                     || document.querySelector('[class*="scrollContainer"]')
+                     || document.querySelector('.mainDrawer')
+                     || document.querySelector('#mainDrawer');
+        }
+        if (!container) return;
 
         var link = document.createElement('a');
         link.id = 'ir-nav-link';
@@ -569,24 +580,36 @@
         });
 
         var section = document.createElement('div');
+        section.id = 'ir-nav-section';
         section.className = 'navMenuSection';
-        section.innerHTML = '<div class="navSection" style="padding:16px 20px 4px;font-size:.72em;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.4);font-weight:600">StarTrack</div>';
+        section.innerHTML = '<div class="sectionTitle" style="padding:16px 20px 4px;font-size:.72em;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.4);font-weight:600">StarTrack</div>';
         section.appendChild(link);
 
-        // Try to insert before the User section (Settings / Sign Out) for better visibility
+        // Insert before the "User" section (which contains Settings / Sign Out)
         var inserted = false;
-        var allLinks = nav.querySelectorAll('a, button');
-        for (var li = 0; li < allLinks.length; li++) {
-            var txt = allLinks[li].textContent.trim().toLowerCase();
-            if (txt === 'sign out' || txt === 'signout' || txt === 'logout') {
-                var parentSection = allLinks[li].closest('.navMenuSection') || allLinks[li].parentElement;
-                if (parentSection && parentSection.parentElement === nav) {
-                    nav.insertBefore(section, parentSection);
-                    inserted = true; break;
-                }
+        var allSections = container.querySelectorAll('.navMenuSection');
+        for (var si = 0; si < allSections.length; si++) {
+            var header = allSections[si].querySelector('.sectionTitle, .navSection, [class*="header"], [class*="Header"]');
+            var htext = (header ? header.textContent : allSections[si].childNodes[0] && allSections[si].childNodes[0].textContent || '').trim().toLowerCase();
+            if (htext === 'user' || htext === 'account') {
+                container.insertBefore(section, allSections[si]);
+                inserted = true; break;
             }
         }
-        if (!inserted) nav.appendChild(section);
+        // Fallback: insert before the section containing "Sign Out"
+        if (!inserted) {
+            for (var sj = 0; sj < allSections.length; sj++) {
+                var links = allSections[sj].querySelectorAll('a, button');
+                for (var lk = 0; lk < links.length; lk++) {
+                    if (/sign\s*out|log\s*out/i.test(links[lk].textContent)) {
+                        container.insertBefore(section, allSections[sj]);
+                        inserted = true; break;
+                    }
+                }
+                if (inserted) break;
+            }
+        }
+        if (!inserted) container.appendChild(section);
     }
 
     // ── Render: item view ─────────────────────────────────────────────────
