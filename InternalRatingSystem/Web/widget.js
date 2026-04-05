@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    console.log('[StarTrack] widget.js loaded — v1.0.13');
+    console.log('[StarTrack] widget.js loaded — v1.0.14');
     init();
 
     // ── Auth ──────────────────────────────────────────────────────────────
@@ -105,7 +105,8 @@
                         year: item.ProductionYear || 0,
                         runtime: item.RunTimeTicks || 0,
                         communityRating: item.CommunityRating || 0,
-                        imageTag: item.ImageTags && item.ImageTags.Primary ? item.ImageTags.Primary : null
+                        imageTag: item.ImageTags && item.ImageTags.Primary ? item.ImageTags.Primary : null,
+                        type: item.Type || 'Unknown'
                     };
                 });
             });
@@ -213,16 +214,21 @@
             '#ir-page-badge{display:block!important;margin-bottom:8px!important;background:rgba(10,10,10,.85)!important;border:1px solid rgba(244,196,48,.5)!important;border-radius:4px!important;padding:3px 10px!important;font-size:.82em!important;font-weight:700!important;color:#f4c430!important;cursor:pointer!important;white-space:nowrap!important;line-height:1.6!important;width:fit-content!important}',
             '#ir-page-badge:hover{background:rgba(30,30,30,.95)!important}',
             // Overlay (My Ratings library)
-            '#ir-overlay{position:fixed!important;inset:0!important;z-index:2147483646!important;background:rgba(0,0,0,.95)!important;display:none!important;flex-direction:column!important;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important}',
+            '#ir-overlay{position:fixed!important;inset:0!important;z-index:2147483646!important;background:#0d0d0d!important;display:none!important;flex-direction:column!important;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;color:#fff!important}',
             '#ir-overlay.ir-ov-open{display:flex!important}',
             '.ir-ov-inner{display:flex!important;flex-direction:column!important;height:100%!important;max-width:1400px!important;margin:0 auto!important;width:100%!important;padding:20px 24px!important}',
-            '.ir-ov-header{display:flex!important;align-items:center!important;gap:12px!important;padding-bottom:16px!important;border-bottom:1px solid rgba(255,255,255,.1)!important;margin-bottom:20px!important;flex-shrink:0!important;flex-wrap:wrap!important}',
+            '.ir-ov-header{display:flex!important;align-items:center!important;gap:12px!important;padding-bottom:14px!important;border-bottom:1px solid rgba(255,255,255,.1)!important;margin-bottom:0!important;flex-shrink:0!important;flex-wrap:wrap!important}',
             '.ir-ov-title{font-size:1.4em!important;font-weight:700!important;color:#f4c430!important;margin:0!important;flex:1!important;min-width:140px!important}',
             '.ir-ov-count{font-size:.82em!important;color:rgba(255,255,255,.4)!important;white-space:nowrap!important}',
             '.ir-ov-sort{background:rgba(255,255,255,.08)!important;border:1px solid rgba(255,255,255,.2)!important;color:#fff!important;border-radius:6px!important;padding:7px 12px!important;font-size:.82em!important;cursor:pointer!important;outline:none!important}',
             '.ir-ov-sort option{background:#1a1a1a!important;color:#fff!important}',
             '.ir-ov-close{background:none!important;border:1px solid rgba(255,255,255,.2)!important;color:rgba(255,255,255,.7)!important;border-radius:6px!important;padding:7px 14px!important;font-size:.85em!important;cursor:pointer!important;transition:all .15s!important;white-space:nowrap!important}',
             '.ir-ov-close:hover{background:rgba(255,255,255,.08)!important;color:#fff!important}',
+            // Tab bar
+            '.ir-ov-tabs{display:flex!important;gap:6px!important;padding:14px 0 0!important;flex-shrink:0!important;border-bottom:1px solid rgba(255,255,255,.1)!important;margin-bottom:18px!important}',
+            '.ir-ov-tab{background:none!important;border:none!important;border-bottom:2px solid transparent!important;color:rgba(255,255,255,.45)!important;font-size:.88em!important;font-weight:600!important;padding:8px 16px!important;cursor:pointer!important;transition:color .15s,border-color .15s!important;margin-bottom:-1px!important;white-space:nowrap!important}',
+            '.ir-ov-tab:hover{color:rgba(255,255,255,.8)!important}',
+            '.ir-ov-tab.ir-ov-tab-active{color:#f4c430!important;border-bottom-color:#f4c430!important}',
             '.ir-ov-body{flex:1!important;overflow-y:auto!important;scrollbar-width:thin!important}',
             '.ir-ov-loading{text-align:center!important;color:rgba(255,255,255,.4)!important;padding:60px 0!important;font-size:.95em!important}',
             '.ir-ov-empty{text-align:center!important;color:rgba(255,255,255,.35)!important;padding:60px 0!important;font-size:.95em!important}',
@@ -350,6 +356,7 @@
     var _overlay = null;
     var _overlayData = null; // merged array after metadata fetch
     var _sortKey = 'ratedAt-desc';
+    var _activeTab = 'all'; // 'all' | 'Movie' | 'Series' | 'Episode'
 
     var _sortFns = {
         'ratedAt-desc':   function (a, b) { return new Date(b.ratedAt) - new Date(a.ratedAt); },
@@ -387,22 +394,36 @@
                     '</select>' +
                     '<button class="ir-ov-close">\u2715 Close</button>' +
                 '</div>' +
+                '<div class="ir-ov-tabs">' +
+                    '<button class="ir-ov-tab ir-ov-tab-active" data-tab="all">All</button>' +
+                    '<button class="ir-ov-tab" data-tab="Movie">Movies</button>' +
+                    '<button class="ir-ov-tab" data-tab="Series">TV Shows</button>' +
+                    '<button class="ir-ov-tab" data-tab="Episode">Episodes</button>' +
+                '</div>' +
                 '<div class="ir-ov-body"><div class="ir-ov-loading">Loading your ratings\u2026</div></div>' +
             '</div>';
 
         _overlay.querySelector('.ir-ov-close').addEventListener('click', function () {
             _overlay.classList.remove('ir-ov-open');
+            document.documentElement.style.overflow = '';
         });
         _overlay.querySelector('.ir-ov-sort').addEventListener('change', function (e) {
             _sortKey = e.target.value;
             if (_overlayData) renderOverlayGrid();
         });
-        _overlay.addEventListener('click', function (e) {
-            if (e.target === _overlay) _overlay.classList.remove('ir-ov-open');
+        _overlay.querySelectorAll('.ir-ov-tab').forEach(function (tab) {
+            tab.addEventListener('click', function () {
+                _activeTab = tab.dataset.tab;
+                _overlay.querySelectorAll('.ir-ov-tab').forEach(function (t) { t.classList.remove('ir-ov-tab-active'); });
+                tab.classList.add('ir-ov-tab-active');
+                if (_overlayData) renderOverlayGrid();
+            });
         });
         document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape' && _overlay && _overlay.classList.contains('ir-ov-open'))
+            if (e.key === 'Escape' && _overlay && _overlay.classList.contains('ir-ov-open')) {
                 _overlay.classList.remove('ir-ov-open');
+                document.documentElement.style.overflow = '';
+            }
         });
 
         document.body.appendChild(_overlay);
@@ -412,15 +433,23 @@
     function renderOverlayGrid() {
         var body = _overlay.querySelector('.ir-ov-body');
         var countEl = _overlay.querySelector('.ir-ov-count');
-        if (!_overlayData || !_overlayData.length) {
-            body.innerHTML = '<div class="ir-ov-empty">You haven\'t rated anything yet.</div>';
+
+        var source = _overlayData || [];
+        var filtered = _activeTab === 'all'
+            ? source
+            : source.filter(function (i) { return i.type === _activeTab; });
+
+        if (!filtered.length) {
+            body.innerHTML = '<div class="ir-ov-empty">' +
+                (source.length ? 'No ratings in this category yet.' : 'You haven\'t rated anything yet.') +
+                '</div>';
             if (countEl) countEl.textContent = '';
             return;
         }
 
-        if (countEl) countEl.textContent = _overlayData.length + ' title' + (_overlayData.length !== 1 ? 's' : '') + ' rated';
+        if (countEl) countEl.textContent = filtered.length + ' title' + (filtered.length !== 1 ? 's' : '') + ' rated';
 
-        var sorted = _overlayData.slice().sort(_sortFns[_sortKey] || _sortFns['ratedAt-desc']);
+        var sorted = filtered.slice().sort(_sortFns[_sortKey] || _sortFns['ratedAt-desc']);
         var grid = document.createElement('div');
         grid.className = 'ir-ov-grid';
 
@@ -464,7 +493,14 @@
     function openMyRatings() {
         var ov = ensureOverlay();
         _overlay.querySelector('.ir-ov-sort').value = _sortKey;
+        // Reset tabs to 'all'
+        _activeTab = 'all';
+        _overlay.querySelectorAll('.ir-ov-tab').forEach(function (t) { t.classList.remove('ir-ov-tab-active'); });
+        var allTab = _overlay.querySelector('.ir-ov-tab[data-tab="all"]');
+        if (allTab) allTab.classList.add('ir-ov-tab-active');
+
         ov.classList.add('ir-ov-open');
+        document.documentElement.style.overflow = 'hidden';
 
         // Refresh data each open
         var body = ov.querySelector('.ir-ov-body');
@@ -485,7 +521,8 @@
                         year: m.year || 0,
                         runtime: m.runtime || 0,
                         communityRating: m.communityRating || 0,
-                        imageTag: m.imageTag || null
+                        imageTag: m.imageTag || null,
+                        type: m.type || 'Unknown'
                     };
                 });
                 renderOverlayGrid();
@@ -497,32 +534,59 @@
 
     function injectSidebar() {
         if (document.getElementById('ir-nav-link')) return;
+
+        // Try multiple strategies to find the Jellyfin sidebar nav
         var nav = document.querySelector('.mainDrawer-scrollContainer nav')
                || document.querySelector('.mainDrawer nav')
                || document.querySelector('#mainDrawer nav')
                || document.querySelector('nav.navMenuList')
-               || document.querySelector('[class*="Drawer"] nav');
+               || document.querySelector('[class*="Drawer"] nav')
+               || document.querySelector('[class*="drawer"] nav')
+               || document.querySelector('.scrollContainer nav')
+               || (function () {
+                      // Find any nav that contains home/settings style links
+                      var navs = document.querySelectorAll('nav');
+                      for (var ni = 0; ni < navs.length; ni++) {
+                          var n = navs[ni];
+                          if (n.querySelectorAll('a').length > 2) return n;
+                      }
+                      return null;
+                  })();
         if (!nav) return;
-
-        var section = document.createElement('div');
-        section.className = 'navMenuSection';
-        section.innerHTML =
-            '<div class="navSection" style="padding:16px 20px 4px;font-size:.72em;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.4);font-weight:600">StarTrack</div>';
 
         var link = document.createElement('a');
         link.id = 'ir-nav-link';
-        link.href = '#';
+        link.href = 'javascript:void(0)';
         link.className = 'navMenuOption emby-button';
+        link.setAttribute('role', 'menuitem');
         link.innerHTML =
             '<span class="ir-nav-icon">\u2605</span>' +
             '<span class="ir-nav-text">My Ratings</span>';
         link.addEventListener('click', function (e) {
             e.preventDefault();
+            e.stopPropagation();
             openMyRatings();
         });
 
+        var section = document.createElement('div');
+        section.className = 'navMenuSection';
+        section.innerHTML = '<div class="navSection" style="padding:16px 20px 4px;font-size:.72em;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.4);font-weight:600">StarTrack</div>';
         section.appendChild(link);
-        nav.appendChild(section);
+
+        // Try to insert before the User section (Settings / Sign Out) for better visibility
+        var inserted = false;
+        var allLinks = nav.querySelectorAll('a, button');
+        for (var li = 0; li < allLinks.length; li++) {
+            var txt = allLinks[li].textContent.trim().toLowerCase();
+            if (txt === 'sign out' || txt === 'signout' || txt === 'logout') {
+                var parentSection = allLinks[li].closest('.navMenuSection') || allLinks[li].parentElement;
+                if (parentSection && parentSection.parentElement === nav) {
+                    nav.insertBefore(section, parentSection);
+                    inserted = true; break;
+                }
+            }
+        }
+        if (!inserted) nav.appendChild(section);
     }
 
     // ── Render: item view ─────────────────────────────────────────────────
@@ -745,10 +809,24 @@
 
     // ── Navigation ────────────────────────────────────────────────────────
 
+    function isVideoPlayerPage() {
+        var hash = window.location.hash;
+        if (/videoosd|nowplaying|\/video\b/i.test(hash)) return true;
+        if (document.getElementById('videoOsdPage')) return true;
+        if (document.querySelector('.videoOsdPage, .videoOsd, .htmlVideoPlayerContainer')) return true;
+        // Heuristic: a playing <video> element exists and has a src
+        var vid = document.querySelector('video');
+        if (vid && vid.readyState >= 2 && !vid.paused) return true;
+        return false;
+    }
+
     var _lastId = '', _lastHash = '';
 
     function checkNav() {
         injectSidebar();
+
+        // Never show rating pill while watching video
+        if (isVideoPlayerPage()) { hide(); return; }
 
         var id    = getItemId();
         var idStr = id || '';
