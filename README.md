@@ -37,16 +37,13 @@ StarTrack adds a **1–5 star community rating system** to your Jellyfin server.
 | 🔀 **10 sort options** | Date rated, film year, your rating, avg rating, runtime — each asc/desc |
 | 🗂️ **Category tabs** | Filter your library by Movies, TV Shows, or Episodes |
 | 🎨 **Theme-compatible** | Works alongside any Jellyfin CSS theme |
-| 📱 **No extensions needed** | Works for every user including mobile — no Tampermonkey required |
-
 ---
 
 ## Requirements
 
 - **Jellyfin 10.11.x** (tested on 10.11.6)
-- No third-party plugins required
 
-StarTrack uses ASP.NET Core middleware to inject its widget at runtime — the server handles everything.
+StarTrack uses ASP.NET Core middleware to inject its widget at runtime.
 
 ---
 
