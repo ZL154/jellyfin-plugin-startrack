@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    console.log('[StarTrack] widget.js loaded — v1.0.15');
+    console.log('[StarTrack] widget.js loaded — v1.0.16');
     init();
 
     // ── Auth ──────────────────────────────────────────────────────────────
@@ -213,42 +213,46 @@
             // Page badge
             '#ir-page-badge{display:block!important;margin-bottom:8px!important;background:rgba(10,10,10,.85)!important;border:1px solid rgba(244,196,48,.5)!important;border-radius:4px!important;padding:3px 10px!important;font-size:.82em!important;font-weight:700!important;color:#f4c430!important;cursor:pointer!important;white-space:nowrap!important;line-height:1.6!important;width:fit-content!important}',
             '#ir-page-badge:hover{background:rgba(30,30,30,.95)!important}',
-            // Overlay (My Ratings library)
-            '#ir-overlay{position:fixed!important;inset:0!important;z-index:2147483646!important;background:#111!important;display:none!important;flex-direction:column!important;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif!important;color:#fff!important}',
+            // ── My Ratings overlay — red/black theme ──────────────────────
+            '#ir-overlay{position:fixed!important;inset:0!important;z-index:2147483646!important;background:#080808!important;display:none!important;flex-direction:column!important;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif!important;color:#fff!important}',
             '#ir-overlay.ir-ov-open{display:flex!important}',
-            '.ir-ov-topbar{background:#161616!important;border-bottom:1px solid rgba(255,255,255,.07)!important;flex-shrink:0!important;padding:0 32px!important}',
-            '.ir-ov-header{display:flex!important;align-items:center!important;gap:14px!important;height:60px!important;flex-wrap:wrap!important}',
-            '.ir-ov-title{font-size:1.15em!important;font-weight:700!important;color:#f4c430!important;margin:0!important;flex:1!important;min-width:120px!important;letter-spacing:-.01em!important}',
-            '.ir-ov-count{font-size:.78em!important;color:rgba(255,255,255,.35)!important;white-space:nowrap!important;background:rgba(255,255,255,.07)!important;padding:3px 10px!important;border-radius:20px!important}',
-            '.ir-ov-sort{background:rgba(255,255,255,.07)!important;border:1px solid rgba(255,255,255,.12)!important;color:#fff!important;border-radius:8px!important;padding:7px 12px!important;font-size:.8em!important;cursor:pointer!important;outline:none!important;transition:background .15s!important}',
-            '.ir-ov-sort:hover{background:rgba(255,255,255,.12)!important}',
-            '.ir-ov-sort option{background:#1a1a1a!important;color:#fff!important}',
-            '.ir-ov-close{background:none!important;border:1px solid rgba(255,255,255,.14)!important;color:rgba(255,255,255,.55)!important;border-radius:8px!important;padding:7px 16px!important;font-size:.82em!important;cursor:pointer!important;transition:all .15s!important;white-space:nowrap!important}',
-            '.ir-ov-close:hover{border-color:rgba(255,255,255,.35)!important;color:#fff!important}',
-            // Tab bar
-            '.ir-ov-tabs{display:flex!important;gap:0!important;padding:0!important;flex-shrink:0!important;margin-top:0!important}',
-            '.ir-ov-tab{background:none!important;border:none!important;border-bottom:2px solid transparent!important;color:rgba(255,255,255,.4)!important;font-size:.82em!important;font-weight:600!important;padding:12px 20px!important;cursor:pointer!important;transition:color .15s,border-color .15s!important;margin-bottom:0!important;white-space:nowrap!important;letter-spacing:.02em!important;text-transform:uppercase!important}',
-            '.ir-ov-tab:hover{color:rgba(255,255,255,.75)!important}',
-            '.ir-ov-tab.ir-ov-tab-active{color:#f4c430!important;border-bottom-color:#f4c430!important}',
-            '.ir-ov-inner{display:flex!important;flex-direction:column!important;flex:1!important;overflow:hidden!important;padding:28px 32px!important}',
-            '.ir-ov-body{flex:1!important;overflow-y:auto!important;scrollbar-width:thin!important;scrollbar-color:rgba(255,255,255,.15) transparent!important}',
-            '.ir-ov-loading{text-align:center!important;color:rgba(255,255,255,.35)!important;padding:80px 0!important;font-size:.9em!important;letter-spacing:.04em!important}',
-            '.ir-ov-empty{text-align:center!important;color:rgba(255,255,255,.3)!important;padding:80px 0!important;font-size:.9em!important}',
-            '.ir-ov-grid{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(160px,1fr))!important;gap:16px!important;padding-bottom:40px!important}',
-            // Card — poster-only design with gradient overlay (Letterboxd style)
-            '.ir-ov-card{position:relative!important;border-radius:10px!important;overflow:hidden!important;cursor:pointer!important;transition:transform .2s cubic-bezier(.34,1.56,.64,1),box-shadow .2s!important;box-shadow:0 2px 12px rgba(0,0,0,.5)!important;aspect-ratio:2/3!important;background:#1a1a1a!important}',
-            '.ir-ov-card:hover{transform:translateY(-5px) scale(1.02)!important;box-shadow:0 12px 36px rgba(0,0,0,.7)!important}',
+            // Sticky topbar
+            '.ir-ov-topbar{background:#0e0e0e!important;border-bottom:2px solid #b81c1c!important;flex-shrink:0!important;padding:0 36px!important}',
+            '.ir-ov-header{display:flex!important;align-items:center!important;gap:16px!important;height:64px!important;flex-wrap:wrap!important}',
+            '.ir-ov-title{font-size:1.2em!important;font-weight:800!important;color:#fff!important;margin:0!important;flex:1!important;min-width:120px!important;letter-spacing:-.02em!important}',
+            '.ir-ov-title-star{color:#cc2020!important;margin-right:6px!important}',
+            '.ir-ov-count{font-size:.75em!important;color:rgba(255,255,255,.4)!important;white-space:nowrap!important;background:rgba(255,255,255,.06)!important;border:1px solid rgba(255,255,255,.1)!important;padding:4px 12px!important;border-radius:20px!important;font-weight:500!important}',
+            '.ir-ov-sort{background:#1a1a1a!important;border:1px solid rgba(255,255,255,.12)!important;color:#fff!important;border-radius:8px!important;padding:8px 14px!important;font-size:.8em!important;cursor:pointer!important;outline:none!important;transition:border-color .15s!important}',
+            '.ir-ov-sort:hover{border-color:rgba(200,30,30,.6)!important}',
+            '.ir-ov-sort:focus{border-color:#cc2020!important}',
+            '.ir-ov-sort option{background:#141414!important;color:#fff!important}',
+            '.ir-ov-close{background:none!important;border:1px solid rgba(200,30,30,.4)!important;color:rgba(220,100,100,.8)!important;border-radius:8px!important;padding:8px 18px!important;font-size:.8em!important;font-weight:600!important;cursor:pointer!important;transition:all .15s!important;white-space:nowrap!important;letter-spacing:.02em!important}',
+            '.ir-ov-close:hover{background:rgba(180,20,20,.15)!important;border-color:#cc2020!important;color:#ff8080!important}',
+            // Tab bar — boxed pill buttons
+            '.ir-ov-tabs{display:flex!important;gap:10px!important;padding:14px 0!important;flex-shrink:0!important}',
+            '.ir-ov-tab{background:#161616!important;border:1px solid rgba(255,255,255,.1)!important;border-radius:8px!important;color:rgba(255,255,255,.45)!important;font-size:.78em!important;font-weight:700!important;padding:9px 22px!important;cursor:pointer!important;transition:all .15s!important;white-space:nowrap!important;letter-spacing:.05em!important;text-transform:uppercase!important}',
+            '.ir-ov-tab:hover{border-color:rgba(200,30,30,.5)!important;color:rgba(255,255,255,.8)!important;background:#1e1010!important}',
+            '.ir-ov-tab.ir-ov-tab-active{background:#cc2020!important;border-color:#cc2020!important;color:#fff!important;box-shadow:0 0 16px rgba(200,30,30,.4)!important}',
+            // Scroll area
+            '.ir-ov-inner{display:flex!important;flex-direction:column!important;flex:1!important;overflow:hidden!important;padding:32px 36px!important}',
+            '.ir-ov-body{flex:1!important;overflow-y:auto!important;scrollbar-width:thin!important;scrollbar-color:rgba(200,30,30,.3) transparent!important}',
+            '.ir-ov-loading{text-align:center!important;color:rgba(255,255,255,.3)!important;padding:80px 0!important;font-size:.9em!important;letter-spacing:.06em!important;text-transform:uppercase!important}',
+            '.ir-ov-empty{text-align:center!important;color:rgba(255,255,255,.25)!important;padding:80px 0!important;font-size:.9em!important;letter-spacing:.04em!important}',
+            '.ir-ov-grid{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(165px,1fr))!important;gap:20px!important;padding-bottom:48px!important}',
+            // Card — full-poster with gradient + info overlay
+            '.ir-ov-card{position:relative!important;border-radius:10px!important;overflow:hidden!important;cursor:pointer!important;transition:transform .2s cubic-bezier(.34,1.56,.64,1),box-shadow .2s!important;box-shadow:0 4px 16px rgba(0,0,0,.6)!important;aspect-ratio:2/3!important;background:#141414!important;border:1px solid rgba(255,255,255,.06)!important}',
+            '.ir-ov-card:hover{transform:translateY(-6px) scale(1.03)!important;box-shadow:0 16px 40px rgba(0,0,0,.8),0 0 0 1px rgba(200,30,30,.4)!important}',
             '.ir-ov-card:hover .ir-ov-card-overlay{opacity:1!important}',
             '.ir-ov-poster{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;object-fit:cover!important;display:block!important}',
-            '.ir-ov-poster-ph{position:absolute!important;inset:0!important;display:flex!important;align-items:center!important;justify-content:center!important;color:rgba(255,255,255,.1)!important;font-size:3em!important}',
-            '.ir-ov-card-gradient{position:absolute!important;inset:0!important;background:linear-gradient(to top,rgba(0,0,0,.92) 0%,rgba(0,0,0,.3) 50%,rgba(0,0,0,0) 100%)!important;pointer-events:none!important}',
-            '.ir-ov-card-overlay{position:absolute!important;inset:0!important;background:rgba(0,0,0,.5)!important;display:flex!important;align-items:center!important;justify-content:center!important;opacity:0!important;transition:opacity .2s!important}',
-            '.ir-ov-card-play{width:44px!important;height:44px!important;border-radius:50%!important;background:rgba(244,196,48,.9)!important;display:flex!important;align-items:center!important;justify-content:center!important;color:#000!important;font-size:1.1em!important;font-weight:900!important}',
-            '.ir-ov-card-info{position:absolute!important;bottom:0!important;left:0!important;right:0!important;padding:10px 10px 8px!important;z-index:1!important}',
-            '.ir-ov-card-stars-badge{display:inline-flex!important;align-items:center!important;gap:3px!important;background:rgba(244,196,48,.18)!important;border:1px solid rgba(244,196,48,.35)!important;border-radius:4px!important;padding:2px 7px!important;font-size:.75em!important;font-weight:700!important;color:#f4c430!important;margin-bottom:5px!important}',
-            '.ir-ov-card-name{font-weight:700!important;font-size:.78em!important;color:#fff!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;line-height:1.3!important;text-shadow:0 1px 4px rgba(0,0,0,.8)!important}',
-            '.ir-ov-card-meta{font-size:.68em!important;color:rgba(255,255,255,.5)!important;margin-top:2px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}',
-            '.ir-ov-card-rev{font-size:.68em!important;color:rgba(255,255,255,.4)!important;margin-top:3px!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;font-style:italic!important}',
+            '.ir-ov-poster-ph{position:absolute!important;inset:0!important;display:flex!important;align-items:center!important;justify-content:center!important;color:rgba(255,255,255,.08)!important;font-size:3.5em!important}',
+            '.ir-ov-card-gradient{position:absolute!important;inset:0!important;background:linear-gradient(to top,rgba(0,0,0,.96) 0%,rgba(0,0,0,.4) 45%,rgba(0,0,0,.0) 100%)!important;pointer-events:none!important}',
+            '.ir-ov-card-overlay{position:absolute!important;inset:0!important;background:rgba(0,0,0,.45)!important;display:flex!important;align-items:center!important;justify-content:center!important;opacity:0!important;transition:opacity .18s!important}',
+            '.ir-ov-card-play{width:46px!important;height:46px!important;border-radius:50%!important;background:#cc2020!important;display:flex!important;align-items:center!important;justify-content:center!important;color:#fff!important;font-size:1em!important;box-shadow:0 0 20px rgba(200,30,30,.6)!important}',
+            '.ir-ov-card-info{position:absolute!important;bottom:0!important;left:0!important;right:0!important;padding:12px 10px 10px!important;z-index:1!important}',
+            '.ir-ov-card-stars-badge{display:inline-flex!important;align-items:center!important;gap:3px!important;background:rgba(204,32,32,.25)!important;border:1px solid rgba(204,32,32,.5)!important;border-radius:5px!important;padding:2px 8px!important;font-size:.73em!important;font-weight:800!important;color:#ff8080!important;margin-bottom:6px!important;letter-spacing:.02em!important}',
+            '.ir-ov-card-name{font-weight:700!important;font-size:.8em!important;color:#fff!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;line-height:1.3!important;text-shadow:0 1px 6px rgba(0,0,0,.9)!important}',
+            '.ir-ov-card-meta{font-size:.68em!important;color:rgba(255,255,255,.45)!important;margin-top:3px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}',
+            '.ir-ov-card-rev{font-size:.67em!important;color:rgba(255,255,255,.38)!important;margin-top:3px!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;font-style:italic!important}',
             // Sidebar link
             '#ir-nav-link{display:flex!important;align-items:center!important;gap:12px!important;padding:10px 20px!important;cursor:pointer!important;background:none!important;border:none!important;width:100%!important;color:inherit!important;text-decoration:none!important;transition:background .15s!important;font-size:inherit!important}',
             '#ir-nav-link:hover{background:rgba(255,255,255,.07)!important}',
@@ -386,7 +390,7 @@
         _overlay.innerHTML =
             '<div class="ir-ov-topbar">' +
                 '<div class="ir-ov-header">' +
-                    '<h2 class="ir-ov-title">\u2605 My Ratings</h2>' +
+                    '<h2 class="ir-ov-title"><span class="ir-ov-title-star">\u2605</span>My Ratings</h2>' +
                     '<span class="ir-ov-count"></span>' +
                     '<select class="ir-ov-sort">' +
                         '<option value="ratedAt-desc">Newest rated</option>' +
@@ -482,7 +486,7 @@
                     ? '<img class="ir-ov-poster" src="' + esc(posterSrc) + '" loading="lazy" alt="">'
                     : '<div class="ir-ov-poster-ph">\u2605</div>') +
                 '<div class="ir-ov-card-gradient"></div>' +
-                '<div class="ir-ov-card-overlay"><div class="ir-ov-card-play">\u25b6</div></div>' +
+                '<div class="ir-ov-card-overlay"><div class="ir-ov-card-play">\u25b6\ufe0e</div></div>' +
                 '<div class="ir-ov-card-info">' +
                     '<div class="ir-ov-card-stars-badge">\u2605 ' + item.stars.toFixed(1) + '</div>' +
                     '<div class="ir-ov-card-name" title="' + esc(item.name) + '">' + esc(item.name) + '</div>' +

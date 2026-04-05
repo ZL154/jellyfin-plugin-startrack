@@ -8,6 +8,10 @@ obj/
 *.snupkg
 [Pp]ublish/
 artifacts/
+publish_out/
+
+## Release ZIPs (attached to GitHub Releases, not stored in the repo)
+*.zip
 
 ## Rider / Resharper
 .idea/
