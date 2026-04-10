@@ -9,7 +9,7 @@
 ![License](https://img.shields.io/badge/License-MIT-CC0000?style=for-the-badge&labelColor=0d0d0d)
 ![Version](https://img.shields.io/badge/Version-1.0.17-CC0000?style=for-the-badge&labelColor=0d0d0d)
 
-**Community star ratings for Jellyfin — private, self-hosted, no external services.**
+**Community star ratings for Jellyfin**
 
 ⭐ *If StarTrack is useful to you, please consider starring this repo!* ⭐
 
@@ -19,7 +19,7 @@
 
 ## Overview
 
-StarTrack adds a **1–5 star community rating system** to your Jellyfin server. Every user can rate movies, TV shows and episodes, leave written reviews, and browse their personal ratings in a Letterboxd-style library — all stored as JSON on your own server. Nothing leaves your network.
+StarTrack adds a **0.5–5 star community rating system** to your Jellyfin server. Every user can rate movies, TV shows and episodes, leave written reviews, and browse their personal ratings in a Letterboxd-style library — all stored as JSON on your own server. Nothing leaves your network.
 
 ---
 
