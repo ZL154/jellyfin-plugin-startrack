@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    console.log('[StarTrack] widget.js loaded — v1.1.0');
+    console.log('[StarTrack] widget.js loaded — v1.1.1');
     init();
 
     // ── Auth ──────────────────────────────────────────────────────────────
@@ -254,8 +254,12 @@
             '.ir-ov-card-meta{font-size:.68em!important;color:rgba(255,255,255,.7)!important;margin-top:3px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;text-shadow:0 1px 4px rgba(0,0,0,1)!important}',
             '.ir-ov-card-rev{font-size:.67em!important;color:rgba(255,255,255,.38)!important;margin-top:3px!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;font-style:italic!important}',
             // ── Letterboxd sync view (inside the main panel) ───────────────
-            '.ir-lb-gear{position:absolute!important;top:10px!important;right:10px!important;background:none!important;border:none!important;color:rgba(255,255,255,.5)!important;font-size:1.15em!important;cursor:pointer!important;padding:2px 6px!important;border-radius:4px!important;transition:all .15s!important;z-index:2!important}',
-            '.ir-lb-gear:hover{color:#f4c430!important;background:rgba(255,255,255,.08)!important;transform:rotate(30deg)!important}',
+            // Inline "⚙ Letterboxd sync" footer button — appears at the bottom
+            // of both the item view and the recent view, so every panel state
+            // has an obvious entry point into Letterboxd sync without fighting
+            // the "View all →" button or the main rating controls.
+            '.ir-lb-open-btn{display:block!important;width:100%!important;margin-top:10px!important;background:none!important;border:1px dashed rgba(244,196,48,.28)!important;color:rgba(244,196,48,.75)!important;border-radius:6px!important;padding:6px 10px!important;font-size:.76em!important;font-weight:600!important;cursor:pointer!important;text-align:center!important;letter-spacing:.02em!important;transition:all .15s!important}',
+            '.ir-lb-open-btn:hover{background:rgba(244,196,48,.08)!important;border-color:#f4c430!important;color:#fff!important}',
             '.ir-lb-view{color:#fff!important}',
             '.ir-lb-header{display:flex!important;align-items:center!important;gap:10px!important;margin-bottom:14px!important;padding-bottom:10px!important;border-bottom:1px solid rgba(255,255,255,.1)!important}',
             '.ir-lb-back{background:none!important;border:none!important;color:rgba(255,255,255,.6)!important;font-size:1.2em!important;cursor:pointer!important;padding:0 4px!important;border-radius:4px!important;transition:color .15s!important}',
@@ -354,8 +358,6 @@
                 '<span class="ir-label">Rate</span>' +
             '</div>' +
             '<div class="ir-panel">' +
-                // Letterboxd gear icon (top-right of every panel view)
-                '<button class="ir-lb-gear" title="Letterboxd sync">\u2699</button>' +
                 // Item rating view
                 '<div class="ir-item-view">' +
                     '<div class="ir-ph">' +
@@ -379,6 +381,7 @@
                     '</div>' +
                     '<button class="ir-tb">Show all ratings \u25be</button>' +
                     '<div class="ir-list" style="display:none"></div>' +
+                    '<button class="ir-lb-open-btn" title="Connect your Letterboxd account">\u2699 Letterboxd sync</button>' +
                 '</div>' +
                 // Recent view
                 '<div class="ir-recent-panel" style="display:none">' +
@@ -387,6 +390,7 @@
                         '<button class="ir-rec-open-btn">View all \u2192</button>' +
                     '</div>' +
                     '<div class="ir-rec-list"></div>' +
+                    '<button class="ir-lb-open-btn" title="Connect your Letterboxd account">\u2699 Letterboxd sync</button>' +
                 '</div>' +
                 // Letterboxd sync view (hidden by default, opens from gear icon)
                 '<div class="ir-lb-view" style="display:none">' +
@@ -794,10 +798,32 @@
         pill.addEventListener('click', function () {
             open = !open;
             panel.classList.toggle('ir-open', open);
-            if (open && _curId) apiGet(_curId).then(function (d) { if (d) render(d); });
+            if (open) {
+                // Always reset to the correct primary view when opening. Prevents
+                // a stale Letterboxd sync view from being shown on re-open and
+                // prevents an empty black panel if the user navigated away while
+                // the lb-view was active.
+                var lbEl = el.querySelector('.ir-lb-view');
+                if (lbEl) lbEl.style.display = 'none';
+                if (_curId) {
+                    itemView.style.display   = '';
+                    recentView.style.display = 'none';
+                    apiGet(_curId).then(function (d) { if (d) render(d); });
+                } else {
+                    itemView.style.display   = 'none';
+                    recentView.style.display = '';
+                }
+            }
         });
         document.addEventListener('click', function (e) {
-            if (open && !el.contains(e.target)) { open = false; panel.classList.remove('ir-open'); }
+            if (open && !el.contains(e.target)) {
+                open = false;
+                panel.classList.remove('ir-open');
+                // Also collapse the Letterboxd view so the next open doesn't
+                // show a stale state
+                var lbEl = el.querySelector('.ir-lb-view');
+                if (lbEl) lbEl.style.display = 'none';
+            }
         });
         tb && tb.addEventListener('click', function () {
             listOpen = !listOpen;
@@ -851,7 +877,6 @@
         if (recOpenBtn) recOpenBtn.addEventListener('click', function (e) { e.stopPropagation(); openMyRatings(); });
 
         // ── Letterboxd sync view ────────────────────────────────────────
-        var lbGear    = el.querySelector('.ir-lb-gear');
         var lbView    = el.querySelector('.ir-lb-view');
         var itemView  = el.querySelector('.ir-item-view');
         var recentView= el.querySelector('.ir-recent-panel');
@@ -862,7 +887,7 @@
         var lbSync    = el.querySelector('.ir-lb-sync');
         var lbFile    = el.querySelector('.ir-lb-file');
         var lbStatus  = el.querySelector('.ir-lb-status');
-        var prevView  = { item: false, recent: false };
+        var lbOpenBtns = el.querySelectorAll('.ir-lb-open-btn');
 
         function showLbStatus(text, kind) {
             if (!lbStatus) return;
@@ -872,9 +897,10 @@
             if (kind === 'err') lbStatus.classList.add('ir-lb-err');
         }
 
+        // Use _curId as the source of truth for "which view should we go
+        // back to". Capturing prevView at openLbView() time was fragile
+        // because the panel could close mid-state and lose the flag.
         function openLbView() {
-            prevView.item   = itemView.style.display !== 'none';
-            prevView.recent = recentView.style.display !== 'none';
             itemView.style.display   = 'none';
             recentView.style.display = 'none';
             lbView.style.display     = '';
@@ -893,11 +919,20 @@
 
         function closeLbView() {
             lbView.style.display = 'none';
-            if (prevView.item)   itemView.style.display = '';
-            if (prevView.recent) recentView.style.display = '';
+            if (_curId) {
+                itemView.style.display   = '';
+                recentView.style.display = 'none';
+            } else {
+                itemView.style.display   = 'none';
+                recentView.style.display = '';
+            }
         }
 
-        if (lbGear) lbGear.addEventListener('click', function (e) { e.stopPropagation(); openLbView(); });
+        // Both the item view and the recent view have their own "⚙ Letterboxd sync"
+        // footer button. Wire them all to openLbView.
+        lbOpenBtns.forEach(function (btn) {
+            btn.addEventListener('click', function (e) { e.stopPropagation(); openLbView(); });
+        });
         if (lbBack) lbBack.addEventListener('click', function (e) { e.stopPropagation(); closeLbView(); });
 
         // Stop clicks inside the form from bubbling and closing the whole panel
@@ -1091,14 +1126,20 @@
 
     var _lastId = '', _lastHash = '';
 
+    // Sentinel hash used when we're on a filtered page (video player or admin).
+    // Setting _lastHash to this forces the next checkNav() to re-evaluate
+    // and re-show the pill when the user navigates back to a normal page,
+    // instead of early-returning because the hash "matches" a stale cache.
+    var FILTERED_SENTINEL = '__ab_filtered__';
+
     function checkNav() {
         injectSidebar();
 
         // Never show rating pill while watching video
-        if (isVideoPlayerPage()) { hide(); return; }
+        if (isVideoPlayerPage()) { hide(); _lastHash = FILTERED_SENTINEL; _lastId = ''; return; }
 
         // Never show on admin dashboard or user preferences pages
-        if (isAdminOrDashboardPage()) { hide(); return; }
+        if (isAdminOrDashboardPage()) { hide(); _lastHash = FILTERED_SENTINEL; _lastId = ''; return; }
 
         var id    = getItemId();
         var idStr = id || '';
