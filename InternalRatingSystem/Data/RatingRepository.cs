@@ -221,7 +221,11 @@ namespace Jellyfin.Plugin.InternalRating.Data
         private async Task SaveAsync()
         {
             var json = JsonSerializer.Serialize(_store, _jsonOptions);
-            await File.WriteAllTextAsync(_filePath, json).ConfigureAwait(false);
+            // Atomic write: write to .tmp then rename. Prevents the whole
+            // ratings store being corrupted by a crash or power loss mid-write.
+            var tmp = _filePath + ".tmp";
+            await File.WriteAllTextAsync(tmp, json).ConfigureAwait(false);
+            File.Move(tmp, _filePath, overwrite: true);
         }
 
         public void Dispose() => _lock.Dispose();

@@ -139,7 +139,9 @@ namespace Jellyfin.Plugin.InternalRating.Data
         private async Task SaveAsync()
         {
             var json = JsonSerializer.Serialize(_store, _jsonOptions);
-            await File.WriteAllTextAsync(_filePath, json).ConfigureAwait(false);
+            var tmp = _filePath + ".tmp";
+            await File.WriteAllTextAsync(tmp, json).ConfigureAwait(false);
+            File.Move(tmp, _filePath, overwrite: true);
         }
 
         public void Dispose() => _lock.Dispose();
