@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    console.log('[StarTrack] widget.js loaded — v1.1.1');
+    console.log('[StarTrack] widget.js loaded — v1.1.2');
     init();
 
     // ── Auth ──────────────────────────────────────────────────────────────
@@ -228,6 +228,32 @@
             '.ir-ov-sort option{background:#141414!important;color:#fff!important}',
             '.ir-ov-close{background:none!important;border:1px solid rgba(200,30,30,.4)!important;color:rgba(220,100,100,.8)!important;border-radius:8px!important;padding:8px 18px!important;font-size:.8em!important;font-weight:600!important;cursor:pointer!important;transition:all .15s!important;white-space:nowrap!important;letter-spacing:.02em!important}',
             '.ir-ov-close:hover{background:rgba(180,20,20,.15)!important;border-color:#cc2020!important;color:#ff8080!important}',
+            // Overlay Letterboxd button + dropdown panel
+            '.ir-ov-lb{background:none!important;border:1px solid rgba(244,196,48,.35)!important;color:rgba(244,196,48,.85)!important;border-radius:8px!important;padding:8px 16px!important;font-size:.8em!important;font-weight:600!important;cursor:pointer!important;transition:all .15s!important;white-space:nowrap!important;letter-spacing:.02em!important}',
+            '.ir-ov-lb:hover{background:rgba(244,196,48,.12)!important;border-color:#f4c430!important;color:#fff!important}',
+            '.ir-ov-lb.ir-ov-lb-active{background:rgba(244,196,48,.18)!important;border-color:#f4c430!important;color:#fff!important}',
+            '.ir-ov-lb-panel{background:#141414!important;border:1px solid rgba(244,196,48,.22)!important;border-radius:10px!important;padding:14px 18px!important;margin:0 0 14px!important}',
+            '.ir-ov-lb-row{display:flex!important;align-items:center!important;gap:10px!important;margin-bottom:10px!important;flex-wrap:wrap!important}',
+            '.ir-ov-lb-row:last-child{margin-bottom:0!important}',
+            '.ir-ov-lb-label{color:rgba(255,255,255,.6)!important;font-size:.75em!important;text-transform:uppercase!important;letter-spacing:.05em!important;font-weight:700!important;white-space:nowrap!important}',
+            '.ir-ov-lb-user{background:rgba(255,255,255,.05)!important;border:1px solid rgba(255,255,255,.14)!important;border-radius:6px!important;color:#fff!important;font-size:.85em!important;padding:7px 12px!important;outline:none!important;transition:border-color .2s!important;min-width:180px!important;flex:1!important;max-width:280px!important}',
+            '.ir-ov-lb-user:focus{border-color:rgba(244,196,48,.5)!important}',
+            '.ir-ov-lb-user::placeholder{color:rgba(255,255,255,.25)!important}',
+            '.ir-ov-lb-check{display:flex!important;align-items:center!important;gap:6px!important;color:rgba(255,255,255,.85)!important;font-size:.8em!important;cursor:pointer!important;white-space:nowrap!important}',
+            '.ir-ov-lb-check input{accent-color:#f4c430!important;width:15px!important;height:15px!important}',
+            '.ir-ov-lb-save,.ir-ov-lb-sync{background:#f4c430!important;color:#000!important;border:none!important;border-radius:6px!important;padding:7px 16px!important;font-size:.8em!important;font-weight:700!important;cursor:pointer!important;transition:transform .1s,background .15s!important}',
+            '.ir-ov-lb-save:hover,.ir-ov-lb-sync:hover{background:#ffd84d!important;transform:scale(1.04)!important}',
+            '.ir-ov-lb-sync{background:rgba(200,30,30,.9)!important;color:#fff!important}',
+            '.ir-ov-lb-sync:hover{background:#d42828!important}',
+            '.ir-ov-lb-upload{display:inline-flex!important;align-items:center!important;cursor:pointer!important;background:rgba(244,196,48,.08)!important;border:1px dashed rgba(244,196,48,.4)!important;border-radius:6px!important;padding:8px 16px!important;font-size:.82em!important;color:rgba(255,255,255,.88)!important;font-weight:600!important;transition:all .15s!important}',
+            '.ir-ov-lb-upload:hover{background:rgba(244,196,48,.15)!important;border-color:#f4c430!important;color:#fff!important}',
+            '.ir-ov-lb-upload input{display:none!important}',
+            '.ir-ov-lb-hint{font-size:.72em!important;color:rgba(255,255,255,.45)!important;line-height:1.5!important;flex:1!important;min-width:200px!important}',
+            '.ir-ov-lb-status{font-size:.8em!important;color:rgba(255,255,255,.65)!important;margin-top:6px!important;line-height:1.5!important;min-height:1em!important}',
+            '.ir-ov-lb-status.ir-ov-lb-ok{color:#7fd97a!important}',
+            '.ir-ov-lb-status.ir-ov-lb-err{color:#ff8080!important}',
+            '.ir-ov-lb-unmatched{margin-top:8px!important;padding:8px 10px!important;background:rgba(0,0,0,.35)!important;border:1px solid rgba(255,255,255,.08)!important;border-radius:6px!important;max-height:140px!important;overflow-y:auto!important;font-size:.74em!important;color:rgba(255,255,255,.5)!important;font-family:ui-monospace,Menlo,Consolas,monospace!important;line-height:1.5!important}',
+            '.ir-ov-lb-unmatched-title{color:rgba(255,255,255,.75)!important;font-weight:700!important;margin-bottom:4px!important;font-family:inherit!important}',
             // Tab bar — boxed pill buttons
             '.ir-ov-tabs{display:flex!important;gap:10px!important;padding:14px 0!important;flex-shrink:0!important}',
             '.ir-ov-tab{background:#161616!important;border:1px solid rgba(255,255,255,.1)!important;border-radius:8px!important;color:rgba(255,255,255,.45)!important;font-size:.78em!important;font-weight:700!important;padding:9px 22px!important;cursor:pointer!important;transition:all .15s!important;white-space:nowrap!important;letter-spacing:.05em!important;text-transform:uppercase!important}',
@@ -413,15 +439,15 @@
                         '<button class="ir-lb-sync">Sync now</button>' +
                     '</div>' +
                     '<div class="ir-lb-sep"></div>' +
-                    '<div class="ir-lb-csv-title">Import history from CSV</div>' +
+                    '<div class="ir-lb-csv-title">Import full history</div>' +
                     '<div class="ir-lb-csv-hint">' +
                         'Export your data from letterboxd.com \u2192 Settings \u2192 Import & Export, ' +
-                        'then upload the <code>ratings.csv</code> from inside the ZIP.' +
+                        'then drop the <code>.zip</code> file here (or the <code>ratings.csv</code> from inside).' +
                     '</div>' +
                     '<div class="ir-lb-btn-row">' +
                         '<label class="ir-lb-upload">' +
-                            '<input type="file" accept=".csv,text/csv" class="ir-lb-file" />' +
-                            '<span>Choose CSV file</span>' +
+                            '<input type="file" accept=".zip,.csv,application/zip,text/csv" class="ir-lb-file" />' +
+                            '<span>Choose file</span>' +
                         '</label>' +
                     '</div>' +
                     '<div class="ir-lb-status"></div>' +
@@ -474,6 +500,7 @@
                         '<option value="runtime-desc">Length \u2193</option>' +
                         '<option value="runtime-asc">Length \u2191</option>' +
                     '</select>' +
+                    '<button class="ir-ov-lb">\u2699 Letterboxd</button>' +
                     '<button class="ir-ov-close">\u2715 Close</button>' +
                 '</div>' +
                 '<div class="ir-ov-tabs">' +
@@ -481,6 +508,25 @@
                     '<button class="ir-ov-tab" data-tab="Movie">Movies</button>' +
                     '<button class="ir-ov-tab" data-tab="Series">TV Shows</button>' +
                     '<button class="ir-ov-tab" data-tab="Episode">Episodes</button>' +
+                '</div>' +
+                // Collapsible Letterboxd sync panel (inside the overlay topbar,
+                // so it has its own styling separate from the small widget panel)
+                '<div class="ir-ov-lb-panel" style="display:none">' +
+                    '<div class="ir-ov-lb-row">' +
+                        '<label class="ir-ov-lb-label">Letterboxd username</label>' +
+                        '<input type="text" class="ir-ov-lb-user" placeholder="e.g. davidehrlich" maxlength="32" />' +
+                        '<label class="ir-ov-lb-check"><input type="checkbox" class="ir-ov-lb-auto" /> Auto-sync hourly</label>' +
+                        '<button class="ir-ov-lb-save">Save</button>' +
+                        '<button class="ir-ov-lb-sync">Sync now</button>' +
+                    '</div>' +
+                    '<div class="ir-ov-lb-row">' +
+                        '<label class="ir-ov-lb-upload">' +
+                            '<input type="file" accept=".zip,.csv,application/zip,text/csv" class="ir-ov-lb-file" />' +
+                            '<span>\u21E7 Upload Letterboxd export (ZIP or ratings.csv)</span>' +
+                        '</label>' +
+                        '<span class="ir-ov-lb-hint">Download your data from letterboxd.com \u2192 Settings \u2192 Import &amp; Export, then drop the ZIP here.</span>' +
+                    '</div>' +
+                    '<div class="ir-ov-lb-status"></div>' +
                 '</div>' +
             '</div>' +
             '<div class="ir-ov-inner">' +
@@ -494,6 +540,110 @@
         _overlay.querySelector('.ir-ov-sort').addEventListener('change', function (e) {
             _sortKey = e.target.value;
             if (_overlayData) renderOverlayGrid();
+        });
+
+        // ── Overlay Letterboxd panel wiring ─────────────────────────────
+        var ovLbBtn    = _overlay.querySelector('.ir-ov-lb');
+        var ovLbPanel  = _overlay.querySelector('.ir-ov-lb-panel');
+        var ovLbUser   = _overlay.querySelector('.ir-ov-lb-user');
+        var ovLbAuto   = _overlay.querySelector('.ir-ov-lb-auto');
+        var ovLbSave   = _overlay.querySelector('.ir-ov-lb-save');
+        var ovLbSync   = _overlay.querySelector('.ir-ov-lb-sync');
+        var ovLbFile   = _overlay.querySelector('.ir-ov-lb-file');
+        var ovLbStatus = _overlay.querySelector('.ir-ov-lb-status');
+
+        function ovLbShowStatus(text, kind, unmatched) {
+            if (!ovLbStatus) return;
+            ovLbStatus.classList.remove('ir-ov-lb-ok', 'ir-ov-lb-err');
+            var html = esc(text);
+            if (unmatched && unmatched.length) {
+                html += '<div class="ir-ov-lb-unmatched">' +
+                        '<div class="ir-ov-lb-unmatched-title">' + unmatched.length + ' not in library (showing first ' + Math.min(unmatched.length, 100) + '):</div>' +
+                        unmatched.slice(0, 100).map(function (t) { return esc(t); }).join('<br>') +
+                        '</div>';
+            }
+            ovLbStatus.innerHTML = html;
+            if (kind === 'ok')  ovLbStatus.classList.add('ir-ov-lb-ok');
+            if (kind === 'err') ovLbStatus.classList.add('ir-ov-lb-err');
+        }
+
+        ovLbBtn.addEventListener('click', function () {
+            var opening = ovLbPanel.style.display === 'none';
+            ovLbPanel.style.display = opening ? 'block' : 'none';
+            ovLbBtn.classList.toggle('ir-ov-lb-active', opening);
+            if (opening) {
+                ovLbShowStatus('', '', null);
+                apiLbGetSettings().then(function (s) {
+                    if (!s) return;
+                    ovLbUser.value = s.username || '';
+                    ovLbAuto.checked = !!s.enableAutoSync;
+                    if (s.lastSyncedAt) {
+                        ovLbShowStatus('Last synced ' + timeAgo(s.lastSyncedAt) +
+                            (s.lastImportedCount ? ' — imported ' + s.lastImportedCount + ' rating' + (s.lastImportedCount !== 1 ? 's' : '') : '') +
+                            (s.lastUnmatchedCount ? ', ' + s.lastUnmatchedCount + ' not in library' : ''), '', null);
+                    }
+                });
+            }
+        });
+
+        ovLbSave.addEventListener('click', function () {
+            var u = (ovLbUser.value || '').trim();
+            var auto = !!ovLbAuto.checked;
+            if (auto && !u) { ovLbShowStatus('Enter your Letterboxd username first.', 'err', null); return; }
+            ovLbSave.disabled = true;
+            apiLbSaveSettings(u, auto).then(function (ok) {
+                ovLbSave.disabled = false;
+                ovLbShowStatus(ok ? 'Saved.' : 'Save failed.', ok ? 'ok' : 'err', null);
+            });
+        });
+
+        ovLbSync.addEventListener('click', function () {
+            if (!(ovLbUser.value || '').trim()) {
+                ovLbShowStatus('Save a Letterboxd username first.', 'err', null); return;
+            }
+            ovLbSync.disabled = true;
+            ovLbShowStatus('Syncing from Letterboxd\u2026', '', null);
+            apiLbSyncNow().then(function (r) {
+                ovLbSync.disabled = false;
+                if (!r) { ovLbShowStatus('Sync failed.', 'err', null); return; }
+                if (r.error) { ovLbShowStatus(r.error, 'err', null); return; }
+                var total = (r.imported || 0) + (r.updated || 0);
+                var msg = total > 0
+                    ? 'Imported ' + (r.imported || 0) + ', updated ' + (r.updated || 0) +
+                      (r.unmatched ? ', ' + r.unmatched + ' not in library' : '') + '.'
+                    : 'Nothing new on Letterboxd right now.';
+                ovLbShowStatus(msg, 'ok', r.unmatchedTitles);
+                // Refresh the ratings grid since ratings may have changed
+                if (_overlay.classList.contains('ir-ov-open')) loadMyRatings();
+            });
+        });
+
+        ovLbFile.addEventListener('change', function () {
+            var file = ovLbFile.files && ovLbFile.files[0];
+            if (!file) return;
+            if (file.size > 5 * 1024 * 1024) {
+                ovLbShowStatus('File is too large (max 5 MB).', 'err', null);
+                ovLbFile.value = ''; return;
+            }
+            ovLbShowStatus('Importing ' + file.name + '\u2026', '', null);
+            // Read as ArrayBuffer so both ZIP and CSV work — we POST the raw
+            // bytes and let the server detect the format.
+            var reader = new FileReader();
+            reader.onload = function () {
+                apiLbImportBytes(reader.result, file.name).then(function (r) {
+                    ovLbFile.value = '';
+                    if (!r) { ovLbShowStatus('Import failed.', 'err', null); return; }
+                    if (r.error) { ovLbShowStatus(r.error, 'err', r.unmatchedTitles); return; }
+                    var msg = 'Imported ' + (r.imported || 0) + ' new, ' +
+                              'updated ' + (r.updated || 0) + '. ' +
+                              (r.unmatched || 0) + ' not in library, ' +
+                              (r.ambiguous || 0) + ' ambiguous.';
+                    ovLbShowStatus(msg, 'ok', r.unmatchedTitles);
+                    if (_overlay.classList.contains('ir-ov-open')) loadMyRatings();
+                });
+            };
+            reader.onerror = function () { ovLbShowStatus('Could not read file.', 'err', null); };
+            reader.readAsArrayBuffer(file);
         });
         _overlay.querySelectorAll('.ir-ov-tab').forEach(function (tab) {
             tab.addEventListener('click', function () {
@@ -980,14 +1130,14 @@
                 var file = lbFile.files && lbFile.files[0];
                 if (!file) return;
                 if (file.size > 5 * 1024 * 1024) {
-                    showLbStatus('CSV is too large (max 5 MB).', 'err');
+                    showLbStatus('File is too large (max 5 MB).', 'err');
                     lbFile.value = '';
                     return;
                 }
                 showLbStatus('Importing ' + file.name + '\u2026', '');
                 var reader = new FileReader();
                 reader.onload = function () {
-                    apiLbImportCsv(reader.result).then(function (r) {
+                    apiLbImportBytes(reader.result, file.name).then(function (r) {
                         lbFile.value = '';
                         if (!r) { showLbStatus('Import failed.', 'err'); return; }
                         if (r.error) { showLbStatus(r.error, 'err'); return; }
@@ -999,7 +1149,9 @@
                     });
                 };
                 reader.onerror = function () { showLbStatus('Could not read file.', 'err'); };
-                reader.readAsText(file);
+                // Read as ArrayBuffer so both ZIP and CSV work — the server
+                // auto-detects the format from the bytes.
+                reader.readAsArrayBuffer(file);
             });
         }
     }
@@ -1037,6 +1189,24 @@
             method: 'POST',
             headers: { Authorization: auth, 'Content-Type': 'text/csv' },
             body: csvText
+        }).then(function (r) { return r.ok ? r.json() : null; })
+          .catch(function () { return null; });
+    }
+
+    // Uploads raw bytes (ZIP or CSV) — the server detects the format by
+    // magic bytes and extracts ratings.csv from the ZIP if needed. Used
+    // for the Letterboxd export ZIP which users drop in directly without
+    // needing to unzip it first.
+    function apiLbImportBytes(bytes, filename) {
+        var auth = getAuth(); if (!auth) return Promise.resolve(null);
+        var looksZip = /\.zip$/i.test(filename || '');
+        return fetch('/Plugins/StarTrack/Letterboxd/Import', {
+            method: 'POST',
+            headers: {
+                Authorization: auth,
+                'Content-Type': looksZip ? 'application/zip' : 'text/csv'
+            },
+            body: bytes
         }).then(function (r) { return r.ok ? r.json() : null; })
           .catch(function () { return null; });
     }

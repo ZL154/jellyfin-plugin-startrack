@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/ZL154/jellyfin-plugin-startrack/main/assets/logo.svg",
     "versions": [
       {
+        "version": "1.1.2.0",
+        "changelog": "Three Letterboxd UX fixes reported against 1.1.1. (1) Letterboxd settings are now also available from the big 'My Ratings' full-page overlay — new gold '⚙ Letterboxd' button next to Close opens an inline settings panel with the username field, auto-sync toggle, Save / Sync now buttons, and file upload, so you don't have to dig into the small rating pill to configure sync. (2) CSV import now accepts the Letterboxd export ZIP directly — just drag in the .zip you downloaded from letterboxd.com, the server extracts ratings.csv (with diary.csv as a fallback) automatically. No more manually extracting the archive. (3) Title matching is far more forgiving: strips diacritics so 'Amélie' matches 'Amelie', normalizes leading/trailing 'The/A/An' so 'The Matrix' matches 'Matrix, The', and treats apostrophes / colons / Unicode dashes / curly quotes / ampersands as word separators. Sync and import also surface a list of unmatched titles under the status line so you can see exactly which films from Letterboxd weren't found in your library. No schema/endpoint changes, safe in-place upgrade from 1.1.1.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/ZL154/jellyfin-plugin-startrack/releases/download/v1.1.2/Jellyfin.Plugin.InternalRating_1.1.2.0.zip",
+        "checksum": "ebc246c49eeda371f0da6a9d1494d28f",
+        "timestamp": "2026-04-11T00:00:00Z"
+      },
+      {
         "version": "1.1.1.0",
         "changelog": "Letterboxd sync UX fixes: (1) replaced the floating gear icon with an inline '⚙ Letterboxd sync' button at the bottom of both the item-rating view and the recent-ratings view, so it no longer overlaps the 'View all →' button and is always clearly discoverable; (2) fixed the back button getting stuck on the Letterboxd view — now always restores the correct primary view based on whether a movie is currently selected; (3) fixed the rating pill not reappearing when navigating from admin dashboard back to home — the hash cache is now invalidated when we hide on admin/video pages so the next nav check re-runs cleanly; (4) fixed the 'stale black bar' that persisted when the panel was closed with the Letterboxd view open — both the click-outside handler and the next pill-open now reset the view state explicitly. No schema/endpoint changes, safe in-place upgrade from 1.1.0.",
         "targetAbi": "10.11.0.0",

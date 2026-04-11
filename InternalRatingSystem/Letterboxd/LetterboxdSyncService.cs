@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -266,17 +267,74 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             return null;
         }
 
+        /// <summary>
+        /// Aggressive title normalization designed to make Letterboxd titles
+        /// and Jellyfin titles match as often as possible. Applies:
+        ///   1. Unicode NFD decompose + strip combining marks (strips accents
+        ///      so "Amélie" matches "Amelie")
+        ///   2. "The"/"A"/"An" prefix handling — Letterboxd sometimes writes
+        ///      "Matrix, The" and Jellyfin "The Matrix" (or vice versa). We
+        ///      strip leading articles from BOTH sides before comparing.
+        ///   3. Punctuation-to-space (Unicode dashes, curly quotes, colons,
+        ///      ampersands, common stylistic characters)
+        ///   4. Lowercase invariant
+        ///   5. Whitespace collapse
+        /// </summary>
         private static string NormalizeTitle(string? s)
         {
             if (string.IsNullOrEmpty(s)) return string.Empty;
-            // Strip common punctuation + collapse whitespace for more forgiving matches
-            var sb = new StringBuilder(s.Length);
-            foreach (var ch in s)
+
+            // 1. Decompose + strip diacritics
+            var normalized = s.Normalize(NormalizationForm.FormKD);
+            var sb = new StringBuilder(normalized.Length);
+            foreach (var ch in normalized)
             {
-                if (char.IsLetterOrDigit(ch) || ch == ' ') sb.Append(ch);
-                else if (ch == '-' || ch == '_' || ch == ':' || ch == ',' || ch == '.') sb.Append(' ');
+                if (CharUnicodeInfo.GetUnicodeCategory(ch) == UnicodeCategory.NonSpacingMark) continue;
+                sb.Append(ch);
             }
-            return string.Join(' ', sb.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries)).Trim();
+
+            // 2. Punctuation -> space. Handle Unicode dashes, curly quotes, etc.
+            var chars = new StringBuilder(sb.Length);
+            foreach (var ch in sb.ToString())
+            {
+                if (char.IsLetterOrDigit(ch))
+                {
+                    chars.Append(char.ToLowerInvariant(ch));
+                }
+                else if (char.IsWhiteSpace(ch))
+                {
+                    chars.Append(' ');
+                }
+                else
+                {
+                    // Everything else (apostrophes, dashes, colons, quotes,
+                    // parens, &, !, ?, periods, commas, ...) becomes a space.
+                    chars.Append(' ');
+                }
+            }
+
+            // 3. Collapse whitespace + trim
+            var parts = chars.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+            // 4. Strip leading article ("the", "a", "an") so
+            //    "The Matrix" == "Matrix" == "Matrix, The" after a further
+            //    transform below.
+            if (parts.Length > 1 && (parts[0] == "the" || parts[0] == "a" || parts[0] == "an"))
+            {
+                parts = parts.Skip(1).ToArray();
+            }
+
+            // 5. Strip trailing ", The" / ", A" / ", An" (already lost the
+            //    comma during punctuation removal, so now the last token is
+            //    the article).
+            if (parts.Length > 1)
+            {
+                var last = parts[parts.Length - 1];
+                if (last == "the" || last == "a" || last == "an")
+                    parts = parts.Take(parts.Length - 1).ToArray();
+            }
+
+            return string.Join(' ', parts);
         }
 
         // ============================================================= //

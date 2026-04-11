@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Net.Mime;
 using System.Threading.Tasks;
@@ -85,11 +87,14 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         }
 
         /// <summary>
-        /// Imports a Letterboxd ratings.csv export for the current user.
-        /// Body is raw CSV (text/csv or application/octet-stream).
+        /// Imports a Letterboxd export for the current user. Accepts either:
+        ///  - the raw <c>ratings.csv</c> (content-type text/csv or text/plain), or
+        ///  - the full Letterboxd export ZIP (content-type application/zip) —
+        ///    the controller extracts <c>ratings.csv</c> from inside the archive
+        ///    automatically so users don't have to unzip it first.
         /// </summary>
         [HttpPost("Import")]
-        [Consumes("text/csv", "text/plain", "application/octet-stream")]
+        [Consumes("text/csv", "text/plain", "application/zip", "application/octet-stream")]
         [ProducesResponseType(typeof(LetterboxdImportResult), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status413PayloadTooLarge)]
         public async Task<IActionResult> ImportCsv()
@@ -98,25 +103,94 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             if (userId == null) return Unauthorized();
             var userName = GetCurrentUserName();
 
-            // Guard against runaway uploads: cap at 5 MB (a Letterboxd ratings export
-            // for 5000 films is about 300 KB)
+            // Guard against runaway uploads: cap at 5 MB. A Letterboxd full
+            // export ZIP for 5000 films is about 200-400 KB compressed, so
+            // 5 MB is generous headroom.
             if (Request.ContentLength > 5 * 1024 * 1024)
-                return StatusCode(StatusCodes.Status413PayloadTooLarge, "CSV too large (max 5 MB).");
+                return StatusCode(StatusCodes.Status413PayloadTooLarge, "File too large (max 5 MB).");
+
+            // Buffer the request body into memory so we can detect the format
+            // (ZIP vs CSV) by magic bytes and then rewind for the real parser.
+            using var buffer = new MemoryStream();
+            await Request.Body.CopyToAsync(buffer).ConfigureAwait(false);
+            buffer.Position = 0;
+
+            Stream csvStream;
+            IDisposable? zipGuard = null;
+
+            if (LooksLikeZip(buffer))
+            {
+                try
+                {
+                    var zip = new ZipArchive(buffer, ZipArchiveMode.Read, leaveOpen: false);
+                    zipGuard = zip;
+                    // Prefer ratings.csv (only rated films). Fall back to diary.csv
+                    // which also has rating + watched date and usually the same
+                    // set of entries for most users.
+                    var entry = FindCsvEntry(zip, "ratings.csv")
+                             ?? FindCsvEntry(zip, "diary.csv");
+                    if (entry == null)
+                    {
+                        return Ok(new LetterboxdImportResult
+                        {
+                            Error = "ZIP did not contain ratings.csv or diary.csv. Make sure you uploaded the full Letterboxd export ZIP from Settings \u2192 Import & Export."
+                        });
+                    }
+                    csvStream = entry.Open();
+                }
+                catch (InvalidDataException)
+                {
+                    return Ok(new LetterboxdImportResult { Error = "Uploaded file is not a valid ZIP archive." });
+                }
+            }
+            else
+            {
+                buffer.Position = 0;
+                csvStream = buffer;
+            }
 
             LetterboxdImportResult result;
             try
             {
-                result = await _sync.ImportCsvAsync(userId.Value.ToString("N"), userName, Request.Body).ConfigureAwait(false);
+                result = await _sync.ImportCsvAsync(userId.Value.ToString("N"), userName, csvStream).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "[StarTrack] Letterboxd CSV import failed");
                 return Ok(new LetterboxdImportResult { Error = ex.Message });
             }
+            finally
+            {
+                csvStream?.Dispose();
+                zipGuard?.Dispose();
+            }
 
-            _logger.LogInformation("[StarTrack] {User} CSV import: imported={I} updated={U} unmatched={N}",
-                userName, result.Imported, result.Updated, result.Unmatched);
+            _logger.LogInformation("[StarTrack] {User} import: imported={I} updated={U} unmatched={N} ambiguous={A}",
+                userName, result.Imported, result.Updated, result.Unmatched, result.Ambiguous);
             return Ok(result);
+        }
+
+        /// <summary>
+        /// Detects the ZIP local file header magic bytes (PK\x03\x04).
+        /// Rewinds the stream to position 0 before returning so the caller
+        /// can read it from the start.
+        /// </summary>
+        private static bool LooksLikeZip(Stream s)
+        {
+            if (!s.CanSeek || s.Length < 4) return false;
+            var saved = s.Position;
+            s.Position = 0;
+            Span<byte> sig = stackalloc byte[4];
+            var read = s.Read(sig);
+            s.Position = saved;
+            return read == 4 && sig[0] == 0x50 && sig[1] == 0x4B && sig[2] == 0x03 && sig[3] == 0x04;
+        }
+
+        /// <summary>Case-insensitive lookup for a CSV entry anywhere in the ZIP.</summary>
+        private static ZipArchiveEntry? FindCsvEntry(ZipArchive zip, string filename)
+        {
+            return zip.Entries.FirstOrDefault(e =>
+                string.Equals(e.Name, filename, StringComparison.OrdinalIgnoreCase));
         }
 
         // ------------------------------------------------------------------
