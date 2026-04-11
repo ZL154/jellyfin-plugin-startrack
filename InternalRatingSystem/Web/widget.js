@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    console.log('[StarTrack] widget.js loaded — v1.1.6');
+    console.log('[StarTrack] widget.js loaded — v1.2.0');
     init();
 
     // ── Auth ──────────────────────────────────────────────────────────────
@@ -151,10 +151,18 @@
             // Panel
             '.ir-panel{position:absolute!important;bottom:calc(100% + 10px)!important;right:0!important;width:320px!important;background:rgba(12,12,12,.98)!important;border:1px solid rgba(255,255,255,.16)!important;border-radius:12px!important;padding:16px!important;backdrop-filter:blur(16px)!important;box-shadow:0 -6px 40px rgba(0,0,0,.85)!important;display:none!important;color:#fff!important}',
             '.ir-panel.ir-open{display:block!important}',
-            '.ir-ph{display:flex!important;align-items:baseline!important;gap:8px!important;padding-bottom:12px!important;border-bottom:1px solid rgba(255,255,255,.1)!important;margin-bottom:12px!important}',
-            '.ir-big-star{color:#f4c430!important;font-size:2.2em!important}',
-            '.ir-big-avg{color:#fff!important;font-size:2.2em!important;font-weight:700!important}',
-            '.ir-count{color:rgba(255,255,255,.5)!important;font-size:.82em!important}',
+            '.ir-ph{display:flex!important;align-items:center!important;gap:8px!important;padding-bottom:12px!important;border-bottom:1px solid rgba(255,255,255,.1)!important;margin-bottom:12px!important}',
+            '.ir-big-star{color:#f4c430!important;font-size:2.2em!important;line-height:1!important}',
+            '.ir-big-avg{color:#fff!important;font-size:2.2em!important;font-weight:700!important;line-height:1!important}',
+            '.ir-count{color:rgba(255,255,255,.5)!important;font-size:.78em!important}',
+            // Action buttons (like / watchlist / favorite) — sit at the right of .ir-ph
+            '.ir-actions{margin-left:auto!important;display:flex!important;gap:4px!important;align-items:center!important}',
+            '.ir-act{background:rgba(255,255,255,.06)!important;border:1px solid rgba(255,255,255,.15)!important;color:rgba(255,255,255,.5)!important;border-radius:6px!important;width:28px!important;height:28px!important;display:flex!important;align-items:center!important;justify-content:center!important;font-size:.95em!important;cursor:pointer!important;padding:0!important;line-height:1!important;transition:all .12s!important}',
+            '.ir-act:hover{background:rgba(255,255,255,.12)!important;border-color:rgba(255,255,255,.3)!important;color:#fff!important;transform:scale(1.08)!important}',
+            // Active states — heart turns red, watchlist turns gold, favorite turns gold-solid
+            '.ir-act.ir-on.ir-act-like{color:#ff5068!important;border-color:rgba(255,80,104,.5)!important;background:rgba(255,80,104,.12)!important}',
+            '.ir-act.ir-on.ir-act-watch{color:#f4c430!important;border-color:rgba(244,196,48,.5)!important;background:rgba(244,196,48,.12)!important}',
+            '.ir-act.ir-on.ir-act-fav{color:#f4c430!important;border-color:rgba(244,196,48,.7)!important;background:rgba(244,196,48,.22)!important}',
             // Stars input
             '.ir-yr{margin-bottom:8px!important}',
             '.ir-yl{color:rgba(255,255,255,.65)!important;font-size:.85em!important;margin-bottom:6px!important;display:block!important}',
@@ -258,6 +266,20 @@
             '.ir-ov-lb-status.ir-ov-lb-err{color:#ff8080!important}',
             '.ir-ov-lb-unmatched{margin-top:8px!important;padding:8px 10px!important;background:rgba(0,0,0,.35)!important;border:1px solid rgba(255,255,255,.08)!important;border-radius:6px!important;max-height:140px!important;overflow-y:auto!important;font-size:.74em!important;color:rgba(255,255,255,.5)!important;font-family:ui-monospace,Menlo,Consolas,monospace!important;line-height:1.5!important}',
             '.ir-ov-lb-unmatched-title{color:rgba(255,255,255,.75)!important;font-weight:700!important;margin-bottom:4px!important;font-family:inherit!important}',
+            // v1.2.0 — view selector + search input + favorites row
+            '.ir-ov-search{background:#141414!important;border:1px solid rgba(255,255,255,.14)!important;color:#fff!important;border-radius:8px!important;padding:8px 14px!important;font-size:.82em!important;min-width:200px!important;outline:none!important;transition:border-color .15s!important}',
+            '.ir-ov-search:focus{border-color:#cc2020!important}',
+            '.ir-ov-search::placeholder{color:rgba(255,255,255,.35)!important}',
+            '.ir-ov-views{display:flex!important;gap:8px!important;padding:12px 0 6px!important;flex-wrap:wrap!important;border-bottom:1px solid rgba(255,255,255,.06)!important}',
+            '.ir-ov-view{background:transparent!important;border:none!important;color:rgba(255,255,255,.5)!important;font-size:.82em!important;font-weight:700!important;padding:8px 14px!important;cursor:pointer!important;letter-spacing:.03em!important;text-transform:uppercase!important;border-bottom:2px solid transparent!important;transition:all .15s!important}',
+            '.ir-ov-view:hover{color:#fff!important}',
+            '.ir-ov-view.ir-ov-view-active{color:#fff!important;border-bottom-color:#cc2020!important}',
+            // Top 4 favorites row (only shows in Films view)
+            '.ir-ov-favs{padding:20px 0 16px!important;margin-bottom:16px!important;border-bottom:1px solid rgba(255,255,255,.08)!important}',
+            '.ir-ov-favs-title{font-size:.78em!important;text-transform:uppercase!important;letter-spacing:.1em!important;color:#f4c430!important;font-weight:800!important;margin-bottom:12px!important}',
+            '.ir-ov-favs-grid{display:grid!important;grid-template-columns:repeat(4,minmax(140px,1fr))!important;gap:16px!important;max-width:720px!important}',
+            '.ir-ov-favs-grid .ir-ov-card{aspect-ratio:2/3!important}',
+            '.ir-ov-favs-grid .ir-ov-fav-empty{border:2px dashed rgba(244,196,48,.22)!important;border-radius:10px!important;display:flex!important;align-items:center!important;justify-content:center!important;color:rgba(244,196,48,.35)!important;font-size:2em!important;aspect-ratio:2/3!important;background:rgba(244,196,48,.03)!important}',
             // Tab bar — boxed pill buttons
             '.ir-ov-tabs{display:flex!important;gap:10px!important;padding:14px 0!important;flex-shrink:0!important}',
             '.ir-ov-tab{background:#161616!important;border:1px solid rgba(255,255,255,.1)!important;border-radius:8px!important;color:rgba(255,255,255,.45)!important;font-size:.78em!important;font-weight:700!important;padding:9px 22px!important;cursor:pointer!important;transition:all .15s!important;white-space:nowrap!important;letter-spacing:.05em!important;text-transform:uppercase!important}',
@@ -394,6 +416,13 @@
                         '<span class="ir-big-star">\u2605</span>' +
                         '<span class="ir-big-avg">\u2013</span>' +
                         '<span class="ir-count">(0 ratings)</span>' +
+                        // Watchlist + liked + favorite toggles live up here so
+                        // they're visible even without clicking Save Rating
+                        '<div class="ir-actions">' +
+                            '<button class="ir-act ir-act-like" title="Like">\u2661</button>' +
+                            '<button class="ir-act ir-act-watch" title="Add to watchlist">\u2606</button>' +
+                            '<button class="ir-act ir-act-fav" title="Pin to Top 4 favorites">\u2605</button>' +
+                        '</div>' +
                     '</div>' +
                     '<div class="ir-yr">' +
                         '<span class="ir-yl">Your rating:</span>' +
@@ -469,6 +498,9 @@
     var _overlayData = null; // merged array after metadata fetch
     var _sortKey = 'ratedAt-desc';
     var _activeTab = 'all'; // 'all' | 'Movie' | 'Series' | 'Episode'
+    var _overlayView = 'films'; // 'films' | 'watchlist' | 'liked' | 'diary' | 'recs'
+    var _searchQuery = '';
+    var _favItemIds = [];
 
     var _sortFns = {
         'ratedAt-desc':   function (a, b) { return new Date(b.ratedAt) - new Date(a.ratedAt); },
@@ -504,9 +536,19 @@
                         '<option value="runtime-desc">Length \u2193</option>' +
                         '<option value="runtime-asc">Length \u2191</option>' +
                     '</select>' +
+                    '<input type="text" class="ir-ov-search" placeholder="Search titles\u2026" />' +
                     '<button class="ir-ov-lb">\u2699 Letterboxd</button>' +
                     '<button class="ir-ov-close">\u2715 Close</button>' +
                 '</div>' +
+                // v1.2.0 — view selector (what kind of data to show)
+                '<div class="ir-ov-views">' +
+                    '<button class="ir-ov-view ir-ov-view-active" data-view="films">\u2605 Films</button>' +
+                    '<button class="ir-ov-view" data-view="watchlist">\u2606 Watchlist</button>' +
+                    '<button class="ir-ov-view" data-view="liked">\u2661 Liked</button>' +
+                    '<button class="ir-ov-view" data-view="diary">\ud83d\udcd6 Diary</button>' +
+                    '<button class="ir-ov-view" data-view="recs">\u2728 For you</button>' +
+                '</div>' +
+                // Existing type tabs — still work as a sub-filter within each view
                 '<div class="ir-ov-tabs">' +
                     '<button class="ir-ov-tab ir-ov-tab-active" data-tab="all">All</button>' +
                     '<button class="ir-ov-tab" data-tab="Movie">Movies</button>' +
@@ -536,7 +578,13 @@
                 '</div>' +
             '</div>' +
             '<div class="ir-ov-inner">' +
-                '<div class="ir-ov-body"><div class="ir-ov-loading">Loading\u2026</div></div>' +
+                '<div class="ir-ov-body">' +
+                    '<div class="ir-ov-favs" style="display:none">' +
+                        '<div class="ir-ov-favs-title">\u2605 Your Top 4</div>' +
+                        '<div class="ir-ov-favs-grid"></div>' +
+                    '</div>' +
+                    '<div class="ir-ov-grid-wrap"><div class="ir-ov-loading">Loading\u2026</div></div>' +
+                '</div>' +
             '</div>';
 
         _overlay.querySelector('.ir-ov-close').addEventListener('click', function () {
@@ -546,6 +594,31 @@
         _overlay.querySelector('.ir-ov-sort').addEventListener('change', function (e) {
             _sortKey = e.target.value;
             if (_overlayData) renderOverlayGrid();
+        });
+
+        // v1.2.0 — search input
+        var searchEl = _overlay.querySelector('.ir-ov-search');
+        if (searchEl) {
+            var searchDebounce;
+            searchEl.addEventListener('input', function (e) {
+                clearTimeout(searchDebounce);
+                searchDebounce = setTimeout(function () {
+                    _searchQuery = (e.target.value || '').trim();
+                    if (_overlayData) renderOverlayGrid();
+                }, 150);
+            });
+        }
+
+        // v1.2.0 — view switcher
+        _overlay.querySelectorAll('.ir-ov-view').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var v = btn.dataset.view;
+                if (v === _overlayView) return;
+                _overlayView = v;
+                _overlay.querySelectorAll('.ir-ov-view').forEach(function (b) { b.classList.remove('ir-ov-view-active'); });
+                btn.classList.add('ir-ov-view-active');
+                loadOverlayView();
+            });
         });
 
         // ── Overlay Letterboxd panel wiring ─────────────────────────────
@@ -783,108 +856,242 @@
         return _overlay;
     }
 
+    function buildOverlayCard(item, opts) {
+        opts = opts || {};
+        var card = document.createElement('div');
+        card.className = 'ir-ov-card';
+        card.dataset.id = item.itemId;
+
+        var posterSrc = item.imageTag
+            ? '/Items/' + item.itemId + '/Images/Primary?fillHeight=450&fillWidth=300&quality=90&tag=' + item.imageTag
+            : '';
+
+        var metaParts = [];
+        if (item.year)            metaParts.push(item.year);
+        if (item.runtime)         metaParts.push(formatRuntime(item.runtime));
+        if (item.communityRating) metaParts.push('\u2605' + item.communityRating.toFixed(1));
+
+        // Badge changes depending on view — stars for films/diary,
+        // heart for liked, bookmark for watchlist, pin for favorites, nothing for recs
+        var badge = '';
+        if (opts.showStars && typeof item.stars === 'number') {
+            badge = '<div class="ir-ov-card-stars-badge">\u2605 ' + item.stars.toFixed(1) + '</div>';
+        } else if (opts.badge) {
+            badge = '<div class="ir-ov-card-stars-badge">' + esc(opts.badge) + '</div>';
+        }
+
+        card.innerHTML =
+            (posterSrc
+                ? '<img class="ir-ov-poster" src="' + esc(posterSrc) + '" loading="lazy" alt="">'
+                : '<div class="ir-ov-poster-ph">\u2605</div>') +
+            '<div class="ir-ov-card-gradient"></div>' +
+            '<div class="ir-ov-card-overlay"><div class="ir-ov-card-play">\u25b6\ufe0e</div></div>' +
+            '<div class="ir-ov-card-info">' +
+                badge +
+                '<div class="ir-ov-card-name" title="' + esc(item.name || '') + '">' + esc(item.name || item.itemId) + '</div>' +
+                (metaParts.length ? '<div class="ir-ov-card-meta">' + esc(metaParts.join(' \u00b7 ')) + '</div>' : '') +
+                (item.review && opts.showReview ? '<div class="ir-ov-card-rev">' + esc(item.review) + '</div>' : '') +
+            '</div>';
+
+        card.addEventListener('click', function () {
+            _overlay.classList.remove('ir-ov-open');
+            document.documentElement.style.overflow = '';
+            window.location.hash = '#!/details?id=' + item.itemId;
+        });
+        return card;
+    }
+
     function renderOverlayGrid() {
-        var body = _overlay.querySelector('.ir-ov-body');
-        var countEl = _overlay.querySelector('.ir-ov-count');
+        var gridWrap = _overlay.querySelector('.ir-ov-grid-wrap');
+        var countEl  = _overlay.querySelector('.ir-ov-count');
+        var favsEl   = _overlay.querySelector('.ir-ov-favs');
+
+        // Favorites row is only shown in Films view
+        if (favsEl) favsEl.style.display = (_overlayView === 'films' && _favItemIds.length > 0) ? '' : 'none';
 
         var source = _overlayData || [];
+
+        // 1. Filter by type tab
         var filtered = _activeTab === 'all'
             ? source
             : source.filter(function (i) { return i.type === _activeTab; });
 
+        // 2. Filter by search query
+        if (_searchQuery) {
+            var q = _searchQuery.toLowerCase();
+            filtered = filtered.filter(function (i) {
+                return (i.name || '').toLowerCase().indexOf(q) !== -1;
+            });
+        }
+
+        // 3. Per-view empty state text
+        var emptyText;
+        if (_overlayView === 'watchlist')      emptyText = 'Your watchlist is empty. Add films via the bookmark button on the rating panel, or import your Letterboxd watchlist.csv.';
+        else if (_overlayView === 'liked')     emptyText = 'No liked films yet. Tap the heart on the rating panel to like a film.';
+        else if (_overlayView === 'diary')     emptyText = 'Your diary is empty. Rate some films and they\'ll appear here chronologically.';
+        else if (_overlayView === 'recs')      emptyText = 'No recommendations yet. Rate a handful of films (especially 4-5 stars) and StarTrack will suggest new titles from genres you love.';
+        else                                    emptyText = source.length ? 'No titles match.' : 'You haven\'t rated anything yet.';
+
         if (!filtered.length) {
-            body.innerHTML = '<div class="ir-ov-empty">' +
-                (source.length ? 'No ratings in this category yet.' : 'You haven\'t rated anything yet.') +
-                '</div>';
+            gridWrap.innerHTML = '<div class="ir-ov-empty">' + esc(emptyText) + '</div>';
             if (countEl) countEl.textContent = '';
             return;
         }
 
-        if (countEl) countEl.textContent = filtered.length + ' title' + (filtered.length !== 1 ? 's' : '') + ' rated';
+        if (countEl) {
+            var labelWord = _overlayView === 'watchlist' ? 'on watchlist'
+                           : _overlayView === 'liked'     ? 'liked'
+                           : _overlayView === 'recs'      ? 'suggested'
+                           : 'rated';
+            countEl.textContent = filtered.length + ' title' + (filtered.length !== 1 ? 's' : '') + ' ' + labelWord;
+        }
 
-        var sorted = filtered.slice().sort(_sortFns[_sortKey] || _sortFns['ratedAt-desc']);
+        // 4. Sort. Diary view forces ratedAt desc. Recs view forces community rating desc.
+        var sortFn;
+        if (_overlayView === 'diary')      sortFn = _sortFns['ratedAt-desc'];
+        else if (_overlayView === 'recs')  sortFn = _sortFns['community-desc'];
+        else                               sortFn = _sortFns[_sortKey] || _sortFns['ratedAt-desc'];
+        var sorted = filtered.slice().sort(sortFn);
+
         var grid = document.createElement('div');
         grid.className = 'ir-ov-grid';
+        var opts = {
+            showStars:  _overlayView === 'films' || _overlayView === 'diary',
+            showReview: _overlayView === 'films' || _overlayView === 'diary'
+        };
+        if (_overlayView === 'watchlist') opts.badge = '\u2606 Watchlist';
+        if (_overlayView === 'liked')     opts.badge = '\u2665 Liked';
+        if (_overlayView === 'recs')      opts.badge = '\u2728 For you';
 
-        sorted.forEach(function (item) {
-            var card = document.createElement('div');
-            card.className = 'ir-ov-card';
-            card.dataset.id = item.itemId;
-
-            var posterSrc = item.imageTag
-                ? '/Items/' + item.itemId + '/Images/Primary?fillHeight=450&fillWidth=300&quality=90&tag=' + item.imageTag
-                : '';
-
-            var metaParts = [];
-            if (item.year)            metaParts.push(item.year);
-            if (item.runtime)         metaParts.push(formatRuntime(item.runtime));
-            if (item.communityRating) metaParts.push('\u2605' + item.communityRating.toFixed(1));
-
-            card.innerHTML =
-                (posterSrc
-                    ? '<img class="ir-ov-poster" src="' + esc(posterSrc) + '" loading="lazy" alt="">'
-                    : '<div class="ir-ov-poster-ph">\u2605</div>') +
-                '<div class="ir-ov-card-gradient"></div>' +
-                '<div class="ir-ov-card-overlay"><div class="ir-ov-card-play">\u25b6\ufe0e</div></div>' +
-                '<div class="ir-ov-card-info">' +
-                    '<div class="ir-ov-card-stars-badge">\u2605 ' + item.stars.toFixed(1) + '</div>' +
-                    '<div class="ir-ov-card-name" title="' + esc(item.name) + '">' + esc(item.name) + '</div>' +
-                    (metaParts.length ? '<div class="ir-ov-card-meta">' + esc(metaParts.join(' \u00b7 ')) + '</div>' : '') +
-                    (item.review ? '<div class="ir-ov-card-rev">' + esc(item.review) + '</div>' : '') +
-                '</div>';
-
-            card.addEventListener('click', function () {
-                _overlay.classList.remove('ir-ov-open');
-                document.documentElement.style.overflow = '';
-                window.location.hash = '#!/details?id=' + item.itemId;
-            });
-
-            grid.appendChild(card);
-        });
-
-        body.innerHTML = '';
-        body.appendChild(grid);
+        sorted.forEach(function (item) { grid.appendChild(buildOverlayCard(item, opts)); });
+        gridWrap.innerHTML = '';
+        gridWrap.appendChild(grid);
     }
 
-    function openMyRatings() {
-        var ov = ensureOverlay();
-        _overlay.querySelector('.ir-ov-sort').value = _sortKey;
-        // Reset tabs to 'all'
-        _activeTab = 'all';
-        _overlay.querySelectorAll('.ir-ov-tab').forEach(function (t) { t.classList.remove('ir-ov-tab-active'); });
-        var allTab = _overlay.querySelector('.ir-ov-tab[data-tab="all"]');
-        if (allTab) allTab.classList.add('ir-ov-tab-active');
+    // Takes an array of entries with at least { itemId } and fetches metadata
+    // for each, building the normalised _overlayData structure used by render.
+    function hydrateAndRender(entries, extras) {
+        if (!entries || !entries.length) {
+            _overlayData = [];
+            renderOverlayGrid();
+            return;
+        }
+        var ids = entries.map(function (e) { return e.itemId; });
+        getItemsMeta(ids).then(function (meta) {
+            _overlayData = entries.map(function (e) {
+                var m = meta[e.itemId] || {};
+                var extra = extras && extras[e.itemId] ? extras[e.itemId] : {};
+                return {
+                    itemId: e.itemId,
+                    stars: (typeof e.stars === 'number') ? e.stars : (extra.stars || 0),
+                    review: e.review || extra.review || null,
+                    ratedAt: e.ratedAt || e.addedAt || e.likedAt || null,
+                    name: m.name || e.itemId,
+                    year: m.year || 0,
+                    runtime: m.runtime || 0,
+                    communityRating: m.communityRating || 0,
+                    imageTag: m.imageTag || null,
+                    type: m.type || 'Unknown'
+                };
+            });
+            renderOverlayGrid();
+        });
+    }
 
-        ov.classList.add('ir-ov-open');
-        document.documentElement.style.overflow = 'hidden';
+    function loadOverlayView() {
+        var gridWrap = _overlay.querySelector('.ir-ov-grid-wrap');
+        gridWrap.innerHTML = '<div class="ir-ov-loading">Loading\u2026</div>';
 
-        // Refresh data each open
-        var body = ov.querySelector('.ir-ov-body');
-        body.innerHTML = '<div class="ir-ov-loading">Loading your ratings\u2026</div>';
+        // Always refresh the favorites strip when any view loads
+        refreshFavoritesRow();
 
-        apiMyRatings().then(function (ratings) {
-            if (!ratings || !ratings.length) { _overlayData = []; renderOverlayGrid(); return; }
-            var ids = ratings.map(function (r) { return r.itemId; });
-            getItemsMeta(ids).then(function (meta) {
-                _overlayData = ratings.map(function (r) {
-                    var m = meta[r.itemId] || {};
-                    return {
-                        itemId: r.itemId,
-                        stars: r.stars,
-                        review: r.review || null,
-                        ratedAt: r.ratedAt,
-                        name: m.name || r.itemId,
+        if (_overlayView === 'films') {
+            apiMyRatings().then(function (ratings) { hydrateAndRender(ratings || []); });
+        } else if (_overlayView === 'watchlist') {
+            apiMyWatchlist().then(function (rows) {
+                hydrateAndRender((rows || []).map(function (w) {
+                    return { itemId: w.itemId, ratedAt: w.addedAt };
+                }));
+            });
+        } else if (_overlayView === 'liked') {
+            apiMyLikes().then(function (rows) {
+                hydrateAndRender((rows || []).map(function (l) {
+                    return { itemId: l.itemId, ratedAt: l.likedAt };
+                }));
+            });
+        } else if (_overlayView === 'diary') {
+            // Diary = same rating data as Films, forced chronological sort
+            apiMyRatings().then(function (ratings) { hydrateAndRender(ratings || []); });
+        } else if (_overlayView === 'recs') {
+            apiRecommendations(30).then(function (rows) {
+                hydrateAndRender((rows || []).map(function (r) {
+                    return { itemId: r.itemId };
+                }));
+            });
+        }
+    }
+
+    function refreshFavoritesRow() {
+        var favsEl = _overlay.querySelector('.ir-ov-favs');
+        var favsGrid = _overlay.querySelector('.ir-ov-favs-grid');
+        if (!favsGrid) return;
+
+        apiMyFavorites().then(function (favs) {
+            _favItemIds = favs || [];
+            if (_overlayView !== 'films' || _favItemIds.length === 0) {
+                favsEl.style.display = 'none';
+                return;
+            }
+            favsEl.style.display = '';
+            getItemsMeta(_favItemIds).then(function (meta) {
+                favsGrid.innerHTML = '';
+                for (var i = 0; i < 4; i++) {
+                    var id = _favItemIds[i];
+                    if (!id) {
+                        var ph = document.createElement('div');
+                        ph.className = 'ir-ov-fav-empty';
+                        ph.textContent = '+';
+                        favsGrid.appendChild(ph);
+                        continue;
+                    }
+                    var m = meta[id] || {};
+                    favsGrid.appendChild(buildOverlayCard({
+                        itemId: id,
+                        name: m.name || id,
                         year: m.year || 0,
                         runtime: m.runtime || 0,
                         communityRating: m.communityRating || 0,
                         imageTag: m.imageTag || null,
                         type: m.type || 'Unknown'
-                    };
-                });
-                renderOverlayGrid();
+                    }, { badge: '\u2605 #' + (i + 1) }));
+                }
             });
         });
     }
+
+    function openMyRatings() {
+        var ov = ensureOverlay();
+        _overlay.querySelector('.ir-ov-sort').value = _sortKey;
+        // Reset filters
+        _activeTab = 'all';
+        _overlayView = 'films';
+        _searchQuery = '';
+        var searchEl = _overlay.querySelector('.ir-ov-search');
+        if (searchEl) searchEl.value = '';
+        _overlay.querySelectorAll('.ir-ov-tab').forEach(function (t) { t.classList.remove('ir-ov-tab-active'); });
+        var allTab = _overlay.querySelector('.ir-ov-tab[data-tab="all"]');
+        if (allTab) allTab.classList.add('ir-ov-tab-active');
+        _overlay.querySelectorAll('.ir-ov-view').forEach(function (v) { v.classList.remove('ir-ov-view-active'); });
+        var filmsView = _overlay.querySelector('.ir-ov-view[data-view="films"]');
+        if (filmsView) filmsView.classList.add('ir-ov-view-active');
+
+        ov.classList.add('ir-ov-open');
+        document.documentElement.style.overflow = 'hidden';
+        loadOverlayView();
+    }
+
+    // Called by sync/import handlers after data changes to refresh the grid
+    function loadMyRatings() { loadOverlayView(); }
 
     // ── Sidebar injection ─────────────────────────────────────────────────
 
@@ -1062,6 +1269,9 @@
         var rb = el.querySelector('.ir-rb'), submit = el.querySelector('.ir-submit');
         var flash = el.querySelector('.ir-flash'), yc = el.querySelector('.ir-yc');
         var rev = el.querySelector('.ir-rev'), revHint = el.querySelector('.ir-rev-hint');
+        var actLike  = el.querySelector('.ir-act-like');
+        var actWatch = el.querySelector('.ir-act-watch');
+        var actFav   = el.querySelector('.ir-act-fav');
         var open = false, listOpen = false;
 
         pill.addEventListener('click', function () {
@@ -1138,6 +1348,50 @@
                 _pendingStars = 0; setStarDisplay(0);
                 if (rev) rev.value = '';
                 apiGet(id).then(function (d) { if (d) render(d); });
+            });
+        });
+
+        // ── Action buttons: like, watchlist, favorite ───────────────────
+        function toggleAct(btn, apiOn, apiOff) {
+            var id = _curId; if (!id) return;
+            var isOn = btn.classList.contains('ir-on');
+            var fn = isOn ? apiOff : apiOn;
+            fn(id).then(function (ok) {
+                if (ok) btn.classList.toggle('ir-on', !isOn);
+            });
+        }
+
+        if (actLike) actLike.addEventListener('click', function (e) {
+            e.stopPropagation();
+            toggleAct(actLike, apiLikeAdd, apiLikeRemove);
+        });
+        if (actWatch) actWatch.addEventListener('click', function (e) {
+            e.stopPropagation();
+            toggleAct(actWatch, apiWatchlistAdd, apiWatchlistRemove);
+        });
+        if (actFav) actFav.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var id = _curId; if (!id) return;
+            // Favorites are a max-4 list, not a free toggle. Fetch current
+            // list, add or remove, push back.
+            apiMyFavorites().then(function (favs) {
+                favs = favs || [];
+                var idx = favs.indexOf(id);
+                if (idx >= 0) {
+                    favs.splice(idx, 1);
+                    apiSetFavorites(favs).then(function (ok) {
+                        if (ok) actFav.classList.remove('ir-on');
+                    });
+                } else {
+                    if (favs.length >= 4) {
+                        if (!window.confirm('You already have 4 favorites. Replace the oldest one with this film?')) return;
+                        favs.shift();
+                    }
+                    favs.push(id);
+                    apiSetFavorites(favs).then(function (ok) {
+                        if (ok) actFav.classList.add('ir-on');
+                    });
+                }
             });
         });
 
@@ -1326,6 +1580,82 @@
           .catch(function () { return null; });
     }
 
+    // ── Interactions API (watchlist / likes / favorites / recommendations) ─
+
+    function apiInteractionStatus(itemId) {
+        var auth = getAuth(); if (!auth) return Promise.resolve(null);
+        return fetch('/Plugins/StarTrack/Interactions/' + encodeURIComponent(itemId), {
+            headers: { Authorization: auth }
+        }).then(function (r) { return r.ok ? r.json() : null; })
+          .catch(function () { return null; });
+    }
+
+    function apiWatchlistAdd(itemId) {
+        var auth = getAuth(); if (!auth) return Promise.resolve(false);
+        return fetch('/Plugins/StarTrack/Watchlist/' + encodeURIComponent(itemId), {
+            method: 'POST', headers: { Authorization: auth }
+        }).then(function (r) { return r.ok; }).catch(function () { return false; });
+    }
+
+    function apiWatchlistRemove(itemId) {
+        var auth = getAuth(); if (!auth) return Promise.resolve(false);
+        return fetch('/Plugins/StarTrack/Watchlist/' + encodeURIComponent(itemId), {
+            method: 'DELETE', headers: { Authorization: auth }
+        }).then(function (r) { return r.ok; }).catch(function () { return false; });
+    }
+
+    function apiLikeAdd(itemId) {
+        var auth = getAuth(); if (!auth) return Promise.resolve(false);
+        return fetch('/Plugins/StarTrack/Likes/' + encodeURIComponent(itemId), {
+            method: 'POST', headers: { Authorization: auth }
+        }).then(function (r) { return r.ok; }).catch(function () { return false; });
+    }
+
+    function apiLikeRemove(itemId) {
+        var auth = getAuth(); if (!auth) return Promise.resolve(false);
+        return fetch('/Plugins/StarTrack/Likes/' + encodeURIComponent(itemId), {
+            method: 'DELETE', headers: { Authorization: auth }
+        }).then(function (r) { return r.ok; }).catch(function () { return false; });
+    }
+
+    function apiMyWatchlist() {
+        var auth = getAuth(); if (!auth) return Promise.resolve([]);
+        return fetch('/Plugins/StarTrack/MyWatchlist', { headers: { Authorization: auth } })
+            .then(function (r) { return r.ok ? r.json() : []; })
+            .catch(function () { return []; });
+    }
+
+    function apiMyLikes() {
+        var auth = getAuth(); if (!auth) return Promise.resolve([]);
+        return fetch('/Plugins/StarTrack/MyLikes', { headers: { Authorization: auth } })
+            .then(function (r) { return r.ok ? r.json() : []; })
+            .catch(function () { return []; });
+    }
+
+    function apiMyFavorites() {
+        var auth = getAuth(); if (!auth) return Promise.resolve([]);
+        return fetch('/Plugins/StarTrack/MyFavorites', { headers: { Authorization: auth } })
+            .then(function (r) { return r.ok ? r.json() : []; })
+            .catch(function () { return []; });
+    }
+
+    function apiSetFavorites(itemIds) {
+        var auth = getAuth(); if (!auth) return Promise.resolve(false);
+        return fetch('/Plugins/StarTrack/MyFavorites', {
+            method: 'POST',
+            headers: { Authorization: auth, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ itemIds: itemIds })
+        }).then(function (r) { return r.ok; }).catch(function () { return false; });
+    }
+
+    function apiRecommendations(limit) {
+        var auth = getAuth(); if (!auth) return Promise.resolve([]);
+        return fetch('/Plugins/StarTrack/Recommendations?limit=' + (limit || 30), {
+            headers: { Authorization: auth }
+        }).then(function (r) { return r.ok ? r.json() : []; })
+          .catch(function () { return []; });
+    }
+
     function apiLbImportCsv(csvText) {
         var auth = getAuth(); if (!auth) return Promise.resolve(null);
         return fetch('/Plugins/StarTrack/Letterboxd/Import', {
@@ -1363,6 +1693,18 @@
         el.querySelector('.ir-item-view').style.display = '';
         el.querySelector('.ir-recent-panel').style.display = 'none';
         var lbEl = el.querySelector('.ir-lb-view'); if (lbEl) lbEl.style.display = 'none';
+
+        // Load interaction state so the heart/watchlist/fav buttons reflect
+        // the real stored state when the panel opens for this item.
+        apiInteractionStatus(itemId).then(function (s) {
+            if (!s || _curId !== itemId) return;
+            var aLike  = el.querySelector('.ir-act-like');
+            var aWatch = el.querySelector('.ir-act-watch');
+            var aFav   = el.querySelector('.ir-act-fav');
+            if (aLike)  aLike .classList.toggle('ir-on', !!s.liked);
+            if (aWatch) aWatch.classList.toggle('ir-on', !!s.watchlisted);
+            if (aFav)   aFav  .classList.toggle('ir-on', !!s.favorite);
+        });
 
         var lbl = el.querySelector('.ir-label');
         if (lbl) { lbl.textContent = 'Rate'; lbl.style.color = ''; }

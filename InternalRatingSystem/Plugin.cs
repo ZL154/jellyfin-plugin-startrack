@@ -29,12 +29,18 @@ namespace Jellyfin.Plugin.InternalRating
         /// </summary>
         public LetterboxdSettingsRepository LetterboxdSettings { get; }
 
+        /// <summary>
+        /// Shared user-interactions repository (watchlist, likes, favorites).
+        /// </summary>
+        public UserInteractionsRepository Interactions { get; }
+
         public Plugin(IApplicationPaths applicationPaths, IXmlSerializer xmlSerializer)
             : base(applicationPaths, xmlSerializer)
         {
             Instance           = this;
             Repository         = new RatingRepository(applicationPaths);
             LetterboxdSettings = new LetterboxdSettingsRepository(applicationPaths);
+            Interactions       = new UserInteractionsRepository(applicationPaths);
         }
 
         /// <inheritdoc />

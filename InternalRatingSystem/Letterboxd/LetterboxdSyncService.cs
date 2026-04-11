@@ -27,17 +27,20 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
 
         private readonly RatingRepository _ratingRepo;
         private readonly LetterboxdSettingsRepository _settingsRepo;
+        private readonly UserInteractionsRepository _interactions;
         private readonly ILibraryManager _libraryManager;
         private readonly ILogger<LetterboxdSyncService> _logger;
 
         public LetterboxdSyncService(
             RatingRepository ratingRepo,
             LetterboxdSettingsRepository settingsRepo,
+            UserInteractionsRepository interactions,
             ILibraryManager libraryManager,
             ILogger<LetterboxdSyncService> logger)
         {
             _ratingRepo     = ratingRepo;
             _settingsRepo   = settingsRepo;
+            _interactions   = interactions;
             _libraryManager = libraryManager;
             _logger         = logger;
         }
@@ -50,8 +53,19 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         /// Imports ratings from a Letterboxd ratings.csv file.
         /// Expected columns: Date, Name, Year, Letterboxd URI, Rating.
         /// </summary>
-        public async Task<LetterboxdImportResult> ImportCsvAsync(
+        public Task<LetterboxdImportResult> ImportCsvAsync(
             string userId, string userName, Stream csvStream)
+        {
+            return ImportCsvAsync(userId, userName, csvStream, null);
+        }
+
+        /// <summary>
+        /// Overload that accepts a pre-built MovieLookup so the ZIP
+        /// importer can reuse the same library index across ratings,
+        /// watchlist, and likes in a single request.
+        /// </summary>
+        internal async Task<LetterboxdImportResult> ImportCsvAsync(
+            string userId, string userName, Stream csvStream, MovieLookup? prebuiltLookup)
         {
             var result = new LetterboxdImportResult();
             List<Dictionary<string, string>> rows;
@@ -74,7 +88,9 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             // Build the in-memory movie lookup ONCE per import instead of
             // running a separate library query per row. Much faster, and
             // avoids any quirks with InternalItemsQuery.Years filtering.
-            var lookup = BuildMovieLookup();
+            // If the ZIP importer already built a lookup for this request,
+            // reuse it so we don't hit the library multiple times.
+            var lookup = prebuiltLookup ?? BuildMovieLookup();
             result.LibraryMovieCount = lookup.TotalMovies;
             _logger.LogInformation("[StarTrack] Letterboxd import: library has {N} movies indexed for matching", lookup.TotalMovies);
 
@@ -131,6 +147,97 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             await _settingsRepo.SetSyncStateAsync(userId, null, DateTime.UtcNow, result.Imported + result.Updated, result.Unmatched).ConfigureAwait(false);
             return result;
         }
+
+        /// <summary>
+        /// Imports a Letterboxd watchlist.csv (columns: Date, Name, Year,
+        /// Letterboxd URI) into the user's StarTrack watchlist. Same
+        /// title+year matching as the ratings importer — films not in the
+        /// library are skipped silently and counted.
+        /// </summary>
+        internal async Task<(int added, int skipped)> ImportWatchlistCsvAsync(
+            string userId, Stream csvStream, MovieLookup lookup)
+        {
+            int added = 0, skipped = 0;
+            List<Dictionary<string, string>> rows;
+            try
+            {
+                using var reader = new StreamReader(csvStream, Encoding.UTF8);
+                var content = await reader.ReadToEndAsync().ConfigureAwait(false);
+                rows = ParseCsv(content);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[StarTrack] Letterboxd watchlist CSV read failed");
+                return (0, 0);
+            }
+
+            foreach (var row in rows)
+            {
+                var name  = GetCol(row, "Name", "Title", "Film");
+                var yearS = GetCol(row, "Year");
+                if (string.IsNullOrWhiteSpace(name)) { skipped++; continue; }
+                int? year = int.TryParse(yearS, out var y) ? y : null;
+
+                var matched = lookup.Find(name, year, out _);
+                if (matched == null) { skipped++; continue; }
+
+                var itemIdStr = matched.Id.ToString("N");
+                if (await _interactions.AddToWatchlistAsync(userId, itemIdStr).ConfigureAwait(false))
+                    added++;
+                else
+                    skipped++; // already on watchlist
+            }
+            _logger.LogInformation("[StarTrack] Letterboxd watchlist import: added={A}, skipped={S}", added, skipped);
+            return (added, skipped);
+        }
+
+        /// <summary>
+        /// Imports a Letterboxd likes.csv (columns: Date, Name, Year,
+        /// Letterboxd URI) into the user's StarTrack liked-films list.
+        /// </summary>
+        internal async Task<(int added, int skipped)> ImportLikesCsvAsync(
+            string userId, Stream csvStream, MovieLookup lookup)
+        {
+            int added = 0, skipped = 0;
+            List<Dictionary<string, string>> rows;
+            try
+            {
+                using var reader = new StreamReader(csvStream, Encoding.UTF8);
+                var content = await reader.ReadToEndAsync().ConfigureAwait(false);
+                rows = ParseCsv(content);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[StarTrack] Letterboxd likes CSV read failed");
+                return (0, 0);
+            }
+
+            foreach (var row in rows)
+            {
+                var name  = GetCol(row, "Name", "Title", "Film");
+                var yearS = GetCol(row, "Year");
+                if (string.IsNullOrWhiteSpace(name)) { skipped++; continue; }
+                int? year = int.TryParse(yearS, out var y) ? y : null;
+
+                var matched = lookup.Find(name, year, out _);
+                if (matched == null) { skipped++; continue; }
+
+                var itemIdStr = matched.Id.ToString("N");
+                if (await _interactions.AddLikeAsync(userId, itemIdStr).ConfigureAwait(false))
+                    added++;
+                else
+                    skipped++;
+            }
+            _logger.LogInformation("[StarTrack] Letterboxd likes import: added={A}, skipped={S}", added, skipped);
+            return (added, skipped);
+        }
+
+        /// <summary>
+        /// Exposed so the controller can build the lookup once and pass it
+        /// through to all three importers (ratings, watchlist, likes) to
+        /// avoid three separate library queries for a single ZIP upload.
+        /// </summary>
+        internal MovieLookup BuildLookupForImport() => BuildMovieLookup();
 
         // ============================================================= //
         // RSS SYNC
@@ -428,7 +535,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             return new MovieLookup(items, _logger);
         }
 
-        private sealed class MovieLookup
+        internal sealed class MovieLookup
         {
             // Dictionary from normalized title → list of movies with that title
             private readonly Dictionary<string, List<BaseItem>> _byTitle =

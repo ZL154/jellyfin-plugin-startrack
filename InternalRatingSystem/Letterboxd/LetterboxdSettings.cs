@@ -40,6 +40,14 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         [JsonPropertyName("libraryMovieCount")] public int LibraryMovieCount { get; set; }
         [JsonPropertyName("unmatchedTitles")]   public List<string> UnmatchedTitles { get; set; } = new();
         [JsonPropertyName("error")]             public string? Error   { get; set; }
+
+        // v1.2.0 — counts from the extended CSV import that also pulls
+        // watchlist.csv, likes.csv, and diary.csv from the Letterboxd ZIP
+        // in the same pass.
+        [JsonPropertyName("watchlistAdded")]    public int WatchlistAdded    { get; set; }
+        [JsonPropertyName("watchlistSkipped")]  public int WatchlistSkipped  { get; set; }
+        [JsonPropertyName("likesAdded")]        public int LikesAdded        { get; set; }
+        [JsonPropertyName("likesSkipped")]      public int LikesSkipped      { get; set; }
     }
 
     /// <summary>

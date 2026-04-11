@@ -161,56 +161,106 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             Stream csvStream;
             IDisposable? zipGuard = null;
 
+            // Two code paths:
+            //  A) Raw CSV body → assume it's ratings.csv, import ratings only.
+            //  B) ZIP body → extract ratings.csv, watchlist.csv, likes.csv
+            //     (any of them that exist) and import all of them in one pass.
             if (LooksLikeZip(buffer))
             {
                 try
                 {
-                    var zip = new ZipArchive(buffer, ZipArchiveMode.Read, leaveOpen: false);
-                    zipGuard = zip;
-                    // Prefer ratings.csv (only rated films). Fall back to diary.csv
-                    // which also has rating + watched date and usually the same
-                    // set of entries for most users.
-                    var entry = FindCsvEntry(zip, "ratings.csv")
-                             ?? FindCsvEntry(zip, "diary.csv");
-                    if (entry == null)
+                    using var zip = new ZipArchive(buffer, ZipArchiveMode.Read, leaveOpen: false);
+
+                    var ratingsEntry = FindCsvEntry(zip, "ratings.csv") ?? FindCsvEntry(zip, "diary.csv");
+                    var watchEntry   = FindCsvEntry(zip, "watchlist.csv");
+                    var likesEntry   = FindCsvEntry(zip, "likes.csv");
+
+                    if (ratingsEntry == null && watchEntry == null && likesEntry == null)
                     {
                         return Ok(new LetterboxdImportResult
                         {
-                            Error = "ZIP did not contain ratings.csv or diary.csv. Make sure you uploaded the full Letterboxd export ZIP from Settings \u2192 Import & Export."
+                            Error = "ZIP did not contain any recognised Letterboxd CSVs (ratings.csv, diary.csv, watchlist.csv, likes.csv). Make sure you uploaded the full export ZIP from Settings \u2192 Import & Export."
                         });
                     }
-                    csvStream = entry.Open();
+
+                    // Build the movie lookup ONCE and reuse it for every CSV
+                    // in the ZIP so we don't hit the library 3x.
+                    var lookup = _sync.BuildLookupForImport();
+                    var userIdStr = userId.Value.ToString("N");
+
+                    // Ratings first so the result object carries the full
+                    // rating-import stats; then watchlist + likes are added.
+                    LetterboxdImportResult result = new();
+                    if (ratingsEntry != null)
+                    {
+                        try
+                        {
+                            using var rs = ratingsEntry.Open();
+                            result = await _sync.ImportCsvAsync(userIdStr, userName, rs, lookup).ConfigureAwait(false);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "[StarTrack] ratings.csv import from ZIP failed");
+                            result.Error = ex.Message;
+                        }
+                    }
+
+                    if (watchEntry != null)
+                    {
+                        try
+                        {
+                            using var ws = watchEntry.Open();
+                            var (wa, wsk) = await _sync.ImportWatchlistCsvAsync(userIdStr, ws, lookup).ConfigureAwait(false);
+                            result.WatchlistAdded   += wa;
+                            result.WatchlistSkipped += wsk;
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "[StarTrack] watchlist.csv import from ZIP failed");
+                        }
+                    }
+
+                    if (likesEntry != null)
+                    {
+                        try
+                        {
+                            using var ls = likesEntry.Open();
+                            var (la, lsk) = await _sync.ImportLikesCsvAsync(userIdStr, ls, lookup).ConfigureAwait(false);
+                            result.LikesAdded   += la;
+                            result.LikesSkipped += lsk;
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "[StarTrack] likes.csv import from ZIP failed");
+                        }
+                    }
+
+                    _logger.LogInformation("[StarTrack] {User} ZIP import: ratings={R} updated={U} watchlist+{W} likes+{L}",
+                        userName, result.Imported, result.Updated, result.WatchlistAdded, result.LikesAdded);
+                    return Ok(result);
                 }
                 catch (InvalidDataException)
                 {
                     return Ok(new LetterboxdImportResult { Error = "Uploaded file is not a valid ZIP archive." });
                 }
             }
-            else
-            {
-                buffer.Position = 0;
-                csvStream = buffer;
-            }
 
-            LetterboxdImportResult result;
+            // Raw CSV path — legacy direct ratings.csv upload
+            buffer.Position = 0;
+            LetterboxdImportResult csvResult;
             try
             {
-                result = await _sync.ImportCsvAsync(userId.Value.ToString("N"), userName, csvStream).ConfigureAwait(false);
+                csvResult = await _sync.ImportCsvAsync(userId.Value.ToString("N"), userName, buffer).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "[StarTrack] Letterboxd CSV import failed");
                 return Ok(new LetterboxdImportResult { Error = ex.Message });
             }
-            finally
-            {
-                csvStream?.Dispose();
-                zipGuard?.Dispose();
-            }
 
             _logger.LogInformation("[StarTrack] {User} import: imported={I} updated={U} unmatched={N} ambiguous={A}",
-                userName, result.Imported, result.Updated, result.Unmatched, result.Ambiguous);
-            return Ok(result);
+                userName, csvResult.Imported, csvResult.Updated, csvResult.Unmatched, csvResult.Ambiguous);
+            return Ok(csvResult);
         }
 
         /// <summary>
