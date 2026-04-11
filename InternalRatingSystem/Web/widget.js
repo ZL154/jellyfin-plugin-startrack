@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    console.log('[StarTrack] widget.js loaded — v1.3.3');
+    console.log('[StarTrack] widget.js loaded — v1.3.4');
     init();
 
     // ── Auth ──────────────────────────────────────────────────────────────
@@ -313,6 +313,13 @@
             '.ir-ov-diary-review{color:rgba(255,255,255,.55)!important;font-size:.78em!important;font-style:italic!important;margin-top:4px!important;line-height:1.5!important}',
             '.ir-ov-diary-month{font-size:.75em!important;text-transform:uppercase!important;letter-spacing:.1em!important;color:rgba(255,255,255,.4)!important;font-weight:800!important;padding:14px 0 6px!important;border-bottom:1px solid rgba(255,255,255,.06)!important;margin-top:14px!important}',
             '.ir-ov-diary-month:first-child{margin-top:0!important}',
+            // Watchlist scope toggle (mine vs everyone)
+            '.ir-ov-scope{display:flex!important;gap:8px!important;margin:0 0 16px!important;flex-wrap:wrap!important}',
+            '.ir-ov-scope-btn{background:#161616!important;border:1px solid rgba(255,255,255,.12)!important;color:rgba(255,255,255,.65)!important;border-radius:8px!important;padding:9px 18px!important;font-size:.78em!important;font-weight:700!important;cursor:pointer!important;letter-spacing:.02em!important;transition:all .15s!important}',
+            '.ir-ov-scope-btn:hover{border-color:rgba(200,30,30,.5)!important;color:#fff!important}',
+            '.ir-ov-scope-btn.ir-ov-scope-active{background:#cc2020!important;border-color:#cc2020!important;color:#fff!important;box-shadow:0 0 14px rgba(200,30,30,.4)!important}',
+            // Wanted-by sub-line on cards in everyone\'s watchlist mode
+            '.ir-ov-card-wantedby{font-size:.66em!important;color:rgba(96,165,250,.85)!important;font-weight:600!important;margin-top:3px!important;text-shadow:0 1px 4px rgba(0,0,0,1)!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}',
             // Reshuffle button in the For You view
             '.ir-ov-reshuffle{background:linear-gradient(135deg,#cc2020,#ff5050)!important;border:none!important;color:#fff!important;padding:10px 20px!important;border-radius:8px!important;font-size:.85em!important;font-weight:700!important;cursor:pointer!important;box-shadow:0 4px 14px rgba(200,30,30,.3)!important;transition:all .15s!important;margin:0 auto 18px!important;display:block!important;letter-spacing:.03em!important}',
             '.ir-ov-reshuffle:hover{transform:translateY(-1px)!important;box-shadow:0 6px 20px rgba(200,30,30,.45)!important}',
@@ -329,11 +336,20 @@
             '.ir-ov-list-desc{font-size:.82em!important;color:rgba(255,255,255,.6)!important;margin:8px 0!important;line-height:1.5!important}',
             '.ir-ov-list-stats{display:flex!important;gap:12px!important;font-size:.72em!important;color:rgba(255,255,255,.5)!important}',
             '.ir-ov-list-collab{color:#60a5fa!important}',
-            '.ir-ov-list-detail{padding:18px 0!important}',
-            '.ir-ov-list-back{background:transparent!important;border:1px solid rgba(255,255,255,.2)!important;color:rgba(255,255,255,.8)!important;border-radius:6px!important;padding:6px 14px!important;font-size:.78em!important;font-weight:600!important;cursor:pointer!important;margin-bottom:18px!important}',
+            '.ir-ov-list-detail{padding:18px 0!important;width:100%!important;max-width:100%!important;overflow-x:hidden!important;word-wrap:break-word!important}',
+            '.ir-ov-list-back{background:transparent!important;border:1px solid rgba(255,255,255,.2)!important;color:rgba(255,255,255,.8)!important;border-radius:6px!important;padding:6px 14px!important;font-size:.78em!important;font-weight:600!important;cursor:pointer!important;margin-bottom:18px!important;display:inline-flex!important;align-items:center!important;gap:6px!important}',
             '.ir-ov-list-back:hover{background:rgba(255,255,255,.08)!important;color:#fff!important}',
-            '.ir-ov-list-title{font-size:1.5em!important;font-weight:900!important;color:#fff!important;margin-bottom:4px!important}',
-            '.ir-ov-list-byline{color:rgba(255,255,255,.45)!important;font-size:.85em!important;margin-bottom:14px!important}',
+            '.ir-ov-list-detail-actions{display:flex!important;gap:10px!important;align-items:center!important;margin-bottom:18px!important;flex-wrap:wrap!important}',
+            '.ir-ov-list-delete{background:rgba(200,30,30,.12)!important;border:1px solid rgba(200,30,30,.4)!important;color:rgba(255,140,140,.9)!important;border-radius:6px!important;padding:6px 14px!important;font-size:.78em!important;font-weight:600!important;cursor:pointer!important;transition:all .15s!important}',
+            '.ir-ov-list-delete:hover{background:rgba(200,30,30,.25)!important;border-color:#cc2020!important;color:#ff8080!important}',
+            '.ir-ov-list-title{font-size:1.5em!important;font-weight:900!important;color:#fff!important;margin-bottom:4px!important;word-wrap:break-word!important;overflow-wrap:break-word!important}',
+            '.ir-ov-list-byline{color:rgba(255,255,255,.45)!important;font-size:.85em!important;margin-bottom:14px!important;word-wrap:break-word!important}',
+            // Delete button on list cards in the index
+            '.ir-ov-list-card{position:relative!important}',
+            '.ir-ov-list-card-actions{position:absolute!important;top:10px!important;right:10px!important;opacity:0!important;transition:opacity .15s!important}',
+            '.ir-ov-list-card:hover .ir-ov-list-card-actions{opacity:1!important}',
+            '.ir-ov-list-card-del{background:rgba(0,0,0,.85)!important;border:1px solid rgba(200,30,30,.5)!important;color:rgba(255,100,100,.9)!important;width:28px!important;height:28px!important;border-radius:6px!important;font-size:.85em!important;cursor:pointer!important;display:flex!important;align-items:center!important;justify-content:center!important;padding:0!important;line-height:1!important;backdrop-filter:blur(4px)!important;font-weight:700!important}',
+            '.ir-ov-list-card-del:hover{background:rgba(60,0,0,.95)!important;border-color:#cc2020!important;color:#ff5068!important}',
             // v1.2.0 — view selector + search input + favorites row
             '.ir-ov-search{background:#141414!important;border:1px solid rgba(255,255,255,.14)!important;color:#fff!important;border-radius:8px!important;padding:8px 14px!important;font-size:.82em!important;min-width:200px!important;outline:none!important;transition:border-color .15s!important}',
             '.ir-ov-search:focus{border-color:#cc2020!important}',
@@ -505,10 +521,11 @@
                 '.ir-ov-card-name{font-size:.72em!important}' +
                 '.ir-ov-card-meta{font-size:.62em!important}' +
                 '.ir-ov-card-stars-badge{font-size:.66em!important;padding:2px 7px!important}' +
-                '.ir-ov-lb-panel{padding:12px 14px!important;margin:0 0 12px!important}' +
-                '.ir-ov-lb-row{gap:6px!important;margin-bottom:8px!important;flex-direction:column!important;align-items:stretch!important}' +
+                '.ir-ov-lb-panel{padding:12px 14px!important;margin:0 0 12px!important;box-sizing:border-box!important;max-width:100%!important;overflow:hidden!important}' +
+                '.ir-ov-lb-row{gap:6px!important;margin-bottom:8px!important;flex-direction:column!important;align-items:stretch!important;box-sizing:border-box!important;max-width:100%!important}' +
+                '.ir-ov-lb-row *{box-sizing:border-box!important;max-width:100%!important}' +
                 '.ir-ov-lb-label{display:block!important;width:100%!important}' +
-                '.ir-ov-lb-user{max-width:100%!important;width:100%!important;font-size:.78em!important}' +
+                '.ir-ov-lb-user{max-width:100%!important;width:100%!important;font-size:.78em!important;box-sizing:border-box!important}' +
                 '.ir-ov-lb-check{width:100%!important;font-size:.74em!important}' +
                 '.ir-ov-lb-save,.ir-ov-lb-sync,.ir-ov-lb-diag,.ir-ov-lb-clean,.ir-ov-lb-scrapefav{font-size:.72em!important;padding:8px 10px!important;flex:1 1 calc(50% - 3px)!important}' +
                 '.ir-ov-lb-upload{font-size:.74em!important;padding:8px 12px!important;width:100%!important;text-align:center!important;display:block!important}' +
@@ -697,12 +714,13 @@
     var _overlayData = null; // merged array after metadata fetch
     var _sortKey = 'ratedAt-desc';
     var _activeTab = 'all'; // 'all' | 'Movie' | 'Series' | 'Episode'
-    var _overlayView = 'films'; // 'films' | 'watchlist' | 'liked' | 'diary' | 'recs' | 'lists'
+    var _overlayView = 'films'; // 'films' | 'watchlist' | 'liked' | 'diary' | 'reviews' | 'recs' | 'lists'
     var _searchQuery = '';
-    var _starFilter = 'all'; // 'all' | '4.5' | '4' | '3' | '2' | 'low'
+    var _starFilter = 'all'; // 'all' | '5' | '4.5' | ... | '0.5'
     var _favItemIds = [];
-    var _recsPool = null; // full recommendation candidate pool for reshuffle
-    var _currentListId = null; // non-null when viewing a single list
+    var _recsPool = null;
+    var _currentListId = null;
+    var _watchlistScope = 'mine'; // 'mine' | 'everyone'
 
     // Defensive: every comparator returns a real number even for null/NaN
     // inputs, and falls back to a stable secondary sort by name so ties
@@ -1198,6 +1216,14 @@
                 '</div>';
         }
 
+        // Wanted-by line — only set on "Everyone's watchlist" view
+        var wantedByLine = '';
+        if (opts.showWantedBy && item.wantedBy && item.wantedBy.length) {
+            var n = item.wantedBy.length;
+            var label = n + ' user' + (n !== 1 ? 's' : '') + ': ' + item.wantedBy.slice(0, 3).join(', ') + (n > 3 ? ' +' + (n - 3) : '');
+            wantedByLine = '<div class="ir-ov-card-wantedby">' + esc(label) + '</div>';
+        }
+
         card.innerHTML =
             (posterSrc
                 ? '<img class="ir-ov-poster" src="' + esc(posterSrc) + '" loading="lazy" alt="">'
@@ -1209,6 +1235,7 @@
                 badge +
                 '<div class="ir-ov-card-name" title="' + esc(item.name || '') + '">' + esc(item.name || item.itemId) + '</div>' +
                 (metaParts.length ? '<div class="ir-ov-card-meta">' + esc(metaParts.join(' \u00b7 ')) + '</div>' : '') +
+                wantedByLine +
                 (item.review && opts.showReview ? '<div class="ir-ov-card-rev">' + esc(item.review) + '</div>' : '') +
             '</div>';
 
@@ -1230,12 +1257,45 @@
             addToListPrompt(item.itemId);
         });
 
-        card.addEventListener('click', function () {
+        card.addEventListener('click', function () { navigateToItem(item.itemId); });
+        return card;
+    }
+
+    // Navigates to a Jellyfin item detail page in a way that doesn't
+    // accidentally toggle the nav drawer open. Setting window.location.hash
+    // directly while the overlay is closing seems to confuse Jellyfin's
+    // router into popping the side menu, so we:
+    //   1. Close the overlay first
+    //   2. Wait one tick for the overlay close to settle
+    //   3. Use Jellyfin's own router API if available (appRouter.show or
+    //      Emby.Page.show), otherwise fall back to a hash assignment
+    //   4. Pull focus away from anything that could be a menu trigger
+    function navigateToItem(itemId) {
+        if (_overlay) {
             _overlay.classList.remove('ir-ov-open');
             document.documentElement.style.overflow = '';
-            window.location.hash = '#!/details?id=' + item.itemId;
-        });
-        return card;
+        }
+        try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch (e) {}
+
+        setTimeout(function () {
+            var detailPath = '/details?id=' + itemId;
+            // Try Jellyfin / Emby router APIs first — they navigate without
+            // touching the nav drawer.
+            try {
+                if (window.appRouter && typeof window.appRouter.show === 'function') {
+                    window.appRouter.show(detailPath);
+                    return;
+                }
+            } catch (e) {}
+            try {
+                if (window.Emby && window.Emby.Page && typeof window.Emby.Page.show === 'function') {
+                    window.Emby.Page.show(detailPath);
+                    return;
+                }
+            } catch (e) {}
+            // Fallback — direct hash assignment
+            window.location.hash = '#!' + detailPath;
+        }, 60);
     }
 
     // ── Hover action handlers ─────────────────────────────────────────────
@@ -1521,11 +1581,7 @@
                     '<div class="ir-ov-diary-meta">' + metaParts.join(' \u00b7 ') + '</div>' +
                     (item.review ? '<div class="ir-ov-diary-review">' + esc(item.review) + '</div>' : '') +
                 '</div>';
-            row.addEventListener('click', function () {
-                _overlay.classList.remove('ir-ov-open');
-                document.documentElement.style.overflow = '';
-                window.location.hash = '#!/details?id=' + item.itemId;
-            });
+            row.addEventListener('click', function () { navigateToItem(item.itemId); });
             container.appendChild(row);
         });
 
@@ -1613,13 +1669,36 @@
             gridWrap.appendChild(btn);
         }
 
+        // Watchlist view shows a "mine vs everyone" scope toggle pill row
+        if (_overlayView === 'watchlist') {
+            var scope = document.createElement('div');
+            scope.className = 'ir-ov-scope';
+            scope.innerHTML =
+                '<button class="ir-ov-scope-btn ' + (_watchlistScope === 'mine' ? 'ir-ov-scope-active' : '') + '" data-scope="mine">My watchlist</button>' +
+                '<button class="ir-ov-scope-btn ' + (_watchlistScope === 'everyone' ? 'ir-ov-scope-active' : '') + '" data-scope="everyone">\ud83d\udc65 Everyone\u2019s watchlist</button>';
+            scope.querySelectorAll('.ir-ov-scope-btn').forEach(function (b) {
+                b.addEventListener('click', function () {
+                    var s = b.dataset.scope;
+                    if (s === _watchlistScope) return;
+                    _watchlistScope = s;
+                    loadOverlayView();
+                });
+            });
+            gridWrap.appendChild(scope);
+        }
+
         var grid = document.createElement('div');
         grid.className = 'ir-ov-grid';
         var opts = {
             showStars:  _overlayView === 'films',
             showReview: _overlayView === 'films'
         };
-        if (_overlayView === 'watchlist') opts.badge = '\u2606 Watchlist';
+        if (_overlayView === 'watchlist') {
+            opts.badge = (_watchlistScope === 'everyone') ? '\ud83d\udc65 Wanted' : '\u2606 Watchlist';
+            // For everyone-scope, the card builder will use item.wantedBy
+            // to render the per-item user list as a sub-line.
+            opts.showWantedBy = (_watchlistScope === 'everyone');
+        }
         if (_overlayView === 'liked')     opts.badge = '\u2665 Liked';
         if (_overlayView === 'recs')      opts.badge = '\u2728 For you';
 
@@ -1685,11 +1764,7 @@
                             '</div>' +
                             '<div class="ir-ov-review-text">' + esc(r.review) + '</div>' +
                         '</div>';
-                    item.addEventListener('click', function () {
-                        _overlay.classList.remove('ir-ov-open');
-                        document.documentElement.style.overflow = '';
-                        window.location.hash = '#!/details?id=' + r.itemId;
-                    });
+                    item.addEventListener('click', function () { navigateToItem(r.itemId); });
                     feed.appendChild(item);
                 });
                 gridWrap.innerHTML = '';
@@ -1708,10 +1783,18 @@
                     renderListsView(gridWrap);
                     return;
                 }
+                // Detect ownership so we can show the Delete button only
+                // for lists the current user actually owns.
+                var myUserId = (getUserId() || '').replace(/-/g, '').toLowerCase();
+                var isOwner = (list.ownerId || '').toLowerCase() === myUserId;
+
                 var detail = document.createElement('div');
                 detail.className = 'ir-ov-list-detail';
                 detail.innerHTML =
-                    '<button class="ir-ov-list-back">\u2190 All lists</button>' +
+                    '<div class="ir-ov-list-detail-actions">' +
+                        '<button class="ir-ov-list-back">\u2190 All lists</button>' +
+                        (isOwner ? '<button class="ir-ov-list-delete">\ud83d\uddd1 Delete list</button>' : '') +
+                    '</div>' +
                     '<div class="ir-ov-list-title">' + esc(list.name) + '</div>' +
                     '<div class="ir-ov-list-byline">by ' + esc(list.ownerName) + ' \u00b7 ' +
                         (list.collaborative ? 'collaborative' : 'private') + ' \u00b7 ' +
@@ -1724,6 +1807,21 @@
                     _currentListId = null;
                     renderListsView(gridWrap);
                 });
+                var deleteBtn = detail.querySelector('.ir-ov-list-delete');
+                if (deleteBtn) {
+                    deleteBtn.addEventListener('click', function () {
+                        if (!window.confirm('Delete the list "' + list.name + '"? This cannot be undone.')) return;
+                        apiDeleteList(list.id).then(function (ok) {
+                            if (ok) {
+                                _currentListId = null;
+                                flashFeedback('List deleted');
+                                renderListsView(gridWrap);
+                            } else {
+                                flashFeedback('Could not delete list');
+                            }
+                        });
+                    });
+                }
 
                 if (list.items.length === 0) {
                     var empty = document.createElement('div');
@@ -1780,12 +1878,17 @@
                 return;
             }
 
+            var myUserId = (getUserId() || '').replace(/-/g, '').toLowerCase();
             var grid = document.createElement('div');
             grid.className = 'ir-ov-lists-grid';
             lists.forEach(function (l) {
+                var isOwner = (l.ownerId || '').toLowerCase() === myUserId;
                 var card = document.createElement('div');
                 card.className = 'ir-ov-list-card';
                 card.innerHTML =
+                    (isOwner
+                        ? '<div class="ir-ov-list-card-actions"><button class="ir-ov-list-card-del" title="Delete list">\u2715</button></div>'
+                        : '') +
                     '<div class="ir-ov-list-name">' + esc(l.name) + '</div>' +
                     '<div class="ir-ov-list-owner">by ' + esc(l.ownerName) + '</div>' +
                     (l.description ? '<div class="ir-ov-list-desc">' + esc(l.description) + '</div>' : '') +
@@ -1797,6 +1900,17 @@
                     _currentListId = l.id;
                     renderListsView(gridWrap);
                 });
+                var delBtn = card.querySelector('.ir-ov-list-card-del');
+                if (delBtn) {
+                    delBtn.addEventListener('click', function (e) {
+                        e.stopPropagation();
+                        if (!window.confirm('Delete "' + l.name + '"? This cannot be undone.')) return;
+                        apiDeleteList(l.id).then(function (ok) {
+                            if (ok) { flashFeedback('List deleted'); renderListsView(gridWrap); }
+                            else    { flashFeedback('Could not delete list'); }
+                        });
+                    });
+                }
                 grid.appendChild(card);
             });
             gridWrap.appendChild(grid);
@@ -1828,6 +1942,7 @@
                     review: e.review || null,
                     ratedAt: e.ratedAt || e.watchedAt || e.addedAt || e.likedAt || null,
                     rewatch: e.rewatch || false,
+                    wantedBy: e.wantedBy || null,
                     name: m.name || e.itemId,
                     year: m.year || 0,
                     runtime: m.runtime || 0,
@@ -1850,11 +1965,28 @@
         if (_overlayView === 'films') {
             apiMyRatings().then(function (ratings) { hydrateAndRender(ratings || []); });
         } else if (_overlayView === 'watchlist') {
-            apiMyWatchlist().then(function (rows) {
-                hydrateAndRender((rows || []).map(function (w) {
-                    return { itemId: w.itemId, ratedAt: w.addedAt };
-                }));
-            });
+            // Watchlist view supports a "mine vs everyone" scope toggle.
+            // Default is "mine"; the user can flip to see what every other
+            // user on the server has on their watchlist.
+            if (_watchlistScope === 'everyone') {
+                apiEveryonesWatchlist().then(function (rows) {
+                    hydrateAndRender((rows || []).map(function (e) {
+                        return {
+                            itemId:  e.itemId,
+                            ratedAt: e.firstAddedAt,
+                            // Stash who-wants-it on the entry so the card
+                            // builder can render it as the badge text.
+                            wantedBy: e.userNames || []
+                        };
+                    }));
+                });
+            } else {
+                apiMyWatchlist().then(function (rows) {
+                    hydrateAndRender((rows || []).map(function (w) {
+                        return { itemId: w.itemId, ratedAt: w.addedAt };
+                    }));
+                });
+            }
         } else if (_overlayView === 'liked') {
             apiMyLikes().then(function (rows) {
                 hydrateAndRender((rows || []).map(function (l) {
@@ -1907,6 +2039,15 @@
             var fetchIds = _favItemIds.filter(function (x) { return !!x; });
 
             var renderGroups = function (meta) {
+                // Late-callback guard: if the user switched away from the
+                // Films view between fetch start and fetch resolve, never
+                // re-show the favorites row. Without this check the
+                // favorites strip would briefly reappear on Watchlist /
+                // Liked / etc whenever the user switched fast enough.
+                if (_overlayView !== 'films') {
+                    favsEl.style.display = 'none';
+                    return;
+                }
                 meta = meta || {};
                 // Group existing favorites by type. Order within a group
                 // follows the original storage order so the user controls
@@ -1997,6 +2138,7 @@
         _searchQuery = '';
         _starFilter = 'all';
         _currentListId = null;
+        _watchlistScope = 'mine';
         var searchEl = _overlay.querySelector('.ir-ov-search');
         if (searchEl) searchEl.value = '';
         var starFilterEl = _overlay.querySelector('.ir-ov-starfilter');
@@ -2544,6 +2686,13 @@
     function apiMyWatchlist() {
         var auth = getAuth(); if (!auth) return Promise.resolve([]);
         return fetch('/Plugins/StarTrack/MyWatchlist', { headers: { Authorization: auth } })
+            .then(function (r) { return r.ok ? r.json() : []; })
+            .catch(function () { return []; });
+    }
+
+    function apiEveryonesWatchlist() {
+        var auth = getAuth(); if (!auth) return Promise.resolve([]);
+        return fetch('/Plugins/StarTrack/EveryonesWatchlist', { headers: { Authorization: auth } })
             .then(function (r) { return r.ok ? r.json() : []; })
             .catch(function () { return []; });
     }

@@ -51,6 +51,45 @@ namespace Jellyfin.Plugin.InternalRating.Data
             finally { _lock.Release(); }
         }
 
+        /// <summary>
+        /// Returns every user's watchlist aggregated into one list. Items
+        /// that multiple users want collapse into a single entry with a
+        /// list of which users want it.
+        /// </summary>
+        public async Task<List<EveryonesWatchlistEntry>> GetEveryonesWatchlistAsync()
+        {
+            await _lock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                var byItem = new Dictionary<string, EveryonesWatchlistEntry>(StringComparer.OrdinalIgnoreCase);
+                foreach (var kv in _store.Users)
+                {
+                    var userId = kv.Key;
+                    var user   = kv.Value;
+                    foreach (var entry in user.Watchlist)
+                    {
+                        if (!byItem.TryGetValue(entry.ItemId, out var agg))
+                        {
+                            agg = new EveryonesWatchlistEntry
+                            {
+                                ItemId = entry.ItemId,
+                                FirstAddedAt = entry.AddedAt,
+                                UserIds = new List<string>()
+                            };
+                            byItem[entry.ItemId] = agg;
+                        }
+                        if (entry.AddedAt < agg.FirstAddedAt) agg.FirstAddedAt = entry.AddedAt;
+                        if (!agg.UserIds.Contains(userId)) agg.UserIds.Add(userId);
+                    }
+                }
+                return byItem.Values
+                    .OrderByDescending(e => e.UserIds.Count)
+                    .ThenByDescending(e => e.FirstAddedAt)
+                    .ToList();
+            }
+            finally { _lock.Release(); }
+        }
+
         public async Task<bool> AddToWatchlistAsync(string userId, string itemId)
         {
             await _lock.WaitAsync().ConfigureAwait(false);

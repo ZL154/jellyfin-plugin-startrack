@@ -72,6 +72,48 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             return Ok(await _repo.GetWatchlistAsync(userId.Value.ToString("N")).ConfigureAwait(false));
         }
 
+        /// <summary>
+        /// Returns the watchlists of every user on the server, aggregated
+        /// per item with a list of which users want each title. Sorted by
+        /// number of users descending so popular picks bubble to the top.
+        /// </summary>
+        [HttpGet("EveryonesWatchlist")]
+        [ProducesResponseType(typeof(List<EveryonesWatchlistEntry>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetEveryonesWatchlist()
+        {
+            var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
+            if (userId == null) return Unauthorized();
+
+            var rows = await _repo.GetEveryonesWatchlistAsync().ConfigureAwait(false);
+
+            // Resolve user IDs to usernames so the UI can show "wanted by
+            // Zack, Adam, Mum" instead of GUID strings.
+            var um = HttpContext.RequestServices.GetService(typeof(MediaBrowser.Controller.Library.IUserManager))
+                     as MediaBrowser.Controller.Library.IUserManager;
+            var nameLookup = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var r in rows)
+            {
+                foreach (var uid in r.UserIds)
+                {
+                    if (nameLookup.ContainsKey(uid)) continue;
+                    string name = uid;
+                    try
+                    {
+                        if (Guid.TryParse(uid, out var gid))
+                        {
+                            var user = um?.GetUserById(gid);
+                            if (user != null) name = user.Username;
+                        }
+                    }
+                    catch { }
+                    nameLookup[uid] = name;
+                }
+                r.UserNames = r.UserIds.Select(u => nameLookup.TryGetValue(u, out var n) ? n : u).ToList();
+            }
+
+            return Ok(rows);
+        }
+
         [HttpPost("Watchlist/{itemId}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> AddToWatchlist([FromRoute] string itemId)
@@ -199,11 +241,13 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 .Select(kv => kv.Key)
                 .ToArray();
 
-            // Pull every movie in at least one of those genres, exclude
-            // the user's already-rated items, sort by community rating.
+            // Pull every movie OR series in at least one of those genres,
+            // exclude items the user has already rated, sort by community
+            // rating. Series are included because user genre preferences
+            // are usually the same across film and TV.
             var query = new InternalItemsQuery
             {
-                IncludeItemTypes = new[] { BaseItemKind.Movie },
+                IncludeItemTypes = new[] { BaseItemKind.Movie, BaseItemKind.Series },
                 Recursive        = true,
                 Genres           = topGenres
             };
@@ -214,14 +258,22 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 _logger.LogWarning(ex, "[StarTrack] Recommendations query failed, falling back to ungenred");
                 candidates = _libraryManager.GetItemList(new InternalItemsQuery
                 {
-                    IncludeItemTypes = new[] { BaseItemKind.Movie },
+                    IncludeItemTypes = new[] { BaseItemKind.Movie, BaseItemKind.Series },
                     Recursive = true
                 }) ?? (IReadOnlyList<BaseItem>)Array.Empty<BaseItem>();
             }
 
-            // Filter: movie must be alive, not already rated, and has a path
+            // Filter: item must be alive (file or folder exists), not
+            // already rated, and have a path. Series have folder paths, so
+            // we accept Directory.Exists too — without this every Series
+            // recommendation was being silently dropped as a zombie.
             var recs = candidates
-                .Where(c => c != null && !ratedIds.Contains(c.Id) && !string.IsNullOrEmpty(c.Path) && System.IO.File.Exists(c.Path))
+                .Where(c =>
+                    c != null &&
+                    !ratedIds.Contains(c.Id) &&
+                    !string.IsNullOrEmpty(c.Path) &&
+                    (System.IO.File.Exists(c.Path) || System.IO.Directory.Exists(c.Path))
+                )
                 .OrderByDescending(c => c.CommunityRating ?? 0)
                 .ThenByDescending(c => c.ProductionYear ?? 0)
                 .Take(limit)

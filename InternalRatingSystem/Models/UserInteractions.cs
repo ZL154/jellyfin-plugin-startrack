@@ -38,6 +38,15 @@ namespace Jellyfin.Plugin.InternalRating.Models
         [JsonPropertyName("addedAt")] public DateTime AddedAt { get; set; }
     }
 
+    /// <summary>Aggregated entry from the everyones-watchlist endpoint.</summary>
+    public sealed class EveryonesWatchlistEntry
+    {
+        [JsonPropertyName("itemId")]        public string         ItemId       { get; set; } = string.Empty;
+        [JsonPropertyName("firstAddedAt")]  public DateTime       FirstAddedAt { get; set; }
+        [JsonPropertyName("userIds")]       public List<string>   UserIds      { get; set; } = new();
+        [JsonPropertyName("userNames")]     public List<string>   UserNames    { get; set; } = new();
+    }
+
     /// <summary>Row returned by the liked list endpoint.</summary>
     public sealed class LikedEntryDto
     {
