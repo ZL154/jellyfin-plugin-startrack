@@ -563,6 +563,9 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             var lookup = BuildMovieLookup();
             result.LibraryMovieCount = lookup.TotalMovies;
 
+            // Collect RSS entries that need to become diary entries too
+            var diaryAdds = new List<Models.DiaryEntry>();
+
             foreach (var entry in toImport)
             {
                 var matched = lookup.Find(entry.FilmTitle, entry.FilmYear, out var ambiguous);
@@ -577,6 +580,19 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                     continue;
                 }
 
+                // Each RSS entry corresponds to a watch on Letterboxd, so it
+                // also belongs in the diary store. Without this, "Sync now"
+                // updated the films view but never populated the diary, and
+                // rewatches via sync would silently miss the diary tab.
+                diaryAdds.Add(new Models.DiaryEntry
+                {
+                    ItemId    = matched.Id.ToString("N"),
+                    WatchedAt = (entry.WatchedDate ?? DateTime.UtcNow).ToUniversalTime(),
+                    Stars     = entry.Rating,
+                    Review    = null,
+                    Rewatch   = entry.Rewatch
+                });
+
                 var stars = Math.Clamp(entry.Rating!.Value, 0.5, 5.0);
                 var existing = await _ratingRepo.GetRatingsAsync(matched.Id.ToString("N")).ConfigureAwait(false);
                 var userHad  = existing.UserRatings?.Any(r => r.UserId == userId) == true;
@@ -585,6 +601,22 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
 
                 if (userHad) result.Updated++;
                 else         result.Imported++;
+            }
+
+            // ---- Diary entries ----
+            // Each RSS rating becomes a diary entry too (rewatch-aware).
+            // Dedupes on (itemId, watched-day) so re-syncing doesn't spam.
+            if (diaryAdds.Count > 0)
+            {
+                try
+                {
+                    var diaryNew = await _diaryRepo.ImportEntriesAsync(userId, diaryAdds).ConfigureAwait(false);
+                    _logger.LogInformation("[StarTrack] RSS sync added {N} new diary entries", diaryNew);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "[StarTrack] Diary write from RSS threw — continuing");
+                }
             }
 
             // ---- Watchlist RSS ----
@@ -1102,6 +1134,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             public int?    FilmYear   { get; set; }
             public double? Rating     { get; set; }
             public DateTime? WatchedDate { get; set; }
+            public bool    Rewatch    { get; set; }
         }
 
         private static List<LetterboxdRssEntry> ParseRss(string xml)
@@ -1133,6 +1166,10 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
 
                 var watchedStr = item.Element(lb + "watchedDate")?.Value;
                 if (DateTime.TryParse(watchedStr, out var wd)) entry.WatchedDate = wd;
+
+                var rewatchStr = item.Element(lb + "rewatch")?.Value;
+                entry.Rewatch = string.Equals(rewatchStr, "Yes", StringComparison.OrdinalIgnoreCase) ||
+                                string.Equals(rewatchStr, "true", StringComparison.OrdinalIgnoreCase);
 
                 // Fallback: some entries put title in <title> like "Film Name, 2022 - ★★★★½"
                 if (string.IsNullOrEmpty(entry.FilmTitle))

@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    console.log('[StarTrack] widget.js loaded — v1.3.2');
+    console.log('[StarTrack] widget.js loaded — v1.3.3');
     init();
 
     // ── Auth ──────────────────────────────────────────────────────────────
@@ -431,6 +431,19 @@
             '.ir-lb-status{font-size:.76em!important;color:rgba(255,255,255,.6)!important;margin-top:10px!important;line-height:1.5!important;min-height:1em!important}',
             '.ir-lb-status.ir-lb-ok{color:#52b54b!important}',
             '.ir-lb-status.ir-lb-err{color:#ff7070!important}',
+            // ── Reviews feed view ────────────────────────────────────────
+            '.ir-ov-reviews-feed{display:flex!important;flex-direction:column!important;gap:14px!important;padding-bottom:48px!important;max-width:820px!important}',
+            '.ir-ov-review{display:flex!important;gap:16px!important;background:#141414!important;border:1px solid rgba(255,255,255,.07)!important;border-radius:12px!important;padding:16px!important;cursor:pointer!important;transition:all .15s!important}',
+            '.ir-ov-review:hover{border-color:rgba(200,30,30,.4)!important;background:#1a1010!important;transform:translateX(3px)!important}',
+            '.ir-ov-review-poster{width:80px!important;height:120px!important;border-radius:7px!important;object-fit:cover!important;background:#0a0a0a!important;flex-shrink:0!important}',
+            '.ir-ov-review-body{flex:1!important;min-width:0!important;display:flex!important;flex-direction:column!important;gap:6px!important}',
+            '.ir-ov-review-head{display:flex!important;align-items:baseline!important;gap:10px!important;flex-wrap:wrap!important}',
+            '.ir-ov-review-title{font-weight:800!important;font-size:1.05em!important;color:#fff!important}',
+            '.ir-ov-review-year{color:rgba(255,255,255,.45)!important;font-size:.82em!important}',
+            '.ir-ov-review-meta{font-size:.78em!important;color:rgba(255,255,255,.55)!important;display:flex!important;align-items:center!important;gap:8px!important;flex-wrap:wrap!important}',
+            '.ir-ov-review-user{color:#f4c430!important;font-weight:700!important}',
+            '.ir-ov-review-date{color:rgba(255,255,255,.4)!important}',
+            '.ir-ov-review-text{color:rgba(255,255,255,.85)!important;font-size:.88em!important;line-height:1.55!important;font-style:italic!important;border-left:3px solid rgba(244,196,48,.3)!important;padding-left:12px!important;margin-top:4px!important}',
             // ── Add-to-list modal ────────────────────────────────────────
             '.ir-modal-backdrop{position:fixed!important;inset:0!important;background:rgba(0,0,0,.78)!important;backdrop-filter:blur(4px)!important;z-index:2147483647!important;display:flex!important;align-items:center!important;justify-content:center!important;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif!important;animation:irFadeIn .15s ease-out!important}',
             '@keyframes irFadeIn{from{opacity:0}to{opacity:1}}',
@@ -453,9 +466,78 @@
             '.ir-modal-name::placeholder{color:rgba(255,255,255,.3)!important}',
             '.ir-modal-create{background:#cc2020!important;border:none!important;color:#fff!important;padding:10px 18px!important;border-radius:8px!important;font-size:.82em!important;font-weight:700!important;cursor:pointer!important;white-space:nowrap!important;transition:background .15s!important}',
             '.ir-modal-create:hover{background:#d42828!important}',
+            // Create-list modal extras
+            '.ir-modal-label{font-size:.72em!important;text-transform:uppercase!important;letter-spacing:.06em!important;color:rgba(255,255,255,.55)!important;font-weight:700!important;display:block!important}',
+            '.ir-modal-desc{width:100%!important;background:rgba(255,255,255,.05)!important;border:1px solid rgba(255,255,255,.14)!important;color:#fff!important;border-radius:8px!important;padding:10px 14px!important;font-size:.85em!important;outline:none!important;resize:vertical!important;font-family:inherit!important;min-height:60px!important;transition:border-color .15s!important}',
+            '.ir-modal-desc:focus{border-color:#cc2020!important}',
+            '.ir-modal-desc::placeholder{color:rgba(255,255,255,.3)!important}',
+            '.ir-modal-check{display:flex!important;align-items:center!important;gap:8px!important;font-size:.82em!important;color:rgba(255,255,255,.78)!important;cursor:pointer!important;line-height:1.45!important}',
+            '.ir-modal-check input{accent-color:#cc2020!important;width:16px!important;height:16px!important;flex-shrink:0!important}',
+            '.ir-modal-cancel{background:transparent!important;border:1px solid rgba(255,255,255,.2)!important;color:rgba(255,255,255,.8)!important;padding:10px 18px!important;border-radius:8px!important;font-size:.82em!important;font-weight:600!important;cursor:pointer!important;transition:all .15s!important}',
+            '.ir-modal-cancel:hover{background:rgba(255,255,255,.08)!important;border-color:rgba(255,255,255,.4)!important;color:#fff!important}',
             // Flash toast for action confirmations
             '.ir-flash-toast{position:fixed!important;bottom:30px!important;left:50%!important;transform:translateX(-50%) translateY(20px)!important;background:#161616!important;border:1px solid rgba(82,181,75,.5)!important;color:#7fd97a!important;padding:12px 22px!important;border-radius:10px!important;font-size:.85em!important;font-weight:700!important;z-index:2147483647!important;opacity:0!important;transition:all .25s ease-out!important;box-shadow:0 10px 40px rgba(0,0,0,.7)!important;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif!important}',
             '.ir-flash-toast.ir-flash-toast-show{opacity:1!important;transform:translateX(-50%) translateY(0)!important}',
+            // ── Mobile / narrow-viewport responsive overrides ──────────
+            // The desktop layout assumes ~1200px+ for the topbar buttons.
+            // On phones the header was overlapping itself, the view tabs
+            // were stacking weirdly, and the favorites grid had zero room.
+            // These media queries fix all of that.
+            '@media (max-width: 768px) {' +
+                '.ir-ov-topbar{padding:0 16px!important}' +
+                '.ir-ov-header{height:auto!important;padding:14px 0!important;gap:8px!important}' +
+                '.ir-ov-title{font-size:1em!important;flex:1 1 100%!important;margin-bottom:6px!important}' +
+                '.ir-ov-count{order:2!important;flex:0 0 auto!important;font-size:.65em!important;padding:3px 8px!important}' +
+                '.ir-ov-sort,.ir-ov-starfilter{flex:1 1 calc(50% - 4px)!important;font-size:.72em!important;padding:7px 10px!important;min-width:0!important}' +
+                '.ir-ov-search{flex:1 1 100%!important;font-size:.78em!important;min-width:0!important}' +
+                '.ir-ov-export,.ir-ov-lb,.ir-ov-close{font-size:.7em!important;padding:7px 10px!important}' +
+                '.ir-ov-views{padding:8px 0 4px!important;gap:4px!important;overflow-x:auto!important;flex-wrap:nowrap!important;scrollbar-width:none!important;-webkit-overflow-scrolling:touch!important}' +
+                '.ir-ov-views::-webkit-scrollbar{display:none!important}' +
+                '.ir-ov-view{font-size:.7em!important;padding:7px 10px!important;flex:0 0 auto!important;white-space:nowrap!important}' +
+                '.ir-ov-tabs{padding:10px 0!important;gap:6px!important;overflow-x:auto!important;flex-wrap:nowrap!important;scrollbar-width:none!important}' +
+                '.ir-ov-tabs::-webkit-scrollbar{display:none!important}' +
+                '.ir-ov-tab{font-size:.68em!important;padding:7px 14px!important;flex:0 0 auto!important}' +
+                '.ir-ov-inner{padding:18px 16px!important}' +
+                '.ir-ov-favs{padding:14px 0 12px!important;gap:14px!important}' +
+                '.ir-ov-favs-grid{grid-template-columns:repeat(2,1fr)!important;gap:10px!important}' +
+                '.ir-ov-favs-title{font-size:.7em!important}' +
+                '.ir-ov-grid{grid-template-columns:repeat(2,1fr)!important;gap:10px!important}' +
+                '.ir-ov-card-name{font-size:.72em!important}' +
+                '.ir-ov-card-meta{font-size:.62em!important}' +
+                '.ir-ov-card-stars-badge{font-size:.66em!important;padding:2px 7px!important}' +
+                '.ir-ov-lb-panel{padding:12px 14px!important;margin:0 0 12px!important}' +
+                '.ir-ov-lb-row{gap:6px!important;margin-bottom:8px!important;flex-direction:column!important;align-items:stretch!important}' +
+                '.ir-ov-lb-label{display:block!important;width:100%!important}' +
+                '.ir-ov-lb-user{max-width:100%!important;width:100%!important;font-size:.78em!important}' +
+                '.ir-ov-lb-check{width:100%!important;font-size:.74em!important}' +
+                '.ir-ov-lb-save,.ir-ov-lb-sync,.ir-ov-lb-diag,.ir-ov-lb-clean,.ir-ov-lb-scrapefav{font-size:.72em!important;padding:8px 10px!important;flex:1 1 calc(50% - 3px)!important}' +
+                '.ir-ov-lb-upload{font-size:.74em!important;padding:8px 12px!important;width:100%!important;text-align:center!important;display:block!important}' +
+                '.ir-ov-lb-hint{font-size:.66em!important}' +
+                '.ir-ov-lb-status{font-size:.74em!important}' +
+                '.ir-ov-diary-row{padding:10px!important;gap:10px!important}' +
+                '.ir-ov-diary-poster{width:50px!important;height:75px!important}' +
+                '.ir-ov-diary-title{font-size:.92em!important}' +
+                '.ir-ov-diary-meta{font-size:.7em!important;gap:8px!important}' +
+                '.ir-ov-diary-review{font-size:.7em!important}' +
+                '.ir-ov-review{padding:12px!important;gap:12px!important}' +
+                '.ir-ov-review-poster{width:60px!important;height:90px!important}' +
+                '.ir-ov-review-title{font-size:.92em!important}' +
+                '.ir-ov-review-meta{font-size:.7em!important;gap:6px!important}' +
+                '.ir-ov-review-text{font-size:.78em!important;padding-left:10px!important}' +
+                '.ir-ov-lists-grid{grid-template-columns:1fr!important}' +
+                '.ir-modal{max-width:calc(100vw - 24px)!important;max-height:90vh!important;margin:12px!important}' +
+                '.ir-modal-head{padding:14px 16px!important}' +
+                '.ir-modal-body{padding:14px 16px!important;gap:10px!important}' +
+                '.ir-modal-title{font-size:.95em!important}' +
+                '.ir-ov-card-actions{opacity:1!important;transform:none!important}' +
+                '.ir-ov-card-act{width:30px!important;height:30px!important}' +
+            '}' +
+            '@media (max-width: 380px) {' +
+                '.ir-ov-favs-grid{grid-template-columns:repeat(2,1fr)!important}' +
+                '.ir-ov-grid{grid-template-columns:repeat(2,1fr)!important}' +
+                '.ir-ov-view{font-size:.65em!important;padding:6px 8px!important}' +
+                '.ir-ov-tab{font-size:.64em!important;padding:6px 11px!important}' +
+            '}' +
             // Sidebar link
             '#ir-nav-link{display:flex!important;align-items:center!important;gap:12px!important;padding:10px 20px!important;cursor:pointer!important;background:none!important;border:none!important;width:100%!important;color:inherit!important;text-decoration:none!important;transition:background .15s!important;font-size:inherit!important}',
             '#ir-nav-link:hover{background:rgba(255,255,255,.07)!important}',
@@ -692,6 +774,7 @@
                     '<button class="ir-ov-view" data-view="watchlist">\u2606 Watchlist</button>' +
                     '<button class="ir-ov-view" data-view="liked">\u2661 Liked</button>' +
                     '<button class="ir-ov-view" data-view="diary">\ud83d\udcd6 Diary</button>' +
+                    '<button class="ir-ov-view" data-view="reviews">\u270d Reviews</button>' +
                     '<button class="ir-ov-view" data-view="recs">\u2728 For you</button>' +
                     '<button class="ir-ov-view" data-view="lists">\ud83d\udcc3 Lists</button>' +
                 '</div>' +
@@ -1048,6 +1131,8 @@
                 _overlay.querySelectorAll('.ir-ov-tab').forEach(function (t) { t.classList.remove('ir-ov-tab-active'); });
                 tab.classList.add('ir-ov-tab-active');
                 if (_overlayData) renderOverlayGrid();
+                // Type tab also drives which Top 4 row(s) show
+                if (_overlayView === 'films') refreshFavoritesRow();
             });
         });
         document.addEventListener('keydown', function (e) {
@@ -1286,6 +1371,67 @@
         if (m) m.remove();
     }
 
+    // Standalone "create new list" modal — used by the Lists view's
+    // "+ New list" button. Distinct from openListsModal because here
+    // there's no item to add, just collect name + description + collab.
+    function openCreateListModal(onCreated) {
+        var prev = document.getElementById('ir-list-create-modal');
+        if (prev) prev.remove();
+
+        var modal = document.createElement('div');
+        modal.id = 'ir-list-create-modal';
+        modal.className = 'ir-modal-backdrop';
+        modal.innerHTML =
+            '<div class="ir-modal">' +
+                '<div class="ir-modal-head">' +
+                    '<h3 class="ir-modal-title">Create a new list</h3>' +
+                    '<button class="ir-modal-close">\u2715</button>' +
+                '</div>' +
+                '<div class="ir-modal-body">' +
+                    '<label class="ir-modal-label">List name</label>' +
+                    '<input type="text" class="ir-modal-name ir-modal-cl-name" placeholder="e.g. Best horror of the 2010s" maxlength="80" />' +
+                    '<label class="ir-modal-label">Description (optional)</label>' +
+                    '<textarea class="ir-modal-desc" rows="3" maxlength="300" placeholder="What\u2019s this list about?"></textarea>' +
+                    '<label class="ir-modal-check">' +
+                        '<input type="checkbox" class="ir-modal-collab" checked /> ' +
+                        'Collaborative \u2014 other users on this server can add films to it' +
+                    '</label>' +
+                    '<div class="ir-modal-newrow" style="margin-top:6px">' +
+                        '<button class="ir-modal-cancel">Cancel</button>' +
+                        '<button class="ir-modal-create">Create list</button>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+
+        var close = function () { modal.remove(); };
+        modal.querySelector('.ir-modal-close').addEventListener('click', close);
+        modal.querySelector('.ir-modal-cancel').addEventListener('click', close);
+        modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
+
+        var nameInput = modal.querySelector('.ir-modal-cl-name');
+        var descInput = modal.querySelector('.ir-modal-desc');
+        var collabInput = modal.querySelector('.ir-modal-collab');
+        var createBtn = modal.querySelector('.ir-modal-create');
+
+        var doCreate = function () {
+            var name = (nameInput.value || '').trim();
+            if (!name) { nameInput.focus(); return; }
+            createBtn.disabled = true;
+            apiCreateList(name, (descInput.value || '').trim(), collabInput.checked).then(function (created) {
+                createBtn.disabled = false;
+                if (!created) { flashFeedback('Failed to create list'); return; }
+                close();
+                flashFeedback('Created "' + name + '"');
+                if (typeof onCreated === 'function') onCreated(created);
+            });
+        };
+        createBtn.addEventListener('click', doCreate);
+        nameInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') doCreate(); });
+
+        document.body.appendChild(modal);
+        setTimeout(function () { nameInput.focus(); }, 50);
+    }
+
     // Toast-style flash feedback for modal/action confirmations
     function flashFeedback(text) {
         var t = document.createElement('div');
@@ -1398,6 +1544,8 @@
 
         // Lists view has its own renderer
         if (_overlayView === 'lists') { renderListsView(gridWrap); if (countEl) countEl.textContent = ''; return; }
+        // Reviews view has its own renderer too
+        if (_overlayView === 'reviews') { renderReviewsView(gridWrap); if (countEl) countEl.textContent = ''; return; }
 
         var source = _overlayData || [];
 
@@ -1491,6 +1639,65 @@
         hydrateAndRender(picks.map(function (r) { return { itemId: r.itemId }; }));
     }
 
+    // Reviews feed — fetches recent ratings server-wide, filters to ones
+    // with non-empty review text, renders as a vertical feed.
+    function renderReviewsView(gridWrap) {
+        gridWrap.innerHTML = '<div class="ir-ov-loading">Loading reviews\u2026</div>';
+        apiRecent(100).then(function (recents) {
+            var withReviews = (recents || []).filter(function (r) {
+                return r.review && r.review.trim().length > 0;
+            });
+            if (withReviews.length === 0) {
+                gridWrap.innerHTML = '<div class="ir-ov-empty">No reviews on this server yet. Add one when you rate a film via the rating pill on a detail page.</div>';
+                return;
+            }
+
+            var ids = [];
+            var seen = {};
+            withReviews.forEach(function (r) { if (!seen[r.itemId]) { seen[r.itemId] = 1; ids.push(r.itemId); } });
+            getItemsMeta(ids).then(function (meta) {
+                var feed = document.createElement('div');
+                feed.className = 'ir-ov-reviews-feed';
+                withReviews.forEach(function (r) {
+                    var m = meta[r.itemId] || {};
+                    var d = r.ratedAt ? new Date(r.ratedAt) : null;
+                    var dateStr = d ? d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+                    var posterSrc = m.imageTag
+                        ? '/Items/' + r.itemId + '/Images/Primary?fillHeight=180&fillWidth=120&quality=90&tag=' + m.imageTag
+                        : '';
+                    var stars = renderStarBar(r.stars);
+
+                    var item = document.createElement('div');
+                    item.className = 'ir-ov-review';
+                    item.innerHTML =
+                        (posterSrc
+                            ? '<img class="ir-ov-review-poster" src="' + esc(posterSrc) + '" loading="lazy" alt="">'
+                            : '<div class="ir-ov-review-poster"></div>') +
+                        '<div class="ir-ov-review-body">' +
+                            '<div class="ir-ov-review-head">' +
+                                '<span class="ir-ov-review-title">' + esc(m.name || r.itemId) + '</span>' +
+                                (m.year ? '<span class="ir-ov-review-year">' + m.year + '</span>' : '') +
+                            '</div>' +
+                            '<div class="ir-ov-review-meta">' +
+                                '<span class="ir-ov-review-user">' + esc(r.userName) + '</span> \u00b7 ' +
+                                stars + ' ' +
+                                '<span class="ir-ov-review-date">' + esc(dateStr) + '</span>' +
+                            '</div>' +
+                            '<div class="ir-ov-review-text">' + esc(r.review) + '</div>' +
+                        '</div>';
+                    item.addEventListener('click', function () {
+                        _overlay.classList.remove('ir-ov-open');
+                        document.documentElement.style.overflow = '';
+                        window.location.hash = '#!/details?id=' + r.itemId;
+                    });
+                    feed.appendChild(item);
+                });
+                gridWrap.innerHTML = '';
+                gridWrap.appendChild(feed);
+            });
+        });
+    }
+
     function renderListsView(gridWrap) {
         // If a specific list is selected, show its contents. Otherwise, list index.
         if (_currentListId) {
@@ -1559,11 +1766,9 @@
                                ' on this server</span>';
             gridWrap.appendChild(header);
             header.querySelector('.ir-ov-lists-new').addEventListener('click', function () {
-                var name = window.prompt('List name (e.g. "Best horror of the 2010s"):');
-                if (!name || !name.trim()) return;
-                var desc = window.prompt('Optional description:') || '';
-                apiCreateList(name.trim(), desc.trim(), true).then(function (created) {
-                    if (created) { _currentListId = created.id; renderListsView(gridWrap); }
+                openCreateListModal(function (created) {
+                    _currentListId = created.id;
+                    renderListsView(gridWrap);
                 });
             });
 
@@ -1680,6 +1885,9 @@
         } else if (_overlayView === 'lists') {
             _overlayData = [];
             renderOverlayGrid();
+        } else if (_overlayView === 'reviews') {
+            _overlayData = [];
+            renderOverlayGrid();
         }
     }
 
@@ -1712,17 +1920,25 @@
                     groups[t].push({ id: id, m: m });
                 });
 
-                // Build the multi-row container. Always show the Movies
-                // row (even when empty) so the feature is discoverable.
-                // Series + Episode rows only show when they have items
-                // pinned (a TV-only user shouldn't get an empty Movies row).
+                // The favorites row now follows the active type tab so the
+                // user only sees the relevant Top 4 for whatever they're
+                // browsing. "All" shows whichever rows have content (and
+                // always Movies since it's the most common pinning).
                 favsEl.innerHTML = '';
 
-                renderOneFavRow(favsEl, '\u2605 Top 4 Movies',   groups.Movie,   'Movie',   true);
-                if (groups.Series.length > 0)
-                    renderOneFavRow(favsEl, '\u2605 Top 4 Series',  groups.Series,  'Series',  false);
-                if (groups.Episode.length > 0)
-                    renderOneFavRow(favsEl, '\u2605 Top 4 Episodes', groups.Episode, 'Episode', false);
+                if (_activeTab === 'all') {
+                    renderOneFavRow(favsEl, '\u2605 Top 4 Movies',   groups.Movie,   'Movie');
+                    if (groups.Series.length > 0)
+                        renderOneFavRow(favsEl, '\u2605 Top 4 Series',  groups.Series,  'Series');
+                    if (groups.Episode.length > 0)
+                        renderOneFavRow(favsEl, '\u2605 Top 4 Episodes', groups.Episode, 'Episode');
+                } else if (_activeTab === 'Movie') {
+                    renderOneFavRow(favsEl, '\u2605 Top 4 Movies', groups.Movie, 'Movie');
+                } else if (_activeTab === 'Series') {
+                    renderOneFavRow(favsEl, '\u2605 Top 4 Series', groups.Series, 'Series');
+                } else if (_activeTab === 'Episode') {
+                    renderOneFavRow(favsEl, '\u2605 Top 4 Episodes', groups.Episode, 'Episode');
+                }
             };
 
             if (fetchIds.length === 0) { renderGroups({}); return; }
@@ -2368,6 +2584,14 @@
         return fetch('/Plugins/StarTrack/MyDiary', { headers: { Authorization: auth } })
             .then(function (r) { return r.ok ? r.json() : []; })
             .catch(function () { return []; });
+    }
+
+    function apiRecent(limit) {
+        var auth = getAuth(); if (!auth) return Promise.resolve([]);
+        return fetch('/Plugins/StarTrack/Recent?limit=' + (limit || 100), {
+            headers: { Authorization: auth }
+        }).then(function (r) { return r.ok ? r.json() : []; })
+          .catch(function () { return []; });
     }
 
     function apiScrapeFavorites() {
