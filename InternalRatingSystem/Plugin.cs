@@ -34,6 +34,12 @@ namespace Jellyfin.Plugin.InternalRating
         /// </summary>
         public UserInteractionsRepository Interactions { get; }
 
+        /// <summary>Shared per-user diary repository (rewatch-friendly).</summary>
+        public DiaryRepository Diary { get; }
+
+        /// <summary>Shared collaborative lists repository.</summary>
+        public ListsRepository Lists { get; }
+
         public Plugin(IApplicationPaths applicationPaths, IXmlSerializer xmlSerializer)
             : base(applicationPaths, xmlSerializer)
         {
@@ -41,6 +47,8 @@ namespace Jellyfin.Plugin.InternalRating
             Repository         = new RatingRepository(applicationPaths);
             LetterboxdSettings = new LetterboxdSettingsRepository(applicationPaths);
             Interactions       = new UserInteractionsRepository(applicationPaths);
+            Diary              = new DiaryRepository(applicationPaths);
+            Lists              = new ListsRepository(applicationPaths);
         }
 
         /// <inheritdoc />

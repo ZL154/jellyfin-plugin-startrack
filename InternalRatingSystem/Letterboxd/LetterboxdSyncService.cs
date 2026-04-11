@@ -28,6 +28,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         private readonly RatingRepository _ratingRepo;
         private readonly LetterboxdSettingsRepository _settingsRepo;
         private readonly UserInteractionsRepository _interactions;
+        private readonly DiaryRepository _diaryRepo;
         private readonly ILibraryManager _libraryManager;
         private readonly ILogger<LetterboxdSyncService> _logger;
 
@@ -35,12 +36,14 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             RatingRepository ratingRepo,
             LetterboxdSettingsRepository settingsRepo,
             UserInteractionsRepository interactions,
+            DiaryRepository diaryRepo,
             ILibraryManager libraryManager,
             ILogger<LetterboxdSyncService> logger)
         {
             _ratingRepo     = ratingRepo;
             _settingsRepo   = settingsRepo;
             _interactions   = interactions;
+            _diaryRepo      = diaryRepo;
             _libraryManager = libraryManager;
             _logger         = logger;
         }
@@ -233,9 +236,185 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         }
 
         /// <summary>
+        /// Imports Letterboxd diary.csv — the chronological journal with
+        /// one row per watch (including rewatches). Columns of interest:
+        /// Date, Name, Year, Letterboxd URI, Rating, Rewatch, Tags, Watched Date.
+        /// The Watched Date column is what we use for the diary entry
+        /// timestamp since Date is just when the row was entered on
+        /// Letterboxd.
+        /// </summary>
+        internal async Task<int> ImportDiaryCsvAsync(
+            string userId, Stream csvStream, MovieLookup lookup)
+        {
+            List<Dictionary<string, string>> rows;
+            try
+            {
+                using var reader = new StreamReader(csvStream, Encoding.UTF8);
+                var content = await reader.ReadToEndAsync().ConfigureAwait(false);
+                rows = ParseCsv(content);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[StarTrack] Letterboxd diary CSV read failed");
+                return 0;
+            }
+
+            var entries = new List<Models.DiaryEntry>();
+            foreach (var row in rows)
+            {
+                var name    = GetCol(row, "Name", "Title", "Film");
+                var yearS   = GetCol(row, "Year");
+                var ratingS = GetCol(row, "Rating");
+                var rewatchS = GetCol(row, "Rewatch");
+                var watchedS = GetCol(row, "Watched Date", "WatchedDate", "Date");
+                var review  = GetCol(row, "Review");
+
+                if (string.IsNullOrWhiteSpace(name)) continue;
+                int? year = int.TryParse(yearS, out var y) ? y : null;
+                var matched = lookup.Find(name, year, out _);
+                if (matched == null) continue;
+
+                double? stars = null;
+                if (!string.IsNullOrWhiteSpace(ratingS) &&
+                    double.TryParse(ratingS, System.Globalization.NumberStyles.Float,
+                                    System.Globalization.CultureInfo.InvariantCulture, out var st))
+                {
+                    stars = Math.Clamp(st, 0.5, 5.0);
+                }
+
+                DateTime watched;
+                if (!DateTime.TryParse(watchedS, System.Globalization.CultureInfo.InvariantCulture,
+                                       System.Globalization.DateTimeStyles.AssumeUniversal, out watched))
+                {
+                    watched = DateTime.UtcNow;
+                }
+
+                entries.Add(new Models.DiaryEntry
+                {
+                    ItemId    = matched.Id.ToString("N"),
+                    WatchedAt = watched.ToUniversalTime(),
+                    Stars     = stars,
+                    Review    = string.IsNullOrWhiteSpace(review) ? null : review.Trim(),
+                    Rewatch   = string.Equals(rewatchS, "Yes", StringComparison.OrdinalIgnoreCase) ||
+                                string.Equals(rewatchS, "true", StringComparison.OrdinalIgnoreCase)
+                });
+            }
+
+            var added = await _diaryRepo.ImportEntriesAsync(userId, entries).ConfigureAwait(false);
+            _logger.LogInformation("[StarTrack] Letterboxd diary import: added {N} entries (of {T} rows)", added, entries.Count);
+            return added;
+        }
+
+        /// <summary>
+        /// Fetches the user's Letterboxd watchlist RSS and adds any new
+        /// entries to the StarTrack watchlist. Called from SyncRssAsync
+        /// after the main rating sync so a single "Sync now" click pulls
+        /// everything.
+        /// </summary>
+        internal async Task<int> SyncWatchlistRssAsync(string userId, string letterboxdUsername, MovieLookup lookup)
+        {
+            if (string.IsNullOrWhiteSpace(letterboxdUsername)) return 0;
+            var url = $"https://letterboxd.com/{Uri.EscapeDataString(letterboxdUsername)}/watchlist/rss/";
+            string xml;
+            try { xml = await _http.GetStringAsync(url).ConfigureAwait(false); }
+            catch (Exception ex)
+            {
+                _logger.LogWarning("[StarTrack] Watchlist RSS fetch failed for {User}: {Msg}", letterboxdUsername, ex.Message);
+                return 0;
+            }
+
+            List<LetterboxdRssEntry> entries;
+            try { entries = ParseRss(xml); }
+            catch (Exception ex)
+            {
+                _logger.LogWarning("[StarTrack] Watchlist RSS parse failed: {Msg}", ex.Message);
+                return 0;
+            }
+
+            int added = 0;
+            foreach (var entry in entries)
+            {
+                var matched = lookup.Find(entry.FilmTitle, entry.FilmYear, out _);
+                if (matched == null) continue;
+                if (await _interactions.AddToWatchlistAsync(userId, matched.Id.ToString("N")).ConfigureAwait(false))
+                    added++;
+            }
+            _logger.LogInformation("[StarTrack] Letterboxd watchlist RSS sync: added {N} new entries", added);
+            return added;
+        }
+
+        /// <summary>
+        /// Scrapes the Letterboxd user profile page for the "favourite films"
+        /// section (the user's Top 4) and sets those as StarTrack favorites.
+        /// Best-effort HTML parsing; returns a count of favorites populated.
+        /// </summary>
+        internal async Task<int> ScrapeLetterboxdFavoritesAsync(string userId, string letterboxdUsername, MovieLookup lookup)
+        {
+            if (string.IsNullOrWhiteSpace(letterboxdUsername)) return 0;
+            var url = $"https://letterboxd.com/{Uri.EscapeDataString(letterboxdUsername)}/";
+            string html;
+            try { html = await _http.GetStringAsync(url).ConfigureAwait(false); }
+            catch (Exception ex)
+            {
+                _logger.LogWarning("[StarTrack] Letterboxd profile fetch failed for {User}: {Msg}", letterboxdUsername, ex.Message);
+                return 0;
+            }
+
+            // Letterboxd's favourites section has this shape (simplified):
+            //   <section id="favourites" ...>
+            //     <ul class="poster-list">
+            //       <li><div class="film-poster" data-film-slug="the-batman" ...>
+            //         <img alt="The Batman" ... >
+            //
+            // We regex-extract data-film-slug + alt text as the candidate
+            // (title, _) tuples, then title-match against the library.
+            var favoriteTitles = new List<string>();
+            try
+            {
+                // Find the favourites section first
+                var favIdx = html.IndexOf("id=\"favourites\"", StringComparison.OrdinalIgnoreCase);
+                if (favIdx < 0) return 0;
+                var favSection = html.Substring(favIdx, Math.Min(8000, html.Length - favIdx));
+
+                // Extract alt="..." values from <img> tags inside
+                var altRx = new System.Text.RegularExpressions.Regex("alt=\"([^\"]+)\"",
+                    System.Text.RegularExpressions.RegexOptions.Compiled);
+                foreach (System.Text.RegularExpressions.Match m in altRx.Matches(favSection))
+                {
+                    var title = m.Groups[1].Value.Trim();
+                    if (title.Length > 0 && !favoriteTitles.Contains(title, StringComparer.OrdinalIgnoreCase))
+                    {
+                        favoriteTitles.Add(title);
+                        if (favoriteTitles.Count >= 4) break;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[StarTrack] Letterboxd favorites HTML parse failed");
+                return 0;
+            }
+
+            if (favoriteTitles.Count == 0) return 0;
+
+            var ids = new List<string>();
+            foreach (var title in favoriteTitles)
+            {
+                // No year in alt text — Find() will pick the oldest by default
+                var matched = lookup.Find(title, null, out _);
+                if (matched != null) ids.Add(matched.Id.ToString("N"));
+            }
+
+            if (ids.Count == 0) return 0;
+            await _interactions.SetFavoritesAsync(userId, ids).ConfigureAwait(false);
+            _logger.LogInformation("[StarTrack] Letterboxd profile scrape set {N} favorites for {User}", ids.Count, letterboxdUsername);
+            return ids.Count;
+        }
+
+        /// <summary>
         /// Exposed so the controller can build the lookup once and pass it
-        /// through to all three importers (ratings, watchlist, likes) to
-        /// avoid three separate library queries for a single ZIP upload.
+        /// through to all importers (ratings, watchlist, likes, diary) to
+        /// avoid separate library queries for a single ZIP upload.
         /// </summary>
         internal MovieLookup BuildLookupForImport() => BuildMovieLookup();
 
@@ -321,12 +500,25 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 else         result.Imported++;
             }
 
+            // ---- Watchlist RSS ----
+            // Same "Sync now" button should pull the user's watchlist too,
+            // not just their ratings. Reuse the already-built movie lookup.
+            try
+            {
+                var wlAdded = await SyncWatchlistRssAsync(userId, settings.Username!, lookup).ConfigureAwait(false);
+                result.WatchlistAdded += wlAdded;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[StarTrack] Watchlist RSS sync threw — continuing");
+            }
+
             // Mark newest entry as the last-seen guid so the next run diffs correctly
             var newest = entries.FirstOrDefault();
             await _settingsRepo.SetSyncStateAsync(userId, newest?.Guid, DateTime.UtcNow, result.Imported + result.Updated, result.Unmatched).ConfigureAwait(false);
 
-            _logger.LogInformation("[StarTrack] Letterboxd RSS sync for {User} ({Lb}): imported={I}, updated={U}, unmatched={N}",
-                userName, settings.Username, result.Imported, result.Updated, result.Unmatched);
+            _logger.LogInformation("[StarTrack] Letterboxd RSS sync for {User} ({Lb}): imported={I}, updated={U}, unmatched={N}, watchlist+{W}",
+                userName, settings.Username, result.Imported, result.Updated, result.Unmatched, result.WatchlistAdded);
             return result;
         }
 

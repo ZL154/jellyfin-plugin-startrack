@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    console.log('[StarTrack] widget.js loaded — v1.2.0');
+    console.log('[StarTrack] widget.js loaded — v1.3.0');
     init();
 
     // ── Auth ──────────────────────────────────────────────────────────────
@@ -84,11 +84,26 @@
 
     // ── Jellyfin metadata (bulk) ──────────────────────────────────────────
 
+    // Session-level cache of item metadata so repeated view switches
+    // (Films → Watchlist → back to Films) don't re-fetch everything.
+    // Invalidated implicitly by page reload.
+    var _metaCache = {};
+
     function getItemsMeta(ids) {
         var auth = getAuth(), uid = getUserId();
         if (!auth || !uid || !ids.length) return Promise.resolve({});
+
+        // Filter down to ids we don't already have cached
+        var needed = [];
+        var result = {};
+        ids.forEach(function (id) {
+            if (_metaCache[id]) result[id] = _metaCache[id];
+            else needed.push(id);
+        });
+        if (needed.length === 0) return Promise.resolve(result);
+
         var batches = [], bs = 100;
-        for (var i = 0; i < ids.length; i += bs) batches.push(ids.slice(i, i + bs));
+        for (var i = 0; i < needed.length; i += bs) batches.push(needed.slice(i, i + bs));
         return Promise.all(batches.map(function (batch) {
             return fetch(
                 '/Users/' + uid + '/Items?Ids=' + batch.join(',') +
@@ -96,11 +111,10 @@
                 { headers: { Authorization: auth } }
             ).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
         })).then(function (results) {
-            var meta = {};
             results.forEach(function (res) {
                 if (!res || !res.Items) return;
                 res.Items.forEach(function (item) {
-                    meta[item.Id] = {
+                    var meta = {
                         name: item.Name || 'Unknown',
                         year: item.ProductionYear || 0,
                         runtime: item.RunTimeTicks || 0,
@@ -108,9 +122,11 @@
                         imageTag: item.ImageTags && item.ImageTags.Primary ? item.ImageTags.Primary : null,
                         type: item.Type || 'Unknown'
                     };
+                    _metaCache[item.Id] = meta;
+                    result[item.Id] = meta;
                 });
             });
-            return meta;
+            return result;
         });
     }
 
@@ -255,6 +271,8 @@
             '.ir-ov-lb-sync:hover{background:#d42828!important}',
             '.ir-ov-lb-diag{background:rgba(255,255,255,.08)!important;color:rgba(255,255,255,.85)!important;border:1px solid rgba(255,255,255,.2)!important;border-radius:6px!important;padding:7px 14px!important;font-size:.78em!important;font-weight:600!important;cursor:pointer!important;transition:all .15s!important}',
             '.ir-ov-lb-diag:hover{background:rgba(255,255,255,.15)!important;border-color:rgba(255,255,255,.4)!important;color:#fff!important}',
+            '.ir-ov-lb-scrapefav{background:rgba(244,196,48,.1)!important;color:#f4c430!important;border:1px solid rgba(244,196,48,.4)!important;border-radius:6px!important;padding:7px 14px!important;font-size:.78em!important;font-weight:600!important;cursor:pointer!important;transition:all .15s!important}',
+            '.ir-ov-lb-scrapefav:hover{background:rgba(244,196,48,.18)!important;border-color:#f4c430!important;color:#fff!important}',
             '.ir-ov-lb-clean{background:rgba(200,30,30,.12)!important;color:rgba(255,140,140,.9)!important;border:1px solid rgba(200,30,30,.35)!important;border-radius:6px!important;padding:7px 14px!important;font-size:.78em!important;font-weight:600!important;cursor:pointer!important;transition:all .15s!important}',
             '.ir-ov-lb-clean:hover{background:rgba(200,30,30,.22)!important;border-color:#cc2020!important;color:#ff8080!important}',
             '.ir-ov-lb-upload{display:inline-flex!important;align-items:center!important;cursor:pointer!important;background:rgba(244,196,48,.08)!important;border:1px dashed rgba(244,196,48,.4)!important;border-radius:6px!important;padding:8px 16px!important;font-size:.82em!important;color:rgba(255,255,255,.88)!important;font-weight:600!important;transition:all .15s!important}',
@@ -266,6 +284,48 @@
             '.ir-ov-lb-status.ir-ov-lb-err{color:#ff8080!important}',
             '.ir-ov-lb-unmatched{margin-top:8px!important;padding:8px 10px!important;background:rgba(0,0,0,.35)!important;border:1px solid rgba(255,255,255,.08)!important;border-radius:6px!important;max-height:140px!important;overflow-y:auto!important;font-size:.74em!important;color:rgba(255,255,255,.5)!important;font-family:ui-monospace,Menlo,Consolas,monospace!important;line-height:1.5!important}',
             '.ir-ov-lb-unmatched-title{color:rgba(255,255,255,.75)!important;font-weight:700!important;margin-bottom:4px!important;font-family:inherit!important}',
+            // v1.2.0 — view selector + search input + favorites row + star filter + export
+            '.ir-ov-starfilter{background:#141414!important;border:1px solid rgba(255,255,255,.12)!important;color:#fff!important;border-radius:8px!important;padding:8px 12px!important;font-size:.78em!important;cursor:pointer!important;outline:none!important;transition:border-color .15s!important}',
+            '.ir-ov-starfilter:hover{border-color:rgba(200,30,30,.6)!important}',
+            '.ir-ov-starfilter option{background:#141414!important;color:#fff!important}',
+            '.ir-ov-export{background:transparent!important;border:1px solid rgba(255,255,255,.2)!important;color:rgba(255,255,255,.85)!important;border-radius:8px!important;padding:8px 14px!important;font-size:.78em!important;font-weight:600!important;cursor:pointer!important;transition:all .15s!important;white-space:nowrap!important}',
+            '.ir-ov-export:hover{background:rgba(255,255,255,.08)!important;border-color:rgba(255,255,255,.4)!important;color:#fff!important}',
+            // Diary entries: different card layout, shows date prominently
+            '.ir-ov-diary-list{display:flex!important;flex-direction:column!important;gap:12px!important;padding-bottom:48px!important;max-width:900px!important}',
+            '.ir-ov-diary-row{display:flex!important;gap:14px!important;background:#141414!important;border:1px solid rgba(255,255,255,.06)!important;border-radius:10px!important;padding:12px!important;cursor:pointer!important;transition:all .15s!important}',
+            '.ir-ov-diary-row:hover{border-color:rgba(200,30,30,.4)!important;background:#1a1010!important;transform:translateX(3px)!important}',
+            '.ir-ov-diary-poster{width:60px!important;height:90px!important;border-radius:6px!important;object-fit:cover!important;background:#0a0a0a!important;flex-shrink:0!important}',
+            '.ir-ov-diary-main{flex:1!important;min-width:0!important;display:flex!important;flex-direction:column!important;justify-content:center!important}',
+            '.ir-ov-diary-head{display:flex!important;align-items:baseline!important;gap:10px!important;margin-bottom:4px!important;flex-wrap:wrap!important}',
+            '.ir-ov-diary-title{font-weight:800!important;font-size:1.02em!important;color:#fff!important}',
+            '.ir-ov-diary-year{color:rgba(255,255,255,.45)!important;font-size:.82em!important}',
+            '.ir-ov-diary-rewatch{background:rgba(96,165,250,.18)!important;color:#60a5fa!important;border:1px solid rgba(96,165,250,.4)!important;border-radius:10px!important;padding:1px 8px!important;font-size:.68em!important;font-weight:700!important;text-transform:uppercase!important;letter-spacing:.05em!important}',
+            '.ir-ov-diary-meta{color:rgba(255,255,255,.5)!important;font-size:.78em!important;display:flex!important;gap:12px!important;flex-wrap:wrap!important}',
+            '.ir-ov-diary-stars{color:#f4c430!important;font-weight:700!important}',
+            '.ir-ov-diary-review{color:rgba(255,255,255,.55)!important;font-size:.78em!important;font-style:italic!important;margin-top:4px!important;line-height:1.5!important}',
+            '.ir-ov-diary-month{font-size:.75em!important;text-transform:uppercase!important;letter-spacing:.1em!important;color:rgba(255,255,255,.4)!important;font-weight:800!important;padding:14px 0 6px!important;border-bottom:1px solid rgba(255,255,255,.06)!important;margin-top:14px!important}',
+            '.ir-ov-diary-month:first-child{margin-top:0!important}',
+            // Reshuffle button in the For You view
+            '.ir-ov-reshuffle{background:linear-gradient(135deg,#cc2020,#ff5050)!important;border:none!important;color:#fff!important;padding:10px 20px!important;border-radius:8px!important;font-size:.85em!important;font-weight:700!important;cursor:pointer!important;box-shadow:0 4px 14px rgba(200,30,30,.3)!important;transition:all .15s!important;margin:0 auto 18px!important;display:block!important;letter-spacing:.03em!important}',
+            '.ir-ov-reshuffle:hover{transform:translateY(-1px)!important;box-shadow:0 6px 20px rgba(200,30,30,.45)!important}',
+            '.ir-ov-reshuffle:active{transform:translateY(0)!important}',
+            // Lists view
+            '.ir-ov-lists-header{display:flex!important;align-items:center!important;gap:14px!important;margin-bottom:18px!important;flex-wrap:wrap!important}',
+            '.ir-ov-lists-new{background:#cc2020!important;border:none!important;color:#fff!important;padding:9px 18px!important;border-radius:8px!important;font-size:.82em!important;font-weight:700!important;cursor:pointer!important;transition:background .15s!important}',
+            '.ir-ov-lists-new:hover{background:#d42828!important}',
+            '.ir-ov-lists-grid{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(280px,1fr))!important;gap:14px!important;padding-bottom:48px!important}',
+            '.ir-ov-list-card{background:#141414!important;border:1px solid rgba(255,255,255,.08)!important;border-radius:10px!important;padding:16px!important;cursor:pointer!important;transition:all .15s!important}',
+            '.ir-ov-list-card:hover{border-color:rgba(200,30,30,.5)!important;background:#1a1010!important;transform:translateY(-2px)!important}',
+            '.ir-ov-list-name{font-weight:800!important;font-size:1.05em!important;color:#fff!important;margin-bottom:4px!important}',
+            '.ir-ov-list-owner{font-size:.72em!important;color:rgba(255,255,255,.4)!important;text-transform:uppercase!important;letter-spacing:.05em!important;margin-bottom:8px!important}',
+            '.ir-ov-list-desc{font-size:.82em!important;color:rgba(255,255,255,.6)!important;margin:8px 0!important;line-height:1.5!important}',
+            '.ir-ov-list-stats{display:flex!important;gap:12px!important;font-size:.72em!important;color:rgba(255,255,255,.5)!important}',
+            '.ir-ov-list-collab{color:#60a5fa!important}',
+            '.ir-ov-list-detail{padding:18px 0!important}',
+            '.ir-ov-list-back{background:transparent!important;border:1px solid rgba(255,255,255,.2)!important;color:rgba(255,255,255,.8)!important;border-radius:6px!important;padding:6px 14px!important;font-size:.78em!important;font-weight:600!important;cursor:pointer!important;margin-bottom:18px!important}',
+            '.ir-ov-list-back:hover{background:rgba(255,255,255,.08)!important;color:#fff!important}',
+            '.ir-ov-list-title{font-size:1.5em!important;font-weight:900!important;color:#fff!important;margin-bottom:4px!important}',
+            '.ir-ov-list-byline{color:rgba(255,255,255,.45)!important;font-size:.85em!important;margin-bottom:14px!important}',
             // v1.2.0 — view selector + search input + favorites row
             '.ir-ov-search{background:#141414!important;border:1px solid rgba(255,255,255,.14)!important;color:#fff!important;border-radius:8px!important;padding:8px 14px!important;font-size:.82em!important;min-width:200px!important;outline:none!important;transition:border-color .15s!important}',
             '.ir-ov-search:focus{border-color:#cc2020!important}',
@@ -279,7 +339,11 @@
             '.ir-ov-favs-title{font-size:.78em!important;text-transform:uppercase!important;letter-spacing:.1em!important;color:#f4c430!important;font-weight:800!important;margin-bottom:12px!important}',
             '.ir-ov-favs-grid{display:grid!important;grid-template-columns:repeat(4,minmax(140px,1fr))!important;gap:16px!important;max-width:720px!important}',
             '.ir-ov-favs-grid .ir-ov-card{aspect-ratio:2/3!important}',
-            '.ir-ov-favs-grid .ir-ov-fav-empty{border:2px dashed rgba(244,196,48,.22)!important;border-radius:10px!important;display:flex!important;align-items:center!important;justify-content:center!important;color:rgba(244,196,48,.35)!important;font-size:2em!important;aspect-ratio:2/3!important;background:rgba(244,196,48,.03)!important}',
+            '.ir-ov-favs-grid .ir-ov-fav-empty{border:2px dashed rgba(244,196,48,.25)!important;border-radius:10px!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:6px!important;color:rgba(244,196,48,.5)!important;aspect-ratio:2/3!important;background:rgba(244,196,48,.04)!important;transition:all .15s!important}',
+            '.ir-ov-favs-grid .ir-ov-fav-empty:hover{border-color:#f4c430!important;background:rgba(244,196,48,.08)!important}',
+            '.ir-ov-fav-empty-num{font-size:.82em!important;font-weight:800!important;letter-spacing:.06em!important;color:rgba(244,196,48,.65)!important}',
+            '.ir-ov-fav-empty-plus{font-size:2.4em!important;line-height:1!important;color:rgba(244,196,48,.45)!important;font-weight:300!important}',
+            '.ir-ov-fav-empty-hint{font-size:.68em!important;text-transform:uppercase!important;letter-spacing:.08em!important;color:rgba(255,255,255,.3)!important;font-weight:700!important}',
             // Tab bar — boxed pill buttons
             '.ir-ov-tabs{display:flex!important;gap:10px!important;padding:14px 0!important;flex-shrink:0!important}',
             '.ir-ov-tab{background:#161616!important;border:1px solid rgba(255,255,255,.1)!important;border-radius:8px!important;color:rgba(255,255,255,.45)!important;font-size:.78em!important;font-weight:700!important;padding:9px 22px!important;cursor:pointer!important;transition:all .15s!important;white-space:nowrap!important;letter-spacing:.05em!important;text-transform:uppercase!important}',
@@ -498,9 +562,12 @@
     var _overlayData = null; // merged array after metadata fetch
     var _sortKey = 'ratedAt-desc';
     var _activeTab = 'all'; // 'all' | 'Movie' | 'Series' | 'Episode'
-    var _overlayView = 'films'; // 'films' | 'watchlist' | 'liked' | 'diary' | 'recs'
+    var _overlayView = 'films'; // 'films' | 'watchlist' | 'liked' | 'diary' | 'recs' | 'lists'
     var _searchQuery = '';
+    var _starFilter = 'all'; // 'all' | '4.5' | '4' | '3' | '2' | 'low'
     var _favItemIds = [];
+    var _recsPool = null; // full recommendation candidate pool for reshuffle
+    var _currentListId = null; // non-null when viewing a single list
 
     var _sortFns = {
         'ratedAt-desc':   function (a, b) { return new Date(b.ratedAt) - new Date(a.ratedAt); },
@@ -536,7 +603,16 @@
                         '<option value="runtime-desc">Length \u2193</option>' +
                         '<option value="runtime-asc">Length \u2191</option>' +
                     '</select>' +
+                    '<select class="ir-ov-starfilter">' +
+                        '<option value="all">All ratings</option>' +
+                        '<option value="4.5">4.5\u2605 and up</option>' +
+                        '<option value="4">4\u2605 and up</option>' +
+                        '<option value="3">3\u2605 and up</option>' +
+                        '<option value="2">2\u2605 and up</option>' +
+                        '<option value="low">Below 3\u2605</option>' +
+                    '</select>' +
                     '<input type="text" class="ir-ov-search" placeholder="Search titles\u2026" />' +
+                    '<button class="ir-ov-export" title="Export ratings as Letterboxd-compatible CSV">\u21E9 Export</button>' +
                     '<button class="ir-ov-lb">\u2699 Letterboxd</button>' +
                     '<button class="ir-ov-close">\u2715 Close</button>' +
                 '</div>' +
@@ -547,6 +623,7 @@
                     '<button class="ir-ov-view" data-view="liked">\u2661 Liked</button>' +
                     '<button class="ir-ov-view" data-view="diary">\ud83d\udcd6 Diary</button>' +
                     '<button class="ir-ov-view" data-view="recs">\u2728 For you</button>' +
+                    '<button class="ir-ov-view" data-view="lists">\ud83d\udcc3 Lists</button>' +
                 '</div>' +
                 // Existing type tabs — still work as a sub-filter within each view
                 '<div class="ir-ov-tabs">' +
@@ -565,6 +642,7 @@
                         '<button class="ir-ov-lb-save">Save</button>' +
                         '<button class="ir-ov-lb-sync">Sync now</button>' +
                         '<button class="ir-ov-lb-diag">\ud83d\udd0d Diagnose</button>' +
+                        '<button class="ir-ov-lb-scrapefav" title="Pull your Letterboxd Top 4 from your public profile page">\u2b50 Import Top 4</button>' +
                         '<button class="ir-ov-lb-clean">\ud83d\uddd1 Clean dead ratings</button>' +
                     '</div>' +
                     '<div class="ir-ov-lb-row">' +
@@ -615,11 +693,45 @@
                 var v = btn.dataset.view;
                 if (v === _overlayView) return;
                 _overlayView = v;
+                _currentListId = null; // leaving lists detail if we were in it
                 _overlay.querySelectorAll('.ir-ov-view').forEach(function (b) { b.classList.remove('ir-ov-view-active'); });
                 btn.classList.add('ir-ov-view-active');
                 loadOverlayView();
             });
         });
+
+        // v1.3.0 — star filter dropdown
+        var starFilterEl = _overlay.querySelector('.ir-ov-starfilter');
+        if (starFilterEl) {
+            starFilterEl.addEventListener('change', function (e) {
+                _starFilter = e.target.value;
+                if (_overlayData) renderOverlayGrid();
+            });
+        }
+
+        // v1.3.0 — export CSV
+        var exportEl = _overlay.querySelector('.ir-ov-export');
+        if (exportEl) {
+            exportEl.addEventListener('click', function () {
+                var auth = getAuth(); if (!auth) return;
+                // Fetch with auth header, convert to blob, trigger download
+                fetch('/Plugins/StarTrack/ExportCsv', { headers: { Authorization: auth } })
+                    .then(function (r) { return r.ok ? r.blob() : null; })
+                    .then(function (blob) {
+                        if (!blob) { alert('Export failed.'); return; }
+                        var a = document.createElement('a');
+                        var url = URL.createObjectURL(blob);
+                        a.href = url;
+                        a.download = 'startrack-ratings.csv';
+                        document.body.appendChild(a);
+                        a.click();
+                        setTimeout(function () {
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                        }, 0);
+                    });
+            });
+        }
 
         // ── Overlay Letterboxd panel wiring ─────────────────────────────
         var ovLbBtn    = _overlay.querySelector('.ir-ov-lb');
@@ -630,6 +742,7 @@
         var ovLbSync   = _overlay.querySelector('.ir-ov-lb-sync');
         var ovLbDiag   = _overlay.querySelector('.ir-ov-lb-diag');
         var ovLbClean  = _overlay.querySelector('.ir-ov-lb-clean');
+        var ovLbScrape = _overlay.querySelector('.ir-ov-lb-scrapefav');
         var ovLbFile   = _overlay.querySelector('.ir-ov-lb-file');
         var ovLbStatus = _overlay.querySelector('.ir-ov-lb-status');
 
@@ -723,6 +836,28 @@
                 if (_overlay.classList.contains('ir-ov-open')) loadMyRatings();
             });
         });
+
+        if (ovLbScrape) {
+            ovLbScrape.addEventListener('click', function () {
+                if (!(ovLbUser.value || '').trim()) {
+                    ovLbShowStatus('Save a Letterboxd username first.', 'err', null); return;
+                }
+                ovLbScrape.disabled = true;
+                ovLbShowStatus('Fetching your Letterboxd profile\u2026', '', null);
+                apiScrapeFavorites().then(function (r) {
+                    ovLbScrape.disabled = false;
+                    if (!r) { ovLbShowStatus('Could not reach Letterboxd.', 'err', null); return; }
+                    if (r.error) { ovLbShowStatus(r.error, 'err', null); return; }
+                    var n = r.imported || 0;
+                    if (n === 0) {
+                        ovLbShowStatus('No favorites found on your profile, or none of them matched your library.', 'err', null);
+                    } else {
+                        ovLbShowStatus('Set ' + n + ' favorite' + (n !== 1 ? 's' : '') + ' from your Letterboxd profile.', 'ok', null);
+                    }
+                    if (_overlay.classList.contains('ir-ov-open') && _overlayView === 'films') refreshFavoritesRow();
+                });
+            });
+        }
 
         if (ovLbClean) {
             ovLbClean.addEventListener('click', function () {
@@ -901,13 +1036,75 @@
         return card;
     }
 
+    function applyStarFilter(list) {
+        if (_starFilter === 'all') return list;
+        if (_starFilter === 'low') return list.filter(function (i) { return (i.stars || 0) > 0 && i.stars < 3; });
+        var min = parseFloat(_starFilter);
+        return list.filter(function (i) { return (i.stars || 0) >= min; });
+    }
+
+    function renderDiaryList(gridWrap, items) {
+        // Diary list — one row per watch, grouped by month, shows dates
+        var container = document.createElement('div');
+        container.className = 'ir-ov-diary-list';
+        var lastMonth = '';
+        items.forEach(function (item) {
+            var d = item.ratedAt ? new Date(item.ratedAt) : null;
+            var monthKey = d ? d.toLocaleString('en-US', { year: 'numeric', month: 'long' }) : 'Undated';
+            if (monthKey !== lastMonth) {
+                var hdr = document.createElement('div');
+                hdr.className = 'ir-ov-diary-month';
+                hdr.textContent = monthKey;
+                container.appendChild(hdr);
+                lastMonth = monthKey;
+            }
+
+            var row = document.createElement('div');
+            row.className = 'ir-ov-diary-row';
+            var poster = item.imageTag
+                ? '<img class="ir-ov-diary-poster" src="' + esc('/Items/' + item.itemId + '/Images/Primary?fillHeight=135&fillWidth=90&quality=90&tag=' + item.imageTag) + '" loading="lazy" alt="">'
+                : '<div class="ir-ov-diary-poster"></div>';
+
+            var dateStr = d ? d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' }) : '';
+            var metaParts = [];
+            if (dateStr) metaParts.push(dateStr);
+            if (typeof item.stars === 'number' && item.stars > 0) metaParts.push('<span class="ir-ov-diary-stars">' + item.stars.toFixed(1) + ' \u2605</span>');
+            else metaParts.push('<span style="color:rgba(255,255,255,.35)">unrated</span>');
+
+            row.innerHTML =
+                poster +
+                '<div class="ir-ov-diary-main">' +
+                    '<div class="ir-ov-diary-head">' +
+                        '<span class="ir-ov-diary-title">' + esc(item.name) + '</span>' +
+                        (item.year ? '<span class="ir-ov-diary-year">' + item.year + '</span>' : '') +
+                        (item.rewatch ? '<span class="ir-ov-diary-rewatch">Rewatch</span>' : '') +
+                    '</div>' +
+                    '<div class="ir-ov-diary-meta">' + metaParts.join(' \u00b7 ') + '</div>' +
+                    (item.review ? '<div class="ir-ov-diary-review">' + esc(item.review) + '</div>' : '') +
+                '</div>';
+            row.addEventListener('click', function () {
+                _overlay.classList.remove('ir-ov-open');
+                document.documentElement.style.overflow = '';
+                window.location.hash = '#!/details?id=' + item.itemId;
+            });
+            container.appendChild(row);
+        });
+
+        gridWrap.innerHTML = '';
+        gridWrap.appendChild(container);
+    }
+
     function renderOverlayGrid() {
         var gridWrap = _overlay.querySelector('.ir-ov-grid-wrap');
         var countEl  = _overlay.querySelector('.ir-ov-count');
         var favsEl   = _overlay.querySelector('.ir-ov-favs');
 
-        // Favorites row is only shown in Films view
-        if (favsEl) favsEl.style.display = (_overlayView === 'films' && _favItemIds.length > 0) ? '' : 'none';
+        // Favorites row is only shown in Films view — always visible even
+        // when empty, so users can see the feature and pin their first film.
+        if (favsEl) favsEl.style.display = (_overlayView === 'films') ? '' : 'none';
+
+        // Lists view has its own renderer
+        if (_overlayView === 'lists') { renderListsView(gridWrap); if (countEl) countEl.textContent = ''; return; }
 
         var source = _overlayData || [];
 
@@ -924,11 +1121,16 @@
             });
         }
 
-        // 3. Per-view empty state text
+        // 3. Star filter (only applies to views with stars)
+        if (_overlayView === 'films' || _overlayView === 'diary') {
+            filtered = applyStarFilter(filtered);
+        }
+
+        // 4. Per-view empty state text
         var emptyText;
         if (_overlayView === 'watchlist')      emptyText = 'Your watchlist is empty. Add films via the bookmark button on the rating panel, or import your Letterboxd watchlist.csv.';
         else if (_overlayView === 'liked')     emptyText = 'No liked films yet. Tap the heart on the rating panel to like a film.';
-        else if (_overlayView === 'diary')     emptyText = 'Your diary is empty. Rate some films and they\'ll appear here chronologically.';
+        else if (_overlayView === 'diary')     emptyText = 'Your diary is empty. Rate some films or import your Letterboxd diary.csv to see rewatches show up here.';
         else if (_overlayView === 'recs')      emptyText = 'No recommendations yet. Rate a handful of films (especially 4-5 stars) and StarTrack will suggest new titles from genres you love.';
         else                                    emptyText = source.length ? 'No titles match.' : 'You haven\'t rated anything yet.';
 
@@ -942,50 +1144,192 @@
             var labelWord = _overlayView === 'watchlist' ? 'on watchlist'
                            : _overlayView === 'liked'     ? 'liked'
                            : _overlayView === 'recs'      ? 'suggested'
+                           : _overlayView === 'diary'     ? 'diary entries'
                            : 'rated';
-            countEl.textContent = filtered.length + ' title' + (filtered.length !== 1 ? 's' : '') + ' ' + labelWord;
+            countEl.textContent = filtered.length + ' ' + (filtered.length !== 1 ? labelWord : labelWord.replace(/s$/, ''));
         }
 
-        // 4. Sort. Diary view forces ratedAt desc. Recs view forces community rating desc.
+        // 5. Sort. Diary view forces watchedAt desc. Recs view forces community rating desc.
         var sortFn;
         if (_overlayView === 'diary')      sortFn = _sortFns['ratedAt-desc'];
         else if (_overlayView === 'recs')  sortFn = _sortFns['community-desc'];
         else                               sortFn = _sortFns[_sortKey] || _sortFns['ratedAt-desc'];
         var sorted = filtered.slice().sort(sortFn);
 
+        // 6. Diary view renders as a chronological list, not a grid
+        if (_overlayView === 'diary') {
+            renderDiaryList(gridWrap, sorted);
+            return;
+        }
+
+        // 7. Recs view shows a reshuffle button at the top
+        gridWrap.innerHTML = '';
+        if (_overlayView === 'recs') {
+            var btn = document.createElement('button');
+            btn.className = 'ir-ov-reshuffle';
+            btn.textContent = '\ud83c\udfb2 Reshuffle recommendations';
+            btn.addEventListener('click', function () { reshuffleRecs(); });
+            gridWrap.appendChild(btn);
+        }
+
         var grid = document.createElement('div');
         grid.className = 'ir-ov-grid';
         var opts = {
-            showStars:  _overlayView === 'films' || _overlayView === 'diary',
-            showReview: _overlayView === 'films' || _overlayView === 'diary'
+            showStars:  _overlayView === 'films',
+            showReview: _overlayView === 'films'
         };
         if (_overlayView === 'watchlist') opts.badge = '\u2606 Watchlist';
         if (_overlayView === 'liked')     opts.badge = '\u2665 Liked';
         if (_overlayView === 'recs')      opts.badge = '\u2728 For you';
 
         sorted.forEach(function (item) { grid.appendChild(buildOverlayCard(item, opts)); });
-        gridWrap.innerHTML = '';
         gridWrap.appendChild(grid);
+    }
+
+    function reshuffleRecs() {
+        if (!_recsPool || _recsPool.length === 0) return;
+        // Shuffle a copy of the pool and take a fresh 30 items
+        var shuffled = _recsPool.slice();
+        for (var i = shuffled.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1));
+            var tmp = shuffled[i]; shuffled[i] = shuffled[j]; shuffled[j] = tmp;
+        }
+        var picks = shuffled.slice(0, 30);
+        hydrateAndRender(picks.map(function (r) { return { itemId: r.itemId }; }));
+    }
+
+    function renderListsView(gridWrap) {
+        // If a specific list is selected, show its contents. Otherwise, list index.
+        if (_currentListId) {
+            apiGetLists().then(function (all) {
+                var list = (all || []).find(function (l) { return l.id === _currentListId; });
+                if (!list) {
+                    _currentListId = null;
+                    renderListsView(gridWrap);
+                    return;
+                }
+                var detail = document.createElement('div');
+                detail.className = 'ir-ov-list-detail';
+                detail.innerHTML =
+                    '<button class="ir-ov-list-back">\u2190 All lists</button>' +
+                    '<div class="ir-ov-list-title">' + esc(list.name) + '</div>' +
+                    '<div class="ir-ov-list-byline">by ' + esc(list.ownerName) + ' \u00b7 ' +
+                        (list.collaborative ? 'collaborative' : 'private') + ' \u00b7 ' +
+                        list.items.length + ' film' + (list.items.length !== 1 ? 's' : '') + '</div>' +
+                    (list.description ? '<div class="ir-ov-list-desc">' + esc(list.description) + '</div>' : '');
+
+                gridWrap.innerHTML = '';
+                gridWrap.appendChild(detail);
+                detail.querySelector('.ir-ov-list-back').addEventListener('click', function () {
+                    _currentListId = null;
+                    renderListsView(gridWrap);
+                });
+
+                if (list.items.length === 0) {
+                    var empty = document.createElement('div');
+                    empty.className = 'ir-ov-empty';
+                    empty.textContent = 'This list is empty. Click a film on a detail page and use the "Add to list" action to populate it.';
+                    gridWrap.appendChild(empty);
+                    return;
+                }
+
+                var ids = list.items.map(function (i) { return i.itemId; });
+                getItemsMeta(ids).then(function (meta) {
+                    var grid = document.createElement('div');
+                    grid.className = 'ir-ov-grid';
+                    list.items.forEach(function (li) {
+                        var m = meta[li.itemId] || {};
+                        grid.appendChild(buildOverlayCard({
+                            itemId: li.itemId,
+                            name: m.name || li.itemId,
+                            year: m.year || 0,
+                            runtime: m.runtime || 0,
+                            communityRating: m.communityRating || 0,
+                            imageTag: m.imageTag || null,
+                            type: m.type || 'Unknown'
+                        }, { badge: 'by ' + li.addedByName }));
+                    });
+                    gridWrap.appendChild(grid);
+                });
+            });
+            return;
+        }
+
+        // Lists index
+        apiGetLists().then(function (lists) {
+            gridWrap.innerHTML = '';
+            var header = document.createElement('div');
+            header.className = 'ir-ov-lists-header';
+            header.innerHTML = '<button class="ir-ov-lists-new">+ New list</button>' +
+                               '<span style="color:rgba(255,255,255,.5);font-size:.85em">' +
+                               ((lists || []).length) + ' list' + (((lists || []).length) !== 1 ? 's' : '') +
+                               ' on this server</span>';
+            gridWrap.appendChild(header);
+            header.querySelector('.ir-ov-lists-new').addEventListener('click', function () {
+                var name = window.prompt('List name (e.g. "Best horror of the 2010s"):');
+                if (!name || !name.trim()) return;
+                var desc = window.prompt('Optional description:') || '';
+                apiCreateList(name.trim(), desc.trim(), true).then(function (created) {
+                    if (created) { _currentListId = created.id; renderListsView(gridWrap); }
+                });
+            });
+
+            if (!lists || lists.length === 0) {
+                var empty = document.createElement('div');
+                empty.className = 'ir-ov-empty';
+                empty.textContent = 'No lists on this server yet. Click "+ New list" to create one. Lists are collaborative by default — any user on your server can add films to them.';
+                gridWrap.appendChild(empty);
+                return;
+            }
+
+            var grid = document.createElement('div');
+            grid.className = 'ir-ov-lists-grid';
+            lists.forEach(function (l) {
+                var card = document.createElement('div');
+                card.className = 'ir-ov-list-card';
+                card.innerHTML =
+                    '<div class="ir-ov-list-name">' + esc(l.name) + '</div>' +
+                    '<div class="ir-ov-list-owner">by ' + esc(l.ownerName) + '</div>' +
+                    (l.description ? '<div class="ir-ov-list-desc">' + esc(l.description) + '</div>' : '') +
+                    '<div class="ir-ov-list-stats">' +
+                        '<span>' + l.items.length + ' film' + (l.items.length !== 1 ? 's' : '') + '</span>' +
+                        (l.collaborative ? '<span class="ir-ov-list-collab">\u2731 collaborative</span>' : '<span>private</span>') +
+                    '</div>';
+                card.addEventListener('click', function () {
+                    _currentListId = l.id;
+                    renderListsView(gridWrap);
+                });
+                grid.appendChild(card);
+            });
+            gridWrap.appendChild(grid);
+        });
     }
 
     // Takes an array of entries with at least { itemId } and fetches metadata
     // for each, building the normalised _overlayData structure used by render.
-    function hydrateAndRender(entries, extras) {
+    // Note: unlike a ratings list, a diary list can have the same itemId
+    // multiple times (rewatches). We keep the original entries 1:1 and just
+    // look up metadata once per unique id.
+    function hydrateAndRender(entries) {
         if (!entries || !entries.length) {
             _overlayData = [];
             renderOverlayGrid();
             return;
         }
-        var ids = entries.map(function (e) { return e.itemId; });
-        getItemsMeta(ids).then(function (meta) {
+        var uniqueIds = [];
+        var seen = {};
+        entries.forEach(function (e) {
+            if (!seen[e.itemId]) { seen[e.itemId] = 1; uniqueIds.push(e.itemId); }
+        });
+        getItemsMeta(uniqueIds).then(function (meta) {
             _overlayData = entries.map(function (e) {
                 var m = meta[e.itemId] || {};
-                var extra = extras && extras[e.itemId] ? extras[e.itemId] : {};
                 return {
                     itemId: e.itemId,
-                    stars: (typeof e.stars === 'number') ? e.stars : (extra.stars || 0),
-                    review: e.review || extra.review || null,
-                    ratedAt: e.ratedAt || e.addedAt || e.likedAt || null,
+                    stars: (typeof e.stars === 'number') ? e.stars : 0,
+                    review: e.review || null,
+                    ratedAt: e.ratedAt || e.watchedAt || e.addedAt || e.likedAt || null,
+                    rewatch: e.rewatch || false,
                     name: m.name || e.itemId,
                     year: m.year || 0,
                     runtime: m.runtime || 0,
@@ -1020,14 +1364,29 @@
                 }));
             });
         } else if (_overlayView === 'diary') {
-            // Diary = same rating data as Films, forced chronological sort
-            apiMyRatings().then(function (ratings) { hydrateAndRender(ratings || []); });
-        } else if (_overlayView === 'recs') {
-            apiRecommendations(30).then(function (rows) {
-                hydrateAndRender((rows || []).map(function (r) {
-                    return { itemId: r.itemId };
+            // Proper diary source now — allows rewatch duplicates
+            apiMyDiary().then(function (rows) {
+                hydrateAndRender((rows || []).map(function (d) {
+                    return {
+                        itemId: d.itemId,
+                        stars: d.stars,
+                        review: d.review,
+                        ratedAt: d.watchedAt,
+                        rewatch: d.rewatch
+                    };
                 }));
             });
+        } else if (_overlayView === 'recs') {
+            apiRecommendations(60).then(function (rows) {
+                _recsPool = rows || [];
+                // Initial render picks the first 30 by community rating;
+                // the "Reshuffle" button rerolls from the full pool.
+                var first = _recsPool.slice(0, 30).map(function (r) { return { itemId: r.itemId }; });
+                hydrateAndRender(first);
+            });
+        } else if (_overlayView === 'lists') {
+            _overlayData = [];
+            renderOverlayGrid();
         }
     }
 
@@ -1036,26 +1395,32 @@
         var favsGrid = _overlay.querySelector('.ir-ov-favs-grid');
         if (!favsGrid) return;
 
+        // Only show on the Films view — hidden on Watchlist/Liked/Diary/Recs
+        if (_overlayView !== 'films') {
+            favsEl.style.display = 'none';
+            return;
+        }
+        favsEl.style.display = '';
+
         apiMyFavorites().then(function (favs) {
             _favItemIds = favs || [];
-            if (_overlayView !== 'films' || _favItemIds.length === 0) {
-                favsEl.style.display = 'none';
-                return;
-            }
-            favsEl.style.display = '';
-            getItemsMeta(_favItemIds).then(function (meta) {
+            var fetchIds = _favItemIds.filter(function (x) { return !!x; });
+            var doRender = function (meta) {
                 favsGrid.innerHTML = '';
                 for (var i = 0; i < 4; i++) {
                     var id = _favItemIds[i];
                     if (!id) {
+                        // Empty placeholder slot — clearly inviting a click
                         var ph = document.createElement('div');
                         ph.className = 'ir-ov-fav-empty';
-                        ph.textContent = '+';
+                        ph.innerHTML = '<div class="ir-ov-fav-empty-num">#' + (i + 1) + '</div>' +
+                                       '<div class="ir-ov-fav-empty-plus">+</div>' +
+                                       '<div class="ir-ov-fav-empty-hint">pin a film</div>';
                         favsGrid.appendChild(ph);
                         continue;
                     }
-                    var m = meta[id] || {};
-                    favsGrid.appendChild(buildOverlayCard({
+                    var m = (meta || {})[id] || {};
+                    var card = buildOverlayCard({
                         itemId: id,
                         name: m.name || id,
                         year: m.year || 0,
@@ -1063,9 +1428,12 @@
                         communityRating: m.communityRating || 0,
                         imageTag: m.imageTag || null,
                         type: m.type || 'Unknown'
-                    }, { badge: '\u2605 #' + (i + 1) }));
+                    }, { badge: '\u2605 #' + (i + 1) });
+                    favsGrid.appendChild(card);
                 }
-            });
+            };
+            if (fetchIds.length === 0) { doRender({}); return; }
+            getItemsMeta(fetchIds).then(doRender);
         });
     }
 
@@ -1076,8 +1444,12 @@
         _activeTab = 'all';
         _overlayView = 'films';
         _searchQuery = '';
+        _starFilter = 'all';
+        _currentListId = null;
         var searchEl = _overlay.querySelector('.ir-ov-search');
         if (searchEl) searchEl.value = '';
+        var starFilterEl = _overlay.querySelector('.ir-ov-starfilter');
+        if (starFilterEl) starFilterEl.value = 'all';
         _overlay.querySelectorAll('.ir-ov-tab').forEach(function (t) { t.classList.remove('ir-ov-tab-active'); });
         var allTab = _overlay.querySelector('.ir-ov-tab[data-tab="all"]');
         if (allTab) allTab.classList.add('ir-ov-tab-active');
@@ -1650,10 +2022,66 @@
 
     function apiRecommendations(limit) {
         var auth = getAuth(); if (!auth) return Promise.resolve([]);
-        return fetch('/Plugins/StarTrack/Recommendations?limit=' + (limit || 30), {
+        return fetch('/Plugins/StarTrack/Recommendations?limit=' + (limit || 60), {
             headers: { Authorization: auth }
         }).then(function (r) { return r.ok ? r.json() : []; })
           .catch(function () { return []; });
+    }
+
+    function apiMyDiary() {
+        var auth = getAuth(); if (!auth) return Promise.resolve([]);
+        return fetch('/Plugins/StarTrack/MyDiary', { headers: { Authorization: auth } })
+            .then(function (r) { return r.ok ? r.json() : []; })
+            .catch(function () { return []; });
+    }
+
+    function apiScrapeFavorites() {
+        var auth = getAuth(); if (!auth) return Promise.resolve(null);
+        return fetch('/Plugins/StarTrack/Letterboxd/ScrapeFavorites', {
+            method: 'POST', headers: { Authorization: auth }
+        }).then(function (r) { return r.ok ? r.json() : null; })
+          .catch(function () { return null; });
+    }
+
+    // Lists API
+    function apiGetLists() {
+        var auth = getAuth(); if (!auth) return Promise.resolve([]);
+        return fetch('/Plugins/StarTrack/Lists', { headers: { Authorization: auth } })
+            .then(function (r) { return r.ok ? r.json() : []; })
+            .catch(function () { return []; });
+    }
+
+    function apiCreateList(name, description, collaborative) {
+        var auth = getAuth(); if (!auth) return Promise.resolve(null);
+        return fetch('/Plugins/StarTrack/Lists', {
+            method: 'POST',
+            headers: { Authorization: auth, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name, description: description, collaborative: collaborative })
+        }).then(function (r) { return r.ok ? r.json() : null; })
+          .catch(function () { return null; });
+    }
+
+    function apiDeleteList(listId) {
+        var auth = getAuth(); if (!auth) return Promise.resolve(false);
+        return fetch('/Plugins/StarTrack/Lists/' + encodeURIComponent(listId), {
+            method: 'DELETE', headers: { Authorization: auth }
+        }).then(function (r) { return r.ok; }).catch(function () { return false; });
+    }
+
+    function apiAddToList(listId, itemId) {
+        var auth = getAuth(); if (!auth) return Promise.resolve(false);
+        return fetch('/Plugins/StarTrack/Lists/' + encodeURIComponent(listId) + '/Items', {
+            method: 'POST',
+            headers: { Authorization: auth, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ itemId: itemId })
+        }).then(function (r) { return r.ok; }).catch(function () { return false; });
+    }
+
+    function apiRemoveFromList(listId, itemId) {
+        var auth = getAuth(); if (!auth) return Promise.resolve(false);
+        return fetch('/Plugins/StarTrack/Lists/' + encodeURIComponent(listId) + '/Items/' + encodeURIComponent(itemId), {
+            method: 'DELETE', headers: { Authorization: auth }
+        }).then(function (r) { return r.ok; }).catch(function () { return false; });
     }
 
     function apiLbImportCsv(csvText) {

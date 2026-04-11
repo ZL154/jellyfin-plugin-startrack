@@ -37,6 +37,8 @@ namespace Jellyfin.Plugin.InternalRating
             services.AddSingleton<RatingRepository>(_ => Plugin.Instance!.Repository);
             services.AddSingleton<LetterboxdSettingsRepository>(_ => Plugin.Instance!.LetterboxdSettings);
             services.AddSingleton<UserInteractionsRepository>(_ => Plugin.Instance!.Interactions);
+            services.AddSingleton<DiaryRepository>(_ => Plugin.Instance!.Diary);
+            services.AddSingleton<ListsRepository>(_ => Plugin.Instance!.Lists);
 
             // Letterboxd sync service — gets ILibraryManager + logger from DI,
             // repositories from the singletons above.

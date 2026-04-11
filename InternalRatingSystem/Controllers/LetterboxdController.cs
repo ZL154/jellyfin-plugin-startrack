@@ -108,6 +108,29 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         }
 
         /// <summary>
+        /// Scrapes the user's Letterboxd profile page for the "favourite
+        /// films" section and sets them as StarTrack favorites. Requires
+        /// the user's Letterboxd username to already be saved.
+        /// </summary>
+        [HttpPost("ScrapeFavorites")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> ScrapeFavorites()
+        {
+            var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
+            if (userId == null) return Unauthorized();
+            var userIdStr = userId.Value.ToString("N");
+
+            var settings = await _settings.GetAsync(userIdStr).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(settings.Username))
+                return Ok(new { imported = 0, error = "No Letterboxd username saved." });
+
+            _logger.LogInformation("[StarTrack] ScrapeFavorites request from {User}", GetCurrentUserName());
+            var lookup = _sync.BuildLookupForImport();
+            var count = await _sync.ScrapeLetterboxdFavoritesAsync(userIdStr, settings.Username!, lookup).ConfigureAwait(false);
+            return Ok(new { imported = count });
+        }
+
+        /// <summary>
         /// Cleans up dead ratings — rating entries that point to library
         /// items whose underlying file no longer exists on disk. This is
         /// what happens when a hard drive dies and Jellyfin leaves zombie
@@ -171,11 +194,12 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 {
                     using var zip = new ZipArchive(buffer, ZipArchiveMode.Read, leaveOpen: false);
 
-                    var ratingsEntry = FindCsvEntry(zip, "ratings.csv") ?? FindCsvEntry(zip, "diary.csv");
+                    var ratingsEntry = FindCsvEntry(zip, "ratings.csv");
+                    var diaryEntry   = FindCsvEntry(zip, "diary.csv");
                     var watchEntry   = FindCsvEntry(zip, "watchlist.csv");
                     var likesEntry   = FindCsvEntry(zip, "likes.csv");
 
-                    if (ratingsEntry == null && watchEntry == null && likesEntry == null)
+                    if (ratingsEntry == null && diaryEntry == null && watchEntry == null && likesEntry == null)
                     {
                         return Ok(new LetterboxdImportResult
                         {
@@ -184,12 +208,12 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                     }
 
                     // Build the movie lookup ONCE and reuse it for every CSV
-                    // in the ZIP so we don't hit the library 3x.
+                    // in the ZIP so we don't hit the library 4x.
                     var lookup = _sync.BuildLookupForImport();
                     var userIdStr = userId.Value.ToString("N");
 
                     // Ratings first so the result object carries the full
-                    // rating-import stats; then watchlist + likes are added.
+                    // rating-import stats; then watchlist + likes + diary added.
                     LetterboxdImportResult result = new();
                     if (ratingsEntry != null)
                     {
@@ -232,6 +256,19 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                         catch (Exception ex)
                         {
                             _logger.LogError(ex, "[StarTrack] likes.csv import from ZIP failed");
+                        }
+                    }
+
+                    if (diaryEntry != null)
+                    {
+                        try
+                        {
+                            using var ds = diaryEntry.Open();
+                            await _sync.ImportDiaryCsvAsync(userIdStr, ds, lookup).ConfigureAwait(false);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "[StarTrack] diary.csv import from ZIP failed");
                         }
                     }
 
