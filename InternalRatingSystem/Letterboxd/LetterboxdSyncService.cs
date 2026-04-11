@@ -227,14 +227,44 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         // ============================================================= //
 
         /// <summary>
+        /// Diagnostic endpoint helper — runs the same library query the
+        /// matcher would use and returns a sample of normalized titles so
+        /// the user can see exactly what StarTrack sees.
+        /// </summary>
+        public LetterboxdDiagnoseResult Diagnose()
+        {
+            var result = new LetterboxdDiagnoseResult();
+            try
+            {
+                var lookup = BuildMovieLookup(out var usedFallback, out var sample);
+                result.LibraryMovieCount = lookup.TotalMovies;
+                result.UsedFallbackQuery = usedFallback;
+                result.SampleMovies = sample;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[StarTrack] Letterboxd Diagnose failed");
+                result.Error = ex.Message;
+            }
+            return result;
+        }
+
+        private MovieLookup BuildMovieLookup()
+        {
+            return BuildMovieLookup(out _, out _);
+        }
+
+        /// <summary>
         /// Pulls every Movie from the library once and builds an in-memory
         /// lookup keyed by normalized title. Matching against this dictionary
         /// is O(1), handles year drift flexibly, and avoids any quirks with
         /// InternalItemsQuery's Years filter returning 0 results in some
         /// Jellyfin setups.
         /// </summary>
-        private MovieLookup BuildMovieLookup()
+        private MovieLookup BuildMovieLookup(out bool usedFallback, out List<SampleMovie> sample)
         {
+            usedFallback = false;
+            sample = new List<SampleMovie>();
             // No filters beyond IncludeItemTypes so we capture every movie
             // regardless of year metadata quality. Recursive = true walks
             // all library folders.
@@ -251,12 +281,28 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             // filter in-memory by GetBaseItemKind.
             if (items.Count == 0)
             {
+                usedFallback = true;
                 var allQuery = new InternalItemsQuery { Recursive = true };
                 var allItems = _libraryManager.GetItemList(allQuery) ?? (IReadOnlyList<BaseItem>)Array.Empty<BaseItem>();
+                _logger.LogInformation("[StarTrack] Fallback: all-items query returned {N} items", allItems.Count);
                 items = allItems
                     .Where(i => i != null && i.GetBaseItemKind() == BaseItemKind.Movie)
                     .ToList();
-                _logger.LogInformation("[StarTrack] Fallback query (all-items + filter) found {N} movies", items.Count);
+                _logger.LogInformation("[StarTrack] Fallback: filtered down to {N} movies", items.Count);
+            }
+
+            // Collect a sample of normalized titles so the Diagnose
+            // endpoint can show them to the user in the UI.
+            for (int i = 0; i < items.Count && sample.Count < 20; i++)
+            {
+                var m = items[i];
+                if (m == null || string.IsNullOrEmpty(m.Name)) continue;
+                sample.Add(new SampleMovie
+                {
+                    OriginalTitle   = m.Name,
+                    NormalizedTitle = NormalizeTitle(m.Name),
+                    Year            = m.ProductionYear
+                });
             }
 
             return new MovieLookup(items, _logger);

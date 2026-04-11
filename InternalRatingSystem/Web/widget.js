@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    console.log('[StarTrack] widget.js loaded — v1.1.3');
+    console.log('[StarTrack] widget.js loaded — v1.1.4');
     init();
 
     // ── Auth ──────────────────────────────────────────────────────────────
@@ -245,6 +245,8 @@
             '.ir-ov-lb-save:hover,.ir-ov-lb-sync:hover{background:#ffd84d!important;transform:scale(1.04)!important}',
             '.ir-ov-lb-sync{background:rgba(200,30,30,.9)!important;color:#fff!important}',
             '.ir-ov-lb-sync:hover{background:#d42828!important}',
+            '.ir-ov-lb-diag{background:rgba(255,255,255,.08)!important;color:rgba(255,255,255,.85)!important;border:1px solid rgba(255,255,255,.2)!important;border-radius:6px!important;padding:7px 14px!important;font-size:.78em!important;font-weight:600!important;cursor:pointer!important;transition:all .15s!important}',
+            '.ir-ov-lb-diag:hover{background:rgba(255,255,255,.15)!important;border-color:rgba(255,255,255,.4)!important;color:#fff!important}',
             '.ir-ov-lb-upload{display:inline-flex!important;align-items:center!important;cursor:pointer!important;background:rgba(244,196,48,.08)!important;border:1px dashed rgba(244,196,48,.4)!important;border-radius:6px!important;padding:8px 16px!important;font-size:.82em!important;color:rgba(255,255,255,.88)!important;font-weight:600!important;transition:all .15s!important}',
             '.ir-ov-lb-upload:hover{background:rgba(244,196,48,.15)!important;border-color:#f4c430!important;color:#fff!important}',
             '.ir-ov-lb-upload input{display:none!important}',
@@ -518,6 +520,7 @@
                         '<label class="ir-ov-lb-check"><input type="checkbox" class="ir-ov-lb-auto" /> Auto-sync hourly</label>' +
                         '<button class="ir-ov-lb-save">Save</button>' +
                         '<button class="ir-ov-lb-sync">Sync now</button>' +
+                        '<button class="ir-ov-lb-diag">\ud83d\udd0d Diagnose</button>' +
                     '</div>' +
                     '<div class="ir-ov-lb-row">' +
                         '<label class="ir-ov-lb-upload">' +
@@ -549,6 +552,7 @@
         var ovLbAuto   = _overlay.querySelector('.ir-ov-lb-auto');
         var ovLbSave   = _overlay.querySelector('.ir-ov-lb-save');
         var ovLbSync   = _overlay.querySelector('.ir-ov-lb-sync');
+        var ovLbDiag   = _overlay.querySelector('.ir-ov-lb-diag');
         var ovLbFile   = _overlay.querySelector('.ir-ov-lb-file');
         var ovLbStatus = _overlay.querySelector('.ir-ov-lb-status');
 
@@ -625,6 +629,41 @@
                 if (_overlay.classList.contains('ir-ov-open')) loadMyRatings();
             });
         });
+
+        if (ovLbDiag) {
+            ovLbDiag.addEventListener('click', function () {
+                ovLbDiag.disabled = true;
+                ovLbShowStatus('Running library diagnostic\u2026', '', null);
+                apiLbDiagnose().then(function (d) {
+                    ovLbDiag.disabled = false;
+                    if (!d) { ovLbShowStatus('Diagnose failed — check server logs for StarTrack errors.', 'err', null); return; }
+                    if (d.error) { ovLbShowStatus('Diagnose error: ' + d.error, 'err', null); return; }
+                    var msg = 'Library query returned ' + d.libraryMovieCount + ' movie' +
+                              (d.libraryMovieCount !== 1 ? 's' : '') + '.';
+                    if (d.usedFallbackQuery) msg += ' (Used fallback query path.)';
+                    if (d.libraryMovieCount === 0) {
+                        msg += ' The library query is returning zero movies — this means StarTrack cannot see your library.' +
+                               ' Check that your library has at least one folder with the "Movies" content type and a completed scan.';
+                    }
+                    // Render as pseudo-unmatched list for reuse of styling
+                    var sample = (d.sampleMovies || []).map(function (m) {
+                        return m.originalTitle + (m.year ? ' (' + m.year + ')' : '') +
+                               '  →  ' + (m.normalizedTitle || '(empty)');
+                    });
+                    var html = esc(msg);
+                    if (sample.length) {
+                        html += '<div class="ir-ov-lb-unmatched">' +
+                                '<div class="ir-ov-lb-unmatched-title">First ' + sample.length + ' library movies (original → normalized):</div>' +
+                                sample.map(function (t) { return esc(t); }).join('<br>') +
+                                '</div>';
+                    }
+                    ovLbStatus.classList.remove('ir-ov-lb-ok', 'ir-ov-lb-err');
+                    if (d.libraryMovieCount > 0) ovLbStatus.classList.add('ir-ov-lb-ok');
+                    else                         ovLbStatus.classList.add('ir-ov-lb-err');
+                    ovLbStatus.innerHTML = html;
+                });
+            });
+        }
 
         ovLbFile.addEventListener('change', function () {
             var file = ovLbFile.files && ovLbFile.files[0];
@@ -1187,6 +1226,14 @@
         var auth = getAuth(); if (!auth) return Promise.resolve(null);
         return fetch('/Plugins/StarTrack/Letterboxd/SyncNow', {
             method: 'POST',
+            headers: { Authorization: auth }
+        }).then(function (r) { return r.ok ? r.json() : null; })
+          .catch(function () { return null; });
+    }
+
+    function apiLbDiagnose() {
+        var auth = getAuth(); if (!auth) return Promise.resolve(null);
+        return fetch('/Plugins/StarTrack/Letterboxd/Diagnose', {
             headers: { Authorization: auth }
         }).then(function (r) { return r.ok ? r.json() : null; })
           .catch(function () { return null; });

@@ -82,7 +82,28 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             if (userId == null) return Unauthorized();
             var userName = GetCurrentUserName();
 
+            _logger.LogInformation("[StarTrack] Letterboxd SyncNow request received from {User}", userName);
             var result = await _sync.SyncRssAsync(userId.Value.ToString("N"), userName).ConfigureAwait(false);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Diagnostic endpoint — runs the library query the matcher uses
+        /// and returns the total movie count, the "used fallback" flag,
+        /// and a sample of the first 20 normalized titles so the user can
+        /// verify the library is being read correctly.
+        /// </summary>
+        [HttpGet("Diagnose")]
+        [ProducesResponseType(typeof(LetterboxdDiagnoseResult), StatusCodes.Status200OK)]
+        public async Task<IActionResult> Diagnose()
+        {
+            var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
+            if (userId == null) return Unauthorized();
+
+            _logger.LogInformation("[StarTrack] Letterboxd Diagnose request received");
+            var result = _sync.Diagnose();
+            _logger.LogInformation("[StarTrack] Letterboxd Diagnose: library={N}, fallback={F}, samples={S}",
+                result.LibraryMovieCount, result.UsedFallbackQuery, result.SampleMovies.Count);
             return Ok(result);
         }
 
@@ -102,6 +123,9 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
             if (userId == null) return Unauthorized();
             var userName = GetCurrentUserName();
+
+            _logger.LogInformation("[StarTrack] Letterboxd Import request received from {User}, contentLength={Len}, contentType={Type}",
+                userName, Request.ContentLength, Request.ContentType);
 
             // Guard against runaway uploads: cap at 5 MB. A Letterboxd full
             // export ZIP for 5000 films is about 200-400 KB compressed, so

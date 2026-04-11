@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/ZL154/jellyfin-plugin-startrack/main/assets/logo.svg",
     "versions": [
       {
+        "version": "1.1.4.0",
+        "changelog": "Diagnostic tooling for Letterboxd sync. New 🔍 Diagnose button in the My Ratings overlay runs the same library query the matcher uses and shows you the total movie count, whether the fallback query was needed, and the first 20 movies with both their original and normalized titles — so you can see at a glance whether StarTrack can see your library and how your titles are being normalized. New GET /Plugins/StarTrack/Letterboxd/Diagnose endpoint returns this data as JSON for scripting. Also adds INFO-level request logs at the top of the Import and SyncNow endpoints so you can verify in the Jellyfin server log that the request is actually reaching the plugin.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/ZL154/jellyfin-plugin-startrack/releases/download/v1.1.4/Jellyfin.Plugin.InternalRating_1.1.4.0.zip",
+        "checksum": "66369555b9a493408befee10418571a7",
+        "timestamp": "2026-04-11T00:00:00Z"
+      },
+      {
         "version": "1.1.3.0",
         "changelog": "Letterboxd matcher rewritten. Previous versions ran a separate library query per CSV row with InternalItemsQuery.Years as a filter, which silently returned 0 results on some Jellyfin setups and was also slow. New approach: fetch every Movie from the library ONCE per import, build an in-memory dictionary keyed by normalized title, then match everything against that dictionary. Much faster and handles year drift cleanly (exact year → ±1 year fallback). Also adds a library fallback query that re-fetches without type filter and filters in-memory by GetBaseItemKind — covers the case where IncludeItemTypes returns nothing. The import result now includes libraryMovieCount, and the status line in both the overlay and the small widget shows it next to the import summary so you can immediately see whether the library query is working at all. Every unmatched title is logged at Debug level with its normalized form so you can diagnose matching gaps from the Jellyfin server logs.",
         "targetAbi": "10.11.0.0",

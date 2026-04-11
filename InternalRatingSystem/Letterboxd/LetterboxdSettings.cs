@@ -34,4 +34,24 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         public List<string> UnmatchedTitles { get; set; } = new();
         public string? Error   { get; set; }
     }
+
+    /// <summary>
+    /// Diagnostic report returned from the Diagnose endpoint. Used by the
+    /// Letterboxd settings UI to verify the library query is working and
+    /// to show the user how titles look after normalization.
+    /// </summary>
+    public sealed class LetterboxdDiagnoseResult
+    {
+        public int LibraryMovieCount { get; set; }
+        public bool UsedFallbackQuery { get; set; }
+        public List<SampleMovie> SampleMovies { get; set; } = new();
+        public string? Error { get; set; }
+    }
+
+    public sealed class SampleMovie
+    {
+        public string OriginalTitle { get; set; } = string.Empty;
+        public string NormalizedTitle { get; set; } = string.Empty;
+        public int? Year { get; set; }
+    }
 }
