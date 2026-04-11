@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/ZL154/jellyfin-plugin-startrack/main/assets/logo.svg",
     "versions": [
       {
+        "version": "1.1.6.0",
+        "changelog": "Zombie library item filter + dead ratings cleanup. User reported that after a hard drive failure, Jellyfin kept zombie DB entries for movies whose files no longer exist on disk — the rating pill matched to these zombies, so imports succeeded but the My Ratings grid showed broken thumbnails for unplayable items. Two fixes: (1) BuildMovieLookup now skips items whose Path doesn't resolve via File.Exists, so new imports only ever land on real files. Diagnose UI shows how many zombies were filtered. Network mounts that are temporarily unreachable are still treated as alive so a momentary blip doesn't wipe the user's library. (2) New 🗑 Clean dead ratings button in the overlay Letterboxd panel iterates every existing StarTrack rating, checks whether the referenced item still exists and has a living path, and deletes any that don't. Returns a count of rows + items removed. Confirmation prompt before running. New POST /Plugins/StarTrack/Letterboxd/Cleanup endpoint exposes the same operation.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/ZL154/jellyfin-plugin-startrack/releases/download/v1.1.6/Jellyfin.Plugin.InternalRating_1.1.6.0.zip",
+        "checksum": "0fa03a7a83c68679ecd3e3dcf593d0b8",
+        "timestamp": "2026-04-11T00:00:00Z"
+      },
+      {
         "version": "1.1.5.0",
         "changelog": "THE fix for the 113 ambiguous imports. Real-world diagnostic from a 2,651-movie library showed that 1,065 movies shared a normalized title with at least one other movie (mostly duplicate 4K/HD copies across libraries, plus genuine franchise collisions like 'King Kong' 1933/1976/2005). The old matcher bailed with 'ambiguous' whenever the year disambiguation didn't pick a unique winner, so 113 out of 154 CSV rows silently dropped. New matcher ALWAYS picks a winner: exact year → closest year → oldest year → first candidate. Multiple library copies of the same film now always match. Also fixes the Diagnose button showing 'Library query returned undefined movies' — Jellyfin's default JSON serializer isn't camelCase, so the client's d.libraryMovieCount was always undefined. Fixed by adding explicit JsonPropertyName attrs on every DTO property forcing camelCase, plus a defensive camelCase/PascalCase accessor in the client. Diagnose UI now also shows unique-normalized-title count so you can see how much collision you have upfront.",
         "targetAbi": "10.11.0.0",

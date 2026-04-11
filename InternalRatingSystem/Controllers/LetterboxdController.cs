@@ -102,8 +102,27 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
 
             _logger.LogInformation("[StarTrack] Letterboxd Diagnose request received");
             var result = _sync.Diagnose();
-            _logger.LogInformation("[StarTrack] Letterboxd Diagnose: library={N}, fallback={F}, samples={S}",
-                result.LibraryMovieCount, result.UsedFallbackQuery, result.SampleMovies.Count);
+            _logger.LogInformation("[StarTrack] Letterboxd Diagnose: library={N}, fallback={F}, samples={S}, zombies={Z}",
+                result.LibraryMovieCount, result.UsedFallbackQuery, result.SampleMovies.Count, result.ZombiesFiltered);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Cleans up dead ratings — rating entries that point to library
+        /// items whose underlying file no longer exists on disk. This is
+        /// what happens when a hard drive dies and Jellyfin leaves zombie
+        /// DB rows behind. Returns the number of rating rows + items
+        /// removed.
+        /// </summary>
+        [HttpPost("Cleanup")]
+        [ProducesResponseType(typeof(CleanupResult), StatusCodes.Status200OK)]
+        public async Task<IActionResult> CleanupDeadRatings()
+        {
+            var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
+            if (userId == null) return Unauthorized();
+
+            _logger.LogInformation("[StarTrack] Cleanup dead-ratings request received from {User}", GetCurrentUserName());
+            var result = await _sync.CleanupDeadRatingsAsync().ConfigureAwait(false);
             return Ok(result);
         }
 

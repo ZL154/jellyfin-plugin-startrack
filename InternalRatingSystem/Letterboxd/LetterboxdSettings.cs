@@ -49,11 +49,21 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
     /// </summary>
     public sealed class LetterboxdDiagnoseResult
     {
-        [JsonPropertyName("libraryMovieCount")] public int LibraryMovieCount { get; set; }
-        [JsonPropertyName("uniqueNormalizedTitles")] public int UniqueNormalizedTitles { get; set; }
-        [JsonPropertyName("usedFallbackQuery")] public bool UsedFallbackQuery { get; set; }
-        [JsonPropertyName("sampleMovies")]      public List<SampleMovie> SampleMovies { get; set; } = new();
-        [JsonPropertyName("error")]             public string? Error { get; set; }
+        [JsonPropertyName("libraryMovieCount")]       public int LibraryMovieCount { get; set; }
+        [JsonPropertyName("uniqueNormalizedTitles")]  public int UniqueNormalizedTitles { get; set; }
+        [JsonPropertyName("zombiesFiltered")]         public int ZombiesFiltered { get; set; }
+        [JsonPropertyName("usedFallbackQuery")]       public bool UsedFallbackQuery { get; set; }
+        [JsonPropertyName("sampleMovies")]            public List<SampleMovie> SampleMovies { get; set; } = new();
+        [JsonPropertyName("error")]                   public string? Error { get; set; }
+    }
+
+    /// <summary>Result of the dead-ratings cleanup operation.</summary>
+    public sealed class CleanupResult
+    {
+        [JsonPropertyName("deletedRatings")] public int DeletedRatings { get; set; }
+        [JsonPropertyName("deletedItems")]   public int DeletedItems   { get; set; }
+        [JsonPropertyName("totalItems")]     public int TotalItems     { get; set; }
+        [JsonPropertyName("error")]          public string? Error      { get; set; }
     }
 
     public sealed class SampleMovie

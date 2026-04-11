@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.InternalRating.Data;
+using Jellyfin.Plugin.InternalRating.Models;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using Microsoft.Extensions.Logging;
@@ -236,11 +237,12 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             var result = new LetterboxdDiagnoseResult();
             try
             {
-                var lookup = BuildMovieLookup(out var usedFallback, out var sample);
+                var lookup = BuildMovieLookup(out var usedFallback, out var sample, out var zombies);
                 result.LibraryMovieCount       = lookup.TotalMovies;
                 result.UniqueNormalizedTitles  = lookup.UniqueNormalizedTitles;
                 result.UsedFallbackQuery       = usedFallback;
                 result.SampleMovies            = sample;
+                result.ZombiesFiltered         = zombies;
             }
             catch (Exception ex)
             {
@@ -250,9 +252,103 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             return result;
         }
 
+        /// <summary>
+        /// Cleans up "dead" ratings — entries in ratings.json that point to
+        /// library items whose underlying file no longer exists on disk
+        /// (typical after a hard drive failure leaves zombie items in the
+        /// Jellyfin DB). Returns a count of deleted rating entries and the
+        /// number of dead items those entries were attached to.
+        /// </summary>
+        public async Task<CleanupResult> CleanupDeadRatingsAsync()
+        {
+            var result = new CleanupResult();
+            try
+            {
+                // Fetch every item that currently has ratings in our store.
+                var recent = await _ratingRepo.GetRecentAsync(int.MaxValue).ConfigureAwait(false);
+                var seenItems = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var r in recent) seenItems.Add(r.ItemId);
+                result.TotalItems = seenItems.Count;
+
+                var deadItemIds = new List<string>();
+                foreach (var itemId in seenItems)
+                {
+                    if (!Guid.TryParse(itemId, out var gid))
+                    {
+                        deadItemIds.Add(itemId);
+                        continue;
+                    }
+                    BaseItem? item;
+                    try { item = _libraryManager.GetItemById(gid); }
+                    catch { item = null; }
+
+                    if (item == null)
+                    {
+                        deadItemIds.Add(itemId);
+                        continue;
+                    }
+                    if (!IsLivingItem(item))
+                    {
+                        deadItemIds.Add(itemId);
+                    }
+                }
+
+                _logger.LogInformation("[StarTrack] Cleanup found {D} dead items out of {T}", deadItemIds.Count, seenItems.Count);
+                result.DeletedItems = deadItemIds.Count;
+
+                // Count how many individual rating rows those dead items carried,
+                // then drop every one of them.
+                foreach (var itemId in deadItemIds)
+                {
+                    var details = await _ratingRepo.GetRatingsAsync(itemId).ConfigureAwait(false);
+                    var count = details?.UserRatings?.Count ?? 0;
+                    result.DeletedRatings += count;
+                    foreach (var ur in details?.UserRatings ?? new List<UserRatingDto>())
+                    {
+                        await _ratingRepo.DeleteRatingAsync(itemId, ur.UserId).ConfigureAwait(false);
+                    }
+                }
+
+                _logger.LogInformation("[StarTrack] Cleanup deleted {R} ratings across {I} items", result.DeletedRatings, result.DeletedItems);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[StarTrack] CleanupDeadRatings failed");
+                result.Error = ex.Message;
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Detects whether a library item is "alive" — i.e., has a non-empty
+        /// Path that actually resolves on disk. Dead items (Jellyfin DB rows
+        /// that linger after a drive failure) return false and are filtered
+        /// out of the matcher so Letterboxd imports never land on a zombie
+        /// the user can't play back or see a thumbnail for.
+        /// </summary>
+        private static bool IsLivingItem(BaseItem item)
+        {
+            if (item == null) return false;
+            var path = item.Path;
+            if (string.IsNullOrWhiteSpace(path)) return false;
+            try
+            {
+                // Non-file protocols (http://, ftp://, etc) — assume alive,
+                // no sensible way to File.Exists() them.
+                if (!item.IsFileProtocol) return true;
+                return File.Exists(path) || Directory.Exists(path);
+            }
+            catch
+            {
+                // Network mount down, permission error, etc — be permissive
+                // and treat as alive rather than wiping the user's ratings.
+                return true;
+            }
+        }
+
         private MovieLookup BuildMovieLookup()
         {
-            return BuildMovieLookup(out _, out _);
+            return BuildMovieLookup(out _, out _, out _);
         }
 
         /// <summary>
@@ -261,11 +357,18 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         /// is O(1), handles year drift flexibly, and avoids any quirks with
         /// InternalItemsQuery's Years filter returning 0 results in some
         /// Jellyfin setups.
+        ///
+        /// Filters out "zombie" items whose Path no longer resolves on disk,
+        /// which happens when a hard drive fails — Jellyfin keeps the DB rows
+        /// but the actual file is gone. Without this filter, the matcher can
+        /// pick a zombie as the winner for a title and leave the user with a
+        /// rating that has no thumbnail and can't be played.
         /// </summary>
-        private MovieLookup BuildMovieLookup(out bool usedFallback, out List<SampleMovie> sample)
+        private MovieLookup BuildMovieLookup(out bool usedFallback, out List<SampleMovie> sample, out int zombiesFiltered)
         {
             usedFallback = false;
             sample = new List<SampleMovie>();
+            zombiesFiltered = 0;
             // No filters beyond IncludeItemTypes so we capture every movie
             // regardless of year metadata quality. Recursive = true walks
             // all library folders.
@@ -291,6 +394,22 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                     .ToList();
                 _logger.LogInformation("[StarTrack] Fallback: filtered down to {N} movies", items.Count);
             }
+
+            // Filter out zombie items whose path doesn't resolve on disk.
+            // This captures items left over after hard-drive failures where
+            // Jellyfin keeps the DB row but the underlying file is gone.
+            var living = new List<BaseItem>(items.Count);
+            foreach (var m in items)
+            {
+                if (m == null) continue;
+                if (IsLivingItem(m)) living.Add(m);
+                else                 zombiesFiltered++;
+            }
+            if (zombiesFiltered > 0)
+            {
+                _logger.LogInformation("[StarTrack] Filtered out {N} zombie library items (path missing on disk)", zombiesFiltered);
+            }
+            items = living;
 
             // Collect a sample of normalized titles so the Diagnose
             // endpoint can show them to the user in the UI.

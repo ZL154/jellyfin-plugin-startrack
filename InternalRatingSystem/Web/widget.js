@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    console.log('[StarTrack] widget.js loaded — v1.1.5');
+    console.log('[StarTrack] widget.js loaded — v1.1.6');
     init();
 
     // ── Auth ──────────────────────────────────────────────────────────────
@@ -247,6 +247,8 @@
             '.ir-ov-lb-sync:hover{background:#d42828!important}',
             '.ir-ov-lb-diag{background:rgba(255,255,255,.08)!important;color:rgba(255,255,255,.85)!important;border:1px solid rgba(255,255,255,.2)!important;border-radius:6px!important;padding:7px 14px!important;font-size:.78em!important;font-weight:600!important;cursor:pointer!important;transition:all .15s!important}',
             '.ir-ov-lb-diag:hover{background:rgba(255,255,255,.15)!important;border-color:rgba(255,255,255,.4)!important;color:#fff!important}',
+            '.ir-ov-lb-clean{background:rgba(200,30,30,.12)!important;color:rgba(255,140,140,.9)!important;border:1px solid rgba(200,30,30,.35)!important;border-radius:6px!important;padding:7px 14px!important;font-size:.78em!important;font-weight:600!important;cursor:pointer!important;transition:all .15s!important}',
+            '.ir-ov-lb-clean:hover{background:rgba(200,30,30,.22)!important;border-color:#cc2020!important;color:#ff8080!important}',
             '.ir-ov-lb-upload{display:inline-flex!important;align-items:center!important;cursor:pointer!important;background:rgba(244,196,48,.08)!important;border:1px dashed rgba(244,196,48,.4)!important;border-radius:6px!important;padding:8px 16px!important;font-size:.82em!important;color:rgba(255,255,255,.88)!important;font-weight:600!important;transition:all .15s!important}',
             '.ir-ov-lb-upload:hover{background:rgba(244,196,48,.15)!important;border-color:#f4c430!important;color:#fff!important}',
             '.ir-ov-lb-upload input{display:none!important}',
@@ -521,6 +523,7 @@
                         '<button class="ir-ov-lb-save">Save</button>' +
                         '<button class="ir-ov-lb-sync">Sync now</button>' +
                         '<button class="ir-ov-lb-diag">\ud83d\udd0d Diagnose</button>' +
+                        '<button class="ir-ov-lb-clean">\ud83d\uddd1 Clean dead ratings</button>' +
                     '</div>' +
                     '<div class="ir-ov-lb-row">' +
                         '<label class="ir-ov-lb-upload">' +
@@ -553,6 +556,7 @@
         var ovLbSave   = _overlay.querySelector('.ir-ov-lb-save');
         var ovLbSync   = _overlay.querySelector('.ir-ov-lb-sync');
         var ovLbDiag   = _overlay.querySelector('.ir-ov-lb-diag');
+        var ovLbClean  = _overlay.querySelector('.ir-ov-lb-clean');
         var ovLbFile   = _overlay.querySelector('.ir-ov-lb-file');
         var ovLbStatus = _overlay.querySelector('.ir-ov-lb-status');
 
@@ -647,6 +651,35 @@
             });
         });
 
+        if (ovLbClean) {
+            ovLbClean.addEventListener('click', function () {
+                if (!window.confirm(
+                    'Clean dead ratings?\n\n' +
+                    'This deletes any StarTrack rating whose underlying library item ' +
+                    'no longer has a valid file on disk (zombie entries left over from ' +
+                    'dead hard drives). Existing ratings that still resolve to a real ' +
+                    'file are untouched. This cannot be undone.')) return;
+                ovLbClean.disabled = true;
+                ovLbShowStatus('Scanning ratings for dead items\u2026', '', null);
+                apiLbCleanup().then(function (r) {
+                    ovLbClean.disabled = false;
+                    if (!r) { ovLbShowStatus('Cleanup failed.', 'err', null); return; }
+                    var err = lbPick(r, 'error', 'Error');
+                    if (err) { ovLbShowStatus('Cleanup error: ' + err, 'err', null); return; }
+                    var delItems  = lbPick(r, 'deletedItems', 'DeletedItems') || 0;
+                    var delRow    = lbPick(r, 'deletedRatings', 'DeletedRatings') || 0;
+                    var totalItem = lbPick(r, 'totalItems', 'TotalItems') || 0;
+                    var msg = delItems > 0
+                        ? 'Cleaned up ' + delRow + ' rating' + (delRow !== 1 ? 's' : '') +
+                          ' across ' + delItems + ' dead item' + (delItems !== 1 ? 's' : '') +
+                          ' (out of ' + totalItem + ' rated items).'
+                        : 'No dead ratings found. All ' + totalItem + ' rated items resolve to living library entries.';
+                    ovLbShowStatus(msg, 'ok', null);
+                    if (_overlay.classList.contains('ir-ov-open')) loadMyRatings();
+                });
+            });
+        }
+
         if (ovLbDiag) {
             // Defensive accessor: Jellyfin may serialize our DTO in either
             // camelCase or PascalCase depending on host config. Try both.
@@ -668,13 +701,18 @@
 
                     var count     = pick(d, 'libraryMovieCount', 'LibraryMovieCount') || 0;
                     var unique    = pick(d, 'uniqueNormalizedTitles', 'UniqueNormalizedTitles') || 0;
+                    var zombies   = pick(d, 'zombiesFiltered', 'ZombiesFiltered') || 0;
                     var fallback  = pick(d, 'usedFallbackQuery', 'UsedFallbackQuery') || false;
                     var samples   = pick(d, 'sampleMovies', 'SampleMovies') || [];
 
-                    var msg = 'Library query returned ' + count + ' movie' + (count !== 1 ? 's' : '') + '.';
+                    var msg = 'Library query returned ' + count + ' living movie' + (count !== 1 ? 's' : '') + '.';
+                    if (zombies > 0) {
+                        msg += ' Filtered out ' + zombies + ' zombie item' + (zombies !== 1 ? 's' : '') +
+                               ' with missing files (dead drive leftovers).';
+                    }
                     if (unique && unique !== count) {
                         var dup = count - unique;
-                        msg += ' ' + unique + ' unique normalized titles (' + dup + ' duplicate copies).';
+                        msg += ' ' + unique + ' unique normalized titles (' + dup + ' duplicate copies remain).';
                     }
                     if (fallback) msg += ' (Used fallback query path.)';
                     if (count === 0) {
@@ -1274,6 +1312,15 @@
     function apiLbDiagnose() {
         var auth = getAuth(); if (!auth) return Promise.resolve(null);
         return fetch('/Plugins/StarTrack/Letterboxd/Diagnose', {
+            headers: { Authorization: auth }
+        }).then(function (r) { return r.ok ? r.json() : null; })
+          .catch(function () { return null; });
+    }
+
+    function apiLbCleanup() {
+        var auth = getAuth(); if (!auth) return Promise.resolve(null);
+        return fetch('/Plugins/StarTrack/Letterboxd/Cleanup', {
+            method: 'POST',
             headers: { Authorization: auth }
         }).then(function (r) { return r.ok ? r.json() : null; })
           .catch(function () { return null; });
