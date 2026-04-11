@@ -269,14 +269,6 @@ Issues and pull requests are welcome.
 
 ---
 
-## Disclosure
-
-This plugin was developed with **heavy AI assistance**. Most of the code, the UI, the Letterboxd integration, the matching algorithms, and the documentation were written collaboratively with Anthropic's Claude (specifically [Claude Code](https://claude.ai/claude-code)). The author directed every feature and tested every release on a real Jellyfin server, but the implementation was AI-driven. If you find this kind of human-directed AI development useful or interesting, that's the production model behind StarTrack.
-
-If you hit a bug, the AI made it. If something works really well, also probably the AI. Issues and PRs welcome either way.
-
----
-
 <div align="center">
 <sub>Built by ZL154 · AI-assisted development with <a href="https://claude.ai/claude-code">Claude Code</a></sub>
 </div>
