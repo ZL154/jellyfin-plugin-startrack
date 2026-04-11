@@ -23,7 +23,22 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
     /// </summary>
     public sealed class LetterboxdSyncService
     {
-        private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(20) };
+        // Letterboxd's anti-bot returns 403 to the default System.Net.Http
+        // User-Agent on the watchlist RSS and likes endpoints (the favourites
+        // page is more lenient). Set a real browser UA so we get HTML/RSS
+        // back instead of a 403. Also send a sane Accept header so the
+        // RSS endpoint returns XML instead of redirecting to HTML.
+        private static readonly HttpClient _http = CreateHttp();
+        private static HttpClient CreateHttp()
+        {
+            var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+            http.DefaultRequestHeaders.UserAgent.ParseAdd(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+            http.DefaultRequestHeaders.Accept.ParseAdd("application/rss+xml,application/xml,text/html;q=0.9,*/*;q=0.8");
+            http.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.9");
+            return http;
+        }
 
         private readonly RatingRepository _ratingRepo;
         private readonly LetterboxdSettingsRepository _settingsRepo;
@@ -173,7 +188,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         internal async Task<(int added, int skipped)> ImportWatchlistCsvAsync(
             string userId, Stream csvStream, MovieLookup lookup)
         {
-            int added = 0, skipped = 0;
+            int added = 0, alreadyOn = 0, notInLib = 0;
             List<Dictionary<string, string>> rows;
             try
             {
@@ -191,20 +206,21 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             {
                 var name  = GetCol(row, "Name", "Title", "Film");
                 var yearS = GetCol(row, "Year");
-                if (string.IsNullOrWhiteSpace(name)) { skipped++; continue; }
+                if (string.IsNullOrWhiteSpace(name)) { notInLib++; continue; }
                 int? year = int.TryParse(yearS, out var y) ? y : null;
 
                 var matched = lookup.Find(name, year, out _);
-                if (matched == null) { skipped++; continue; }
+                if (matched == null) { notInLib++; continue; }
 
                 var itemIdStr = matched.Id.ToString("N");
                 if (await _interactions.AddToWatchlistAsync(userId, itemIdStr).ConfigureAwait(false))
                     added++;
                 else
-                    skipped++; // already on watchlist
+                    alreadyOn++;
             }
-            _logger.LogInformation("[StarTrack] Letterboxd watchlist import: added={A}, skipped={S}", added, skipped);
-            return (added, skipped);
+            _logger.LogInformation("[StarTrack] Letterboxd watchlist import: rows={R}, added={A}, alreadyOnWatchlist={O}, notInLibrary={N}",
+                rows.Count, added, alreadyOn, notInLib);
+            return (added, alreadyOn + notInLib);
         }
 
         /// <summary>
@@ -214,7 +230,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         internal async Task<(int added, int skipped)> ImportLikesCsvAsync(
             string userId, Stream csvStream, MovieLookup lookup)
         {
-            int added = 0, skipped = 0;
+            int added = 0, alreadyOn = 0, notInLib = 0;
             List<Dictionary<string, string>> rows;
             try
             {
@@ -232,20 +248,21 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             {
                 var name  = GetCol(row, "Name", "Title", "Film");
                 var yearS = GetCol(row, "Year");
-                if (string.IsNullOrWhiteSpace(name)) { skipped++; continue; }
+                if (string.IsNullOrWhiteSpace(name)) { notInLib++; continue; }
                 int? year = int.TryParse(yearS, out var y) ? y : null;
 
                 var matched = lookup.Find(name, year, out _);
-                if (matched == null) { skipped++; continue; }
+                if (matched == null) { notInLib++; continue; }
 
                 var itemIdStr = matched.Id.ToString("N");
                 if (await _interactions.AddLikeAsync(userId, itemIdStr).ConfigureAwait(false))
                     added++;
                 else
-                    skipped++;
+                    alreadyOn++;
             }
-            _logger.LogInformation("[StarTrack] Letterboxd likes import: added={A}, skipped={S}", added, skipped);
-            return (added, skipped);
+            _logger.LogInformation("[StarTrack] Letterboxd likes import: rows={R}, added={A}, alreadyLiked={O}, notInLibrary={N}",
+                rows.Count, added, alreadyOn, notInLib);
+            return (added, alreadyOn + notInLib);
         }
 
         /// <summary>

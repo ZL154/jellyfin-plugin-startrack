@@ -197,7 +197,11 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                     var ratingsEntry = FindCsvEntry(zip, "ratings.csv");
                     var diaryEntry   = FindCsvEntry(zip, "diary.csv");
                     var watchEntry   = FindCsvEntry(zip, "watchlist.csv");
-                    var likesEntry   = FindCsvEntry(zip, "likes.csv");
+                    // Letterboxd puts likes at "likes/films.csv" inside the
+                    // archive, NOT at the root. Try the path first, fall back
+                    // to a flat "likes.csv" for older or alternate exports.
+                    var likesEntry   = FindCsvEntry(zip, "likes/films.csv")
+                                    ?? FindCsvEntry(zip, "likes.csv");
 
                     if (ratingsEntry == null && diaryEntry == null && watchEntry == null && likesEntry == null)
                     {
@@ -316,11 +320,18 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             return read == 4 && sig[0] == 0x50 && sig[1] == 0x4B && sig[2] == 0x03 && sig[3] == 0x04;
         }
 
-        /// <summary>Case-insensitive lookup for a CSV entry anywhere in the ZIP.</summary>
+        /// <summary>
+        /// Case-insensitive lookup for a CSV entry anywhere in the ZIP.
+        /// Matches BOTH the bare filename (e.g. "ratings.csv") and the
+        /// full path (e.g. "likes/films.csv") because Letterboxd puts the
+        /// likes file inside a "likes/" subfolder rather than at the
+        /// archive root.
+        /// </summary>
         private static ZipArchiveEntry? FindCsvEntry(ZipArchive zip, string filename)
         {
             return zip.Entries.FirstOrDefault(e =>
-                string.Equals(e.Name, filename, StringComparison.OrdinalIgnoreCase));
+                string.Equals(e.Name,     filename, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(e.FullName, filename, StringComparison.OrdinalIgnoreCase));
         }
 
         // ------------------------------------------------------------------

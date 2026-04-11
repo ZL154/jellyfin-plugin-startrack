@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    console.log('[StarTrack] widget.js loaded — v1.3.1');
+    console.log('[StarTrack] widget.js loaded — v1.3.2');
     init();
 
     // ── Auth ──────────────────────────────────────────────────────────────
@@ -302,6 +302,14 @@
             '.ir-ov-diary-rewatch{background:rgba(96,165,250,.18)!important;color:#60a5fa!important;border:1px solid rgba(96,165,250,.4)!important;border-radius:10px!important;padding:1px 8px!important;font-size:.68em!important;font-weight:700!important;text-transform:uppercase!important;letter-spacing:.05em!important}',
             '.ir-ov-diary-meta{color:rgba(255,255,255,.5)!important;font-size:.78em!important;display:flex!important;gap:12px!important;flex-wrap:wrap!important}',
             '.ir-ov-diary-stars{color:#f4c430!important;font-weight:700!important}',
+            // Visual star bar — five glyphs left-to-right, filled by stars value
+            '.ir-starbar{display:inline-flex!important;gap:1px!important;align-items:center!important;letter-spacing:0!important;font-size:.95em!important;line-height:1!important}',
+            '.ir-starbar-full{color:#f4c430!important}',
+            '.ir-starbar-empty{color:rgba(255,255,255,.18)!important}',
+            // Half-star: render the filled glyph but clip to the left half via background-clip
+            '.ir-starbar-half{position:relative!important;color:rgba(255,255,255,.18)!important;display:inline-block!important}',
+            '.ir-starbar-half::before{content:"\u2605"!important;position:absolute!important;left:0!important;top:0!important;width:50%!important;overflow:hidden!important;color:#f4c430!important}',
+            '.ir-ov-diary-stars-num{color:#f4c430!important;font-weight:700!important;margin-left:4px!important}',
             '.ir-ov-diary-review{color:rgba(255,255,255,.55)!important;font-size:.78em!important;font-style:italic!important;margin-top:4px!important;line-height:1.5!important}',
             '.ir-ov-diary-month{font-size:.75em!important;text-transform:uppercase!important;letter-spacing:.1em!important;color:rgba(255,255,255,.4)!important;font-weight:800!important;padding:14px 0 6px!important;border-bottom:1px solid rgba(255,255,255,.06)!important;margin-top:14px!important}',
             '.ir-ov-diary-month:first-child{margin-top:0!important}',
@@ -335,8 +343,9 @@
             '.ir-ov-view:hover{color:#fff!important}',
             '.ir-ov-view.ir-ov-view-active{color:#fff!important;border-bottom-color:#cc2020!important}',
             // Top 4 favorites row (only shows in Films view)
-            '.ir-ov-favs{padding:20px 0 16px!important;margin-bottom:16px!important;border-bottom:1px solid rgba(255,255,255,.08)!important}',
-            '.ir-ov-favs-title{font-size:.78em!important;text-transform:uppercase!important;letter-spacing:.1em!important;color:#f4c430!important;font-weight:800!important;margin-bottom:12px!important}',
+            '.ir-ov-favs{padding:20px 0 16px!important;margin-bottom:16px!important;border-bottom:1px solid rgba(255,255,255,.08)!important;display:flex!important;flex-direction:column!important;gap:18px!important}',
+            '.ir-ov-favs-section{display:flex!important;flex-direction:column!important;gap:10px!important}',
+            '.ir-ov-favs-title{font-size:.78em!important;text-transform:uppercase!important;letter-spacing:.1em!important;color:#f4c430!important;font-weight:800!important}',
             '.ir-ov-favs-grid{display:grid!important;grid-template-columns:repeat(4,minmax(140px,1fr))!important;gap:16px!important;max-width:720px!important}',
             '.ir-ov-favs-grid .ir-ov-card{aspect-ratio:2/3!important}',
             '.ir-ov-favs-grid .ir-ov-fav-empty{border:2px dashed rgba(244,196,48,.25)!important;border-radius:10px!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:6px!important;color:rgba(244,196,48,.5)!important;aspect-ratio:2/3!important;background:rgba(244,196,48,.04)!important;transition:all .15s!important}',
@@ -422,6 +431,31 @@
             '.ir-lb-status{font-size:.76em!important;color:rgba(255,255,255,.6)!important;margin-top:10px!important;line-height:1.5!important;min-height:1em!important}',
             '.ir-lb-status.ir-lb-ok{color:#52b54b!important}',
             '.ir-lb-status.ir-lb-err{color:#ff7070!important}',
+            // ── Add-to-list modal ────────────────────────────────────────
+            '.ir-modal-backdrop{position:fixed!important;inset:0!important;background:rgba(0,0,0,.78)!important;backdrop-filter:blur(4px)!important;z-index:2147483647!important;display:flex!important;align-items:center!important;justify-content:center!important;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif!important;animation:irFadeIn .15s ease-out!important}',
+            '@keyframes irFadeIn{from{opacity:0}to{opacity:1}}',
+            '.ir-modal{background:#161616!important;border:1px solid rgba(200,30,30,.3)!important;border-radius:14px!important;width:100%!important;max-width:480px!important;max-height:80vh!important;overflow:hidden!important;display:flex!important;flex-direction:column!important;box-shadow:0 20px 60px rgba(0,0,0,.85)!important;color:#fff!important}',
+            '.ir-modal-head{display:flex!important;align-items:center!important;justify-content:space-between!important;padding:18px 22px!important;border-bottom:1px solid rgba(255,255,255,.08)!important;flex-shrink:0!important}',
+            '.ir-modal-title{font-size:1.1em!important;font-weight:800!important;color:#fff!important;margin:0!important;letter-spacing:.02em!important}',
+            '.ir-modal-close{background:transparent!important;border:none!important;color:rgba(255,255,255,.5)!important;font-size:1.2em!important;cursor:pointer!important;padding:4px 10px!important;border-radius:6px!important;transition:all .12s!important}',
+            '.ir-modal-close:hover{background:rgba(255,255,255,.08)!important;color:#fff!important}',
+            '.ir-modal-body{padding:18px 22px!important;overflow-y:auto!important;flex:1!important;display:flex!important;flex-direction:column!important;gap:14px!important}',
+            '.ir-modal-listrows{display:flex!important;flex-direction:column!important;gap:8px!important;max-height:320px!important;overflow-y:auto!important}',
+            '.ir-modal-listrow{display:block!important;text-align:left!important;background:rgba(255,255,255,.05)!important;border:1px solid rgba(255,255,255,.1)!important;color:#fff!important;border-radius:8px!important;padding:12px 14px!important;cursor:pointer!important;transition:all .12s!important;width:100%!important}',
+            '.ir-modal-listrow:hover{background:rgba(200,30,30,.18)!important;border-color:#cc2020!important;transform:translateX(3px)!important}',
+            '.ir-modal-listrow-name{font-weight:700!important;font-size:.95em!important;color:#fff!important;margin-bottom:3px!important}',
+            '.ir-modal-listrow-meta{font-size:.75em!important;color:rgba(255,255,255,.5)!important}',
+            '.ir-modal-empty{color:rgba(255,255,255,.4)!important;font-size:.85em!important;text-align:center!important;padding:20px 0!important}',
+            '.ir-modal-divider{font-size:.72em!important;text-transform:uppercase!important;letter-spacing:.1em!important;color:rgba(255,255,255,.35)!important;text-align:center!important;font-weight:700!important;border-top:1px solid rgba(255,255,255,.08)!important;padding-top:14px!important}',
+            '.ir-modal-newrow{display:flex!important;gap:8px!important}',
+            '.ir-modal-name{flex:1!important;background:rgba(255,255,255,.05)!important;border:1px solid rgba(255,255,255,.14)!important;color:#fff!important;border-radius:8px!important;padding:10px 14px!important;font-size:.88em!important;outline:none!important;transition:border-color .15s!important}',
+            '.ir-modal-name:focus{border-color:#cc2020!important}',
+            '.ir-modal-name::placeholder{color:rgba(255,255,255,.3)!important}',
+            '.ir-modal-create{background:#cc2020!important;border:none!important;color:#fff!important;padding:10px 18px!important;border-radius:8px!important;font-size:.82em!important;font-weight:700!important;cursor:pointer!important;white-space:nowrap!important;transition:background .15s!important}',
+            '.ir-modal-create:hover{background:#d42828!important}',
+            // Flash toast for action confirmations
+            '.ir-flash-toast{position:fixed!important;bottom:30px!important;left:50%!important;transform:translateX(-50%) translateY(20px)!important;background:#161616!important;border:1px solid rgba(82,181,75,.5)!important;color:#7fd97a!important;padding:12px 22px!important;border-radius:10px!important;font-size:.85em!important;font-weight:700!important;z-index:2147483647!important;opacity:0!important;transition:all .25s ease-out!important;box-shadow:0 10px 40px rgba(0,0,0,.7)!important;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif!important}',
+            '.ir-flash-toast.ir-flash-toast-show{opacity:1!important;transform:translateX(-50%) translateY(0)!important}',
             // Sidebar link
             '#ir-nav-link{display:flex!important;align-items:center!important;gap:12px!important;padding:10px 20px!important;cursor:pointer!important;background:none!important;border:none!important;width:100%!important;color:inherit!important;text-decoration:none!important;transition:background .15s!important;font-size:inherit!important}',
             '#ir-nav-link:hover{background:rgba(255,255,255,.07)!important}',
@@ -636,11 +670,16 @@
                     '</select>' +
                     '<select class="ir-ov-starfilter">' +
                         '<option value="all">All ratings</option>' +
-                        '<option value="4.5">4.5\u2605 and up</option>' +
-                        '<option value="4">4\u2605 and up</option>' +
-                        '<option value="3">3\u2605 and up</option>' +
-                        '<option value="2">2\u2605 and up</option>' +
-                        '<option value="low">Below 3\u2605</option>' +
+                        '<option value="5">5\u2605 only</option>' +
+                        '<option value="4.5">4.5\u2605 only</option>' +
+                        '<option value="4">4\u2605 only</option>' +
+                        '<option value="3.5">3.5\u2605 only</option>' +
+                        '<option value="3">3\u2605 only</option>' +
+                        '<option value="2.5">2.5\u2605 only</option>' +
+                        '<option value="2">2\u2605 only</option>' +
+                        '<option value="1.5">1.5\u2605 only</option>' +
+                        '<option value="1">1\u2605 only</option>' +
+                        '<option value="0.5">0.5\u2605 only</option>' +
                     '</select>' +
                     '<input type="text" class="ir-ov-search" placeholder="Search titles\u2026" />' +
                     '<button class="ir-ov-export" title="Export ratings as Letterboxd-compatible CSV">\u21E9 Export</button>' +
@@ -1117,16 +1156,41 @@
     // ── Hover action handlers ─────────────────────────────────────────────
 
     function addCurrentToFavorites(itemId) {
-        apiMyFavorites().then(function (favs) {
-            favs = favs || [];
-            if (favs.indexOf(itemId) >= 0) return; // already pinned
-            if (favs.length >= 4) {
-                if (!window.confirm('You already have 4 favorites. Replace the oldest one with this film?')) return;
-                favs.shift();
-            }
-            favs.push(itemId);
-            apiSetFavorites(favs).then(function (ok) {
-                if (ok && _overlayView === 'films') refreshFavoritesRow();
+        // Resolve the item type once so we can enforce the per-type cap.
+        // The Top 4 is per-type now: 4 movies, 4 series, 4 episodes (max 12 total).
+        getItemsMeta([itemId]).then(function (meta) {
+            var newType = (meta[itemId] && meta[itemId].type) || 'Movie';
+            apiMyFavorites().then(function (favs) {
+                favs = favs || [];
+                if (favs.indexOf(itemId) >= 0) {
+                    flashFeedback('Already pinned');
+                    return;
+                }
+                // Need to know existing favorites' types to enforce the cap
+                var existing = favs.filter(function (x) { return !!x; });
+                if (existing.length === 0) {
+                    favs.push(itemId);
+                    apiSetFavorites(favs).then(function (ok) {
+                        if (ok) { flashFeedback('Pinned to Top 4'); if (_overlayView === 'films') refreshFavoritesRow(); }
+                    });
+                    return;
+                }
+                getItemsMeta(existing).then(function (existingMeta) {
+                    var sameType = existing.filter(function (id) {
+                        return ((existingMeta[id] && existingMeta[id].type) || 'Movie') === newType;
+                    });
+                    if (sameType.length >= 4) {
+                        var typeName = newType === 'Series' ? 'series' : newType === 'Episode' ? 'episodes' : 'films';
+                        if (!window.confirm('You already have 4 ' + typeName + ' pinned. Replace the oldest one?')) return;
+                        // Drop the oldest one of that type
+                        var dropId = sameType[0];
+                        favs = favs.filter(function (x) { return x !== dropId; });
+                    }
+                    favs.push(itemId);
+                    apiSetFavorites(favs).then(function (ok) {
+                        if (ok) { flashFeedback('Pinned to Top 4'); if (_overlayView === 'films') refreshFavoritesRow(); }
+                    });
+                });
             });
         });
     }
@@ -1143,45 +1207,130 @@
     function addToListPrompt(itemId) {
         apiGetLists().then(function (lists) {
             lists = lists || [];
-            if (lists.length === 0) {
-                if (window.confirm('You don\'t have any lists yet. Create one now?')) {
-                    var name = window.prompt('List name:');
-                    if (name && name.trim()) {
-                        apiCreateList(name.trim(), '', true).then(function (created) {
-                            if (created) apiAddToList(created.id, itemId);
-                        });
-                    }
-                }
-                return;
-            }
-            // Build a numbered selection. Native prompt is ugly but
-            // dependency-free; works on every browser.
-            var menu = lists.map(function (l, i) {
-                return (i + 1) + '. ' + l.name + (l.collaborative ? ' (collaborative)' : '');
-            }).join('\n');
-            var pick = window.prompt('Add to which list?\n\n' + menu + '\n\nEnter the number, or 0 to create a new list:');
-            if (pick == null) return;
-            var idx = parseInt(pick, 10);
-            if (idx === 0) {
-                var newName = window.prompt('New list name:');
-                if (newName && newName.trim()) {
-                    apiCreateList(newName.trim(), '', true).then(function (created) {
-                        if (created) apiAddToList(created.id, itemId);
-                    });
-                }
-                return;
-            }
-            if (idx >= 1 && idx <= lists.length) {
-                apiAddToList(lists[idx - 1].id, itemId);
-            }
+            openListsModal(itemId, lists);
         });
+    }
+
+    function openListsModal(itemId, lists) {
+        // Remove any existing modal first
+        var prev = document.getElementById('ir-list-modal');
+        if (prev) prev.remove();
+
+        var modal = document.createElement('div');
+        modal.id = 'ir-list-modal';
+        modal.className = 'ir-modal-backdrop';
+        modal.innerHTML =
+            '<div class="ir-modal">' +
+                '<div class="ir-modal-head">' +
+                    '<h3 class="ir-modal-title">Add to list</h3>' +
+                    '<button class="ir-modal-close">\u2715</button>' +
+                '</div>' +
+                '<div class="ir-modal-body">' +
+                    '<div class="ir-modal-listrows"></div>' +
+                    '<div class="ir-modal-divider">or create a new list</div>' +
+                    '<div class="ir-modal-newrow">' +
+                        '<input type="text" class="ir-modal-name" placeholder="List name (e.g. Best horror)" maxlength="80" />' +
+                        '<button class="ir-modal-create">+ Create &amp; add</button>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+
+        var rowsHost = modal.querySelector('.ir-modal-listrows');
+        if (lists.length === 0) {
+            rowsHost.innerHTML = '<div class="ir-modal-empty">No lists yet. Create one below.</div>';
+        } else {
+            lists.forEach(function (l) {
+                var row = document.createElement('button');
+                row.className = 'ir-modal-listrow';
+                row.innerHTML =
+                    '<div class="ir-modal-listrow-name">' + esc(l.name) + '</div>' +
+                    '<div class="ir-modal-listrow-meta">by ' + esc(l.ownerName) + ' \u00b7 ' +
+                        l.items.length + ' film' + (l.items.length !== 1 ? 's' : '') + ' \u00b7 ' +
+                        (l.collaborative ? 'collaborative' : 'private') + '</div>';
+                row.addEventListener('click', function () {
+                    apiAddToList(l.id, itemId).then(function () {
+                        flashFeedback('Added to "' + l.name + '"');
+                        closeListsModal();
+                    });
+                });
+                rowsHost.appendChild(row);
+            });
+        }
+
+        var nameInput = modal.querySelector('.ir-modal-name');
+        modal.querySelector('.ir-modal-create').addEventListener('click', function () {
+            var name = (nameInput.value || '').trim();
+            if (!name) { nameInput.focus(); return; }
+            apiCreateList(name, '', true).then(function (created) {
+                if (!created) return;
+                apiAddToList(created.id, itemId).then(function () {
+                    flashFeedback('Created "' + name + '" and added film');
+                    closeListsModal();
+                });
+            });
+        });
+        nameInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') modal.querySelector('.ir-modal-create').click();
+        });
+
+        modal.querySelector('.ir-modal-close').addEventListener('click', closeListsModal);
+        modal.addEventListener('click', function (e) {
+            if (e.target === modal) closeListsModal();
+        });
+        document.body.appendChild(modal);
+        setTimeout(function () { nameInput.focus(); }, 50);
+    }
+
+    function closeListsModal() {
+        var m = document.getElementById('ir-list-modal');
+        if (m) m.remove();
+    }
+
+    // Toast-style flash feedback for modal/action confirmations
+    function flashFeedback(text) {
+        var t = document.createElement('div');
+        t.className = 'ir-flash-toast';
+        t.textContent = text;
+        document.body.appendChild(t);
+        setTimeout(function () { t.classList.add('ir-flash-toast-show'); }, 10);
+        setTimeout(function () {
+            t.classList.remove('ir-flash-toast-show');
+            setTimeout(function () { t.remove(); }, 300);
+        }, 2200);
     }
 
     function applyStarFilter(list) {
         if (_starFilter === 'all') return list;
-        if (_starFilter === 'low') return list.filter(function (i) { return (i.stars || 0) > 0 && i.stars < 3; });
-        var min = parseFloat(_starFilter);
-        return list.filter(function (i) { return (i.stars || 0) >= min; });
+        // Discrete filter — exact star value match. We compare with a 0.05
+        // tolerance because the stored value can have floating-point drift.
+        var target = parseFloat(_starFilter);
+        if (isNaN(target)) return list;
+        return list.filter(function (i) {
+            return typeof i.stars === 'number' && Math.abs(i.stars - target) < 0.05;
+        });
+    }
+
+    // Renders a 5-star visual bar where stars are filled left-to-right
+    // based on the rating. Half-star values use a half-filled glyph.
+    // Returns an HTML string ready to drop into innerHTML.
+    function renderStarBar(stars) {
+        if (typeof stars !== 'number' || stars <= 0) {
+            return '<span class="ir-starbar ir-starbar-empty">' +
+                   '\u2606\u2606\u2606\u2606\u2606</span>';
+        }
+        var html = '<span class="ir-starbar">';
+        for (var i = 1; i <= 5; i++) {
+            if (stars >= i) {
+                html += '<span class="ir-starbar-full">\u2605</span>';
+            } else if (stars >= i - 0.5) {
+                // Half-filled — render two overlapping glyphs via a span
+                html += '<span class="ir-starbar-half">\u2605</span>';
+            } else {
+                html += '<span class="ir-starbar-empty">\u2606</span>';
+            }
+        }
+        html += '</span>';
+        return html;
     }
 
     function renderDiaryList(gridWrap, items) {
@@ -1207,10 +1356,13 @@
                 : '<div class="ir-ov-diary-poster"></div>';
 
             var dateStr = d ? d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' }) : '';
+            var hasRating = typeof item.stars === 'number' && item.stars > 0;
+            var starBar = renderStarBar(item.stars);
+
             var metaParts = [];
             if (dateStr) metaParts.push(dateStr);
-            if (typeof item.stars === 'number' && item.stars > 0) metaParts.push('<span class="ir-ov-diary-stars">' + item.stars.toFixed(1) + ' \u2605</span>');
-            else metaParts.push('<span style="color:rgba(255,255,255,.35)">unrated</span>');
+            if (hasRating) metaParts.push(starBar + ' <span class="ir-ov-diary-stars-num">' + item.stars.toFixed(1) + '</span>');
+            else           metaParts.push(starBar + ' <span style="color:rgba(255,255,255,.35)">unrated</span>');
 
             row.innerHTML =
                 poster +
@@ -1533,8 +1685,7 @@
 
     function refreshFavoritesRow() {
         var favsEl = _overlay.querySelector('.ir-ov-favs');
-        var favsGrid = _overlay.querySelector('.ir-ov-favs-grid');
-        if (!favsGrid) return;
+        if (!favsEl) return;
 
         // Only show on the Films view — hidden on Watchlist/Liked/Diary/Recs
         if (_overlayView !== 'films') {
@@ -1546,36 +1697,79 @@
         apiMyFavorites().then(function (favs) {
             _favItemIds = favs || [];
             var fetchIds = _favItemIds.filter(function (x) { return !!x; });
-            var doRender = function (meta) {
-                favsGrid.innerHTML = '';
-                for (var i = 0; i < 4; i++) {
-                    var id = _favItemIds[i];
-                    if (!id) {
-                        // Empty placeholder slot — clearly inviting a click
-                        var ph = document.createElement('div');
-                        ph.className = 'ir-ov-fav-empty';
-                        ph.innerHTML = '<div class="ir-ov-fav-empty-num">#' + (i + 1) + '</div>' +
-                                       '<div class="ir-ov-fav-empty-plus">+</div>' +
-                                       '<div class="ir-ov-fav-empty-hint">pin a film</div>';
-                        favsGrid.appendChild(ph);
-                        continue;
-                    }
-                    var m = (meta || {})[id] || {};
-                    var card = buildOverlayCard({
-                        itemId: id,
-                        name: m.name || id,
-                        year: m.year || 0,
-                        runtime: m.runtime || 0,
-                        communityRating: m.communityRating || 0,
-                        imageTag: m.imageTag || null,
-                        type: m.type || 'Unknown'
-                    }, { badge: '\u2605 #' + (i + 1), favSlotIndex: i });
-                    favsGrid.appendChild(card);
-                }
+
+            var renderGroups = function (meta) {
+                meta = meta || {};
+                // Group existing favorites by type. Order within a group
+                // follows the original storage order so the user controls
+                // the slot positions.
+                var groups = { Movie: [], Series: [], Episode: [] };
+                _favItemIds.forEach(function (id) {
+                    if (!id) return;
+                    var m = meta[id] || {};
+                    var t = m.type || 'Movie';
+                    if (!groups[t]) groups[t] = [];
+                    groups[t].push({ id: id, m: m });
+                });
+
+                // Build the multi-row container. Always show the Movies
+                // row (even when empty) so the feature is discoverable.
+                // Series + Episode rows only show when they have items
+                // pinned (a TV-only user shouldn't get an empty Movies row).
+                favsEl.innerHTML = '';
+
+                renderOneFavRow(favsEl, '\u2605 Top 4 Movies',   groups.Movie,   'Movie',   true);
+                if (groups.Series.length > 0)
+                    renderOneFavRow(favsEl, '\u2605 Top 4 Series',  groups.Series,  'Series',  false);
+                if (groups.Episode.length > 0)
+                    renderOneFavRow(favsEl, '\u2605 Top 4 Episodes', groups.Episode, 'Episode', false);
             };
-            if (fetchIds.length === 0) { doRender({}); return; }
-            getItemsMeta(fetchIds).then(doRender);
+
+            if (fetchIds.length === 0) { renderGroups({}); return; }
+            getItemsMeta(fetchIds).then(renderGroups);
         });
+    }
+
+    // Render a single favorites sub-row (Movies / Series / Episodes).
+    // Always shows 4 slots; fills with placeholders for empty ones.
+    function renderOneFavRow(parent, titleText, items, type, showWhenEmpty) {
+        var wrap = document.createElement('div');
+        wrap.className = 'ir-ov-favs-section';
+
+        var title = document.createElement('div');
+        title.className = 'ir-ov-favs-title';
+        title.textContent = titleText;
+        wrap.appendChild(title);
+
+        var grid = document.createElement('div');
+        grid.className = 'ir-ov-favs-grid';
+        for (var i = 0; i < 4; i++) {
+            var entry = items[i];
+            if (!entry) {
+                var ph = document.createElement('div');
+                ph.className = 'ir-ov-fav-empty';
+                var hint = type === 'Series'  ? 'pin a series'
+                         : type === 'Episode' ? 'pin an episode'
+                         : 'pin a film';
+                ph.innerHTML = '<div class="ir-ov-fav-empty-num">#' + (i + 1) + '</div>' +
+                               '<div class="ir-ov-fav-empty-plus">+</div>' +
+                               '<div class="ir-ov-fav-empty-hint">' + hint + '</div>';
+                grid.appendChild(ph);
+                continue;
+            }
+            var card = buildOverlayCard({
+                itemId: entry.id,
+                name: entry.m.name || entry.id,
+                year: entry.m.year || 0,
+                runtime: entry.m.runtime || 0,
+                communityRating: entry.m.communityRating || 0,
+                imageTag: entry.m.imageTag || null,
+                type: entry.m.type || type
+            }, { badge: '\u2605 #' + (i + 1), favSlotIndex: i });
+            grid.appendChild(card);
+        }
+        wrap.appendChild(grid);
+        parent.appendChild(wrap);
     }
 
     function openMyRatings() {

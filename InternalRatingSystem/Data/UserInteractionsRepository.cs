@@ -132,8 +132,10 @@ namespace Jellyfin.Plugin.InternalRating.Data
         }
 
         /// <summary>
-        /// Replaces the favorites list for a user (max 4). Empty slots are
-        /// filtered out so duplicates/nulls never persist.
+        /// Replaces the favorites list for a user. v1.3.2 raised the cap
+        /// from 4 to 12 so the same list can hold a Top 4 for movies, a
+        /// Top 4 for series, and a Top 4 for episodes (the client groups
+        /// by type when rendering). Empty/duplicate entries are filtered.
         /// </summary>
         public async Task SetFavoritesAsync(string userId, IEnumerable<string> itemIds)
         {
@@ -144,7 +146,7 @@ namespace Jellyfin.Plugin.InternalRating.Data
                 u.Favorites = itemIds
                     .Where(s => !string.IsNullOrWhiteSpace(s))
                     .Distinct()
-                    .Take(4)
+                    .Take(12)
                     .ToList();
                 await SaveAsync().ConfigureAwait(false);
             }
