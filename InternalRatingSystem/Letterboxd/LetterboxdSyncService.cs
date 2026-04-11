@@ -237,9 +237,10 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             try
             {
                 var lookup = BuildMovieLookup(out var usedFallback, out var sample);
-                result.LibraryMovieCount = lookup.TotalMovies;
-                result.UsedFallbackQuery = usedFallback;
-                result.SampleMovies = sample;
+                result.LibraryMovieCount       = lookup.TotalMovies;
+                result.UniqueNormalizedTitles  = lookup.UniqueNormalizedTitles;
+                result.UsedFallbackQuery       = usedFallback;
+                result.SampleMovies            = sample;
             }
             catch (Exception ex)
             {
@@ -314,10 +315,14 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             private readonly Dictionary<string, List<BaseItem>> _byTitle =
                 new(StringComparer.OrdinalIgnoreCase);
 
+            private readonly ILogger _logger;
+
             public int TotalMovies { get; }
+            public int UniqueNormalizedTitles => _byTitle.Count;
 
             public MovieLookup(IReadOnlyList<BaseItem> movies, ILogger logger)
             {
+                _logger = logger;
                 TotalMovies = movies.Count;
                 int sampleCount = 0;
                 foreach (var m in movies)
@@ -339,14 +344,27 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                         sampleCount++;
                     }
                 }
-                logger.LogInformation("[StarTrack] Built movie lookup: {N} unique normalized titles", _byTitle.Count);
+                logger.LogInformation("[StarTrack] Built movie lookup: {N} unique normalized titles ({T} total movies, {D} duplicates)",
+                    _byTitle.Count, movies.Count, movies.Count - _byTitle.Count);
             }
 
             /// <summary>
-            /// Finds a single movie matching the given (title, year). Year
-            /// is used only to disambiguate when multiple movies share a
-            /// normalized title. Accepts exact year, +/- 1 year, or no-year
-            /// match in that order.
+            /// Finds the best movie match for a (title, year) from Letterboxd.
+            /// NEVER returns ambiguous=true as a terminal state unless there's
+            /// literally no title match — when there are multiple candidates,
+            /// we always pick a winner:
+            ///
+            ///   1. Exact year match and exactly one candidate → that one.
+            ///   2. Exact year match with multiple candidates → first one (duplicate copies
+            ///      of the same film across libraries — it doesn't matter which we pick).
+            ///   3. Within ±1 year, closest year wins (ties → first).
+            ///   4. No year info → candidate with the oldest ProductionYear
+            ///      (usually the canonical/original release).
+            ///   5. No ProductionYear metadata at all → first candidate.
+            ///
+            /// This fixes the v1.1.3-v1.1.4 bug where a user with multiple
+            /// copies of the same movie in different libraries would have
+            /// 100+ "ambiguous" matches and nothing got imported.
             /// </summary>
             public BaseItem? Find(string title, int? year, out bool ambiguous)
             {
@@ -359,26 +377,48 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
 
                 if (candidates.Count == 1) return candidates[0];
 
-                // Multiple movies with the same normalized title. Disambiguate by year.
+                // Multiple candidates — pick the best one deterministically.
                 if (year.HasValue)
                 {
-                    // 1. Exact year match
+                    // 1. Exact year match (take first if multiple duplicates)
                     var exact = candidates.Where(c => c.ProductionYear == year.Value).ToList();
-                    if (exact.Count == 1) return exact[0];
-                    if (exact.Count > 1)  { ambiguous = true; return null; }
+                    if (exact.Count >= 1)
+                    {
+                        if (exact.Count > 1)
+                            _logger.LogDebug("[StarTrack] Title '{T}' year {Y}: {N} exact duplicates, picking first", title, year, exact.Count);
+                        return exact[0];
+                    }
 
-                    // 2. +/- 1 year (Letterboxd vs TMDb release-year drift)
-                    var near = candidates
-                        .Where(c => c.ProductionYear.HasValue && Math.Abs(c.ProductionYear.Value - year.Value) <= 1)
-                        .ToList();
-                    if (near.Count == 1) return near[0];
-                    if (near.Count > 1)  { ambiguous = true; return null; }
+                    // 2. Closest year within ±1 (or more, as a generous fallback)
+                    var withYear = candidates.Where(c => c.ProductionYear.HasValue).ToList();
+                    if (withYear.Count > 0)
+                    {
+                        var closest = withYear
+                            .OrderBy(c => Math.Abs(c.ProductionYear!.Value - year.Value))
+                            .ThenBy(c => c.ProductionYear!.Value)
+                            .First();
+                        _logger.LogDebug("[StarTrack] Title '{T}' year {Y}: no exact match, closest is {C} ({CY})",
+                            title, year, closest.Name, closest.ProductionYear);
+                        return closest;
+                    }
                 }
 
-                // No way to disambiguate — treat as ambiguous so the user
-                // sees it in the unmatched list with context
-                ambiguous = true;
-                return null;
+                // 3. No year given, or library items have no year metadata.
+                //    Prefer items that DO have a year (pick oldest as canonical).
+                var withYearAny = candidates.Where(c => c.ProductionYear.HasValue)
+                                             .OrderBy(c => c.ProductionYear!.Value)
+                                             .ToList();
+                if (withYearAny.Count > 0)
+                {
+                    _logger.LogDebug("[StarTrack] Title '{T}': no year hint, picking oldest ({Y})",
+                        title, withYearAny[0].ProductionYear);
+                    return withYearAny[0];
+                }
+
+                // 4. Dead last fallback: just take the first candidate in the list.
+                _logger.LogDebug("[StarTrack] Title '{T}': no year metadata anywhere, picking first of {N} candidates",
+                    title, candidates.Count);
+                return candidates[0];
             }
         }
 

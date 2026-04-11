@@ -4,15 +4,22 @@ using System.Text.Json.Serialization;
 
 namespace Jellyfin.Plugin.InternalRating.Letterboxd
 {
+    // NOTE: every public property in this file has an explicit JsonPropertyName
+    // attribute so the API responses stay camelCase even when Jellyfin's host
+    // serializer is set to PascalCase (which it is by default in 10.11 — the
+    // v1.1.4 diagnose button returned "undefined" in the UI because the plugin
+    // relied on Jellyfin's naming policy and got PascalCase keys back instead
+    // of camelCase).
+
     /// <summary>Per-user Letterboxd sync settings + state.</summary>
     public sealed class LetterboxdUserSettings
     {
-        [JsonPropertyName("username")]       public string   Username       { get; set; } = string.Empty;
-        [JsonPropertyName("enableAutoSync")] public bool     EnableAutoSync { get; set; }
-        [JsonPropertyName("lastSyncedGuid")] public string?  LastSyncedGuid { get; set; }
-        [JsonPropertyName("lastSyncedAt")]   public DateTime? LastSyncedAt  { get; set; }
-        [JsonPropertyName("lastImportedCount")] public int   LastImportedCount { get; set; }
-        [JsonPropertyName("lastUnmatchedCount")] public int  LastUnmatchedCount { get; set; }
+        [JsonPropertyName("username")]           public string   Username       { get; set; } = string.Empty;
+        [JsonPropertyName("enableAutoSync")]     public bool     EnableAutoSync { get; set; }
+        [JsonPropertyName("lastSyncedGuid")]     public string?  LastSyncedGuid { get; set; }
+        [JsonPropertyName("lastSyncedAt")]       public DateTime? LastSyncedAt  { get; set; }
+        [JsonPropertyName("lastImportedCount")]  public int   LastImportedCount { get; set; }
+        [JsonPropertyName("lastUnmatchedCount")] public int   LastUnmatchedCount { get; set; }
     }
 
     /// <summary>Top-level storage wrapper: userId → settings.</summary>
@@ -25,14 +32,14 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
     /// <summary>Report returned by CSV import and RSS sync operations.</summary>
     public sealed class LetterboxdImportResult
     {
-        public int Imported    { get; set; }
-        public int Updated     { get; set; }
-        public int Unmatched   { get; set; }
-        public int Ambiguous   { get; set; }
-        public int Skipped     { get; set; }
-        public int LibraryMovieCount { get; set; }
-        public List<string> UnmatchedTitles { get; set; } = new();
-        public string? Error   { get; set; }
+        [JsonPropertyName("imported")]          public int Imported    { get; set; }
+        [JsonPropertyName("updated")]           public int Updated     { get; set; }
+        [JsonPropertyName("unmatched")]         public int Unmatched   { get; set; }
+        [JsonPropertyName("ambiguous")]         public int Ambiguous   { get; set; }
+        [JsonPropertyName("skipped")]           public int Skipped     { get; set; }
+        [JsonPropertyName("libraryMovieCount")] public int LibraryMovieCount { get; set; }
+        [JsonPropertyName("unmatchedTitles")]   public List<string> UnmatchedTitles { get; set; } = new();
+        [JsonPropertyName("error")]             public string? Error   { get; set; }
     }
 
     /// <summary>
@@ -42,16 +49,17 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
     /// </summary>
     public sealed class LetterboxdDiagnoseResult
     {
-        public int LibraryMovieCount { get; set; }
-        public bool UsedFallbackQuery { get; set; }
-        public List<SampleMovie> SampleMovies { get; set; } = new();
-        public string? Error { get; set; }
+        [JsonPropertyName("libraryMovieCount")] public int LibraryMovieCount { get; set; }
+        [JsonPropertyName("uniqueNormalizedTitles")] public int UniqueNormalizedTitles { get; set; }
+        [JsonPropertyName("usedFallbackQuery")] public bool UsedFallbackQuery { get; set; }
+        [JsonPropertyName("sampleMovies")]      public List<SampleMovie> SampleMovies { get; set; } = new();
+        [JsonPropertyName("error")]             public string? Error { get; set; }
     }
 
     public sealed class SampleMovie
     {
-        public string OriginalTitle { get; set; } = string.Empty;
-        public string NormalizedTitle { get; set; } = string.Empty;
-        public int? Year { get; set; }
+        [JsonPropertyName("originalTitle")]   public string OriginalTitle   { get; set; } = string.Empty;
+        [JsonPropertyName("normalizedTitle")] public string NormalizedTitle { get; set; } = string.Empty;
+        [JsonPropertyName("year")]            public int? Year { get; set; }
     }
 }

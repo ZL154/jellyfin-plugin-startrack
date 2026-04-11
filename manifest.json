@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/ZL154/jellyfin-plugin-startrack/main/assets/logo.svg",
     "versions": [
       {
+        "version": "1.1.5.0",
+        "changelog": "THE fix for the 113 ambiguous imports. Real-world diagnostic from a 2,651-movie library showed that 1,065 movies shared a normalized title with at least one other movie (mostly duplicate 4K/HD copies across libraries, plus genuine franchise collisions like 'King Kong' 1933/1976/2005). The old matcher bailed with 'ambiguous' whenever the year disambiguation didn't pick a unique winner, so 113 out of 154 CSV rows silently dropped. New matcher ALWAYS picks a winner: exact year → closest year → oldest year → first candidate. Multiple library copies of the same film now always match. Also fixes the Diagnose button showing 'Library query returned undefined movies' — Jellyfin's default JSON serializer isn't camelCase, so the client's d.libraryMovieCount was always undefined. Fixed by adding explicit JsonPropertyName attrs on every DTO property forcing camelCase, plus a defensive camelCase/PascalCase accessor in the client. Diagnose UI now also shows unique-normalized-title count so you can see how much collision you have upfront.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/ZL154/jellyfin-plugin-startrack/releases/download/v1.1.5/Jellyfin.Plugin.InternalRating_1.1.5.0.zip",
+        "checksum": "c9e2dbe12db802f15da8924961ca2327",
+        "timestamp": "2026-04-11T00:00:00Z"
+      },
+      {
         "version": "1.1.4.0",
         "changelog": "Diagnostic tooling for Letterboxd sync. New 🔍 Diagnose button in the My Ratings overlay runs the same library query the matcher uses and shows you the total movie count, whether the fallback query was needed, and the first 20 movies with both their original and normalized titles — so you can see at a glance whether StarTrack can see your library and how your titles are being normalized. New GET /Plugins/StarTrack/Letterboxd/Diagnose endpoint returns this data as JSON for scripting. Also adds INFO-level request logs at the top of the Import and SyncNow endpoints so you can verify in the Jellyfin server log that the request is actually reaching the plugin.",
         "targetAbi": "10.11.0.0",

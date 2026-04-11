@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    console.log('[StarTrack] widget.js loaded — v1.1.4');
+    console.log('[StarTrack] widget.js loaded — v1.1.5');
     init();
 
     // ── Auth ──────────────────────────────────────────────────────────────
@@ -601,14 +601,28 @@
             });
         });
 
+        // Defensive accessor: Jellyfin's JSON naming policy may be either
+        // camelCase or PascalCase — handle both.
+        function lbPick(o, cc, pc) {
+            if (!o) return undefined;
+            if (o[cc] !== undefined) return o[cc];
+            if (o[pc] !== undefined) return o[pc];
+            return undefined;
+        }
+
         function lbResultMsg(r, verb) {
-            var parts = [];
-            parts.push('Imported ' + (r.imported || 0));
-            if (r.updated)   parts.push('updated ' + r.updated);
-            if (r.unmatched) parts.push(r.unmatched + ' not in library');
-            if (r.ambiguous) parts.push(r.ambiguous + ' ambiguous');
-            var libPart = r.libraryMovieCount != null
-                ? ' (library has ' + r.libraryMovieCount + ' movie' + (r.libraryMovieCount !== 1 ? 's' : '') + ')'
+            var imported  = lbPick(r, 'imported', 'Imported') || 0;
+            var updated   = lbPick(r, 'updated', 'Updated') || 0;
+            var unmatched = lbPick(r, 'unmatched', 'Unmatched') || 0;
+            var ambiguous = lbPick(r, 'ambiguous', 'Ambiguous') || 0;
+            var libCount  = lbPick(r, 'libraryMovieCount', 'LibraryMovieCount');
+
+            var parts = ['Imported ' + imported];
+            if (updated)   parts.push('updated ' + updated);
+            if (unmatched) parts.push(unmatched + ' not in library');
+            if (ambiguous) parts.push(ambiguous + ' ambiguous');
+            var libPart = libCount != null
+                ? ' (library has ' + libCount + ' movie' + (libCount !== 1 ? 's' : '') + ')'
                 : '';
             return parts.join(', ') + '.' + libPart;
         }
@@ -622,44 +636,68 @@
             apiLbSyncNow().then(function (r) {
                 ovLbSync.disabled = false;
                 if (!r) { ovLbShowStatus('Sync failed.', 'err', null); return; }
-                if (r.error) { ovLbShowStatus(r.error, 'err', null); return; }
-                var total = (r.imported || 0) + (r.updated || 0);
+                var err = lbPick(r, 'error', 'Error');
+                if (err) { ovLbShowStatus(err, 'err', null); return; }
+                var imported = lbPick(r, 'imported', 'Imported') || 0;
+                var updated  = lbPick(r, 'updated', 'Updated') || 0;
+                var total = imported + updated;
                 var msg = total > 0 ? lbResultMsg(r, 'sync') : 'Nothing new on Letterboxd right now.';
-                ovLbShowStatus(msg, 'ok', r.unmatchedTitles);
+                ovLbShowStatus(msg, 'ok', lbPick(r, 'unmatchedTitles', 'UnmatchedTitles'));
                 if (_overlay.classList.contains('ir-ov-open')) loadMyRatings();
             });
         });
 
         if (ovLbDiag) {
+            // Defensive accessor: Jellyfin may serialize our DTO in either
+            // camelCase or PascalCase depending on host config. Try both.
+            function pick(obj, camel, pascal) {
+                if (!obj) return undefined;
+                if (obj[camel]  !== undefined) return obj[camel];
+                if (obj[pascal] !== undefined) return obj[pascal];
+                return undefined;
+            }
+
             ovLbDiag.addEventListener('click', function () {
                 ovLbDiag.disabled = true;
                 ovLbShowStatus('Running library diagnostic\u2026', '', null);
                 apiLbDiagnose().then(function (d) {
                     ovLbDiag.disabled = false;
                     if (!d) { ovLbShowStatus('Diagnose failed — check server logs for StarTrack errors.', 'err', null); return; }
-                    if (d.error) { ovLbShowStatus('Diagnose error: ' + d.error, 'err', null); return; }
-                    var msg = 'Library query returned ' + d.libraryMovieCount + ' movie' +
-                              (d.libraryMovieCount !== 1 ? 's' : '') + '.';
-                    if (d.usedFallbackQuery) msg += ' (Used fallback query path.)';
-                    if (d.libraryMovieCount === 0) {
-                        msg += ' The library query is returning zero movies — this means StarTrack cannot see your library.' +
-                               ' Check that your library has at least one folder with the "Movies" content type and a completed scan.';
+                    var err = pick(d, 'error', 'Error');
+                    if (err) { ovLbShowStatus('Diagnose error: ' + err, 'err', null); return; }
+
+                    var count     = pick(d, 'libraryMovieCount', 'LibraryMovieCount') || 0;
+                    var unique    = pick(d, 'uniqueNormalizedTitles', 'UniqueNormalizedTitles') || 0;
+                    var fallback  = pick(d, 'usedFallbackQuery', 'UsedFallbackQuery') || false;
+                    var samples   = pick(d, 'sampleMovies', 'SampleMovies') || [];
+
+                    var msg = 'Library query returned ' + count + ' movie' + (count !== 1 ? 's' : '') + '.';
+                    if (unique && unique !== count) {
+                        var dup = count - unique;
+                        msg += ' ' + unique + ' unique normalized titles (' + dup + ' duplicate copies).';
                     }
-                    // Render as pseudo-unmatched list for reuse of styling
-                    var sample = (d.sampleMovies || []).map(function (m) {
-                        return m.originalTitle + (m.year ? ' (' + m.year + ')' : '') +
-                               '  →  ' + (m.normalizedTitle || '(empty)');
+                    if (fallback) msg += ' (Used fallback query path.)';
+                    if (count === 0) {
+                        msg += ' The library query is returning zero movies — StarTrack cannot see your library.' +
+                               ' Check that your library folders have the "Movies" content type and a completed scan.';
+                    }
+
+                    var sampleText = samples.map(function (m) {
+                        var orig = pick(m, 'originalTitle', 'OriginalTitle') || '';
+                        var norm = pick(m, 'normalizedTitle', 'NormalizedTitle') || '(empty)';
+                        var yr   = pick(m, 'year', 'Year');
+                        return orig + (yr ? ' (' + yr + ')' : '') + '  →  ' + norm;
                     });
                     var html = esc(msg);
-                    if (sample.length) {
+                    if (sampleText.length) {
                         html += '<div class="ir-ov-lb-unmatched">' +
-                                '<div class="ir-ov-lb-unmatched-title">First ' + sample.length + ' library movies (original → normalized):</div>' +
-                                sample.map(function (t) { return esc(t); }).join('<br>') +
+                                '<div class="ir-ov-lb-unmatched-title">First ' + sampleText.length + ' library movies (original → normalized):</div>' +
+                                sampleText.map(function (t) { return esc(t); }).join('<br>') +
                                 '</div>';
                     }
                     ovLbStatus.classList.remove('ir-ov-lb-ok', 'ir-ov-lb-err');
-                    if (d.libraryMovieCount > 0) ovLbStatus.classList.add('ir-ov-lb-ok');
-                    else                         ovLbStatus.classList.add('ir-ov-lb-err');
+                    if (count > 0) ovLbStatus.classList.add('ir-ov-lb-ok');
+                    else           ovLbStatus.classList.add('ir-ov-lb-err');
                     ovLbStatus.innerHTML = html;
                 });
             });
@@ -678,8 +716,10 @@
                 apiLbImportBytes(reader.result, file.name).then(function (r) {
                     ovLbFile.value = '';
                     if (!r) { ovLbShowStatus('Import failed.', 'err', null); return; }
-                    if (r.error) { ovLbShowStatus(r.error, 'err', r.unmatchedTitles); return; }
-                    ovLbShowStatus(lbResultMsg(r, 'import'), 'ok', r.unmatchedTitles);
+                    var err = lbPick(r, 'error', 'Error');
+                    var unmatched = lbPick(r, 'unmatchedTitles', 'UnmatchedTitles');
+                    if (err) { ovLbShowStatus(err, 'err', unmatched); return; }
+                    ovLbShowStatus(lbResultMsg(r, 'import'), 'ok', unmatched);
                     if (_overlay.classList.contains('ir-ov-open')) loadMyRatings();
                 });
             };
