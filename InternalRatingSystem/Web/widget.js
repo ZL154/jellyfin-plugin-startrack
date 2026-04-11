@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    console.log('[StarTrack] widget.js loaded — v1.1.2');
+    console.log('[StarTrack] widget.js loaded — v1.1.3');
     init();
 
     // ── Auth ──────────────────────────────────────────────────────────────
@@ -597,6 +597,18 @@
             });
         });
 
+        function lbResultMsg(r, verb) {
+            var parts = [];
+            parts.push('Imported ' + (r.imported || 0));
+            if (r.updated)   parts.push('updated ' + r.updated);
+            if (r.unmatched) parts.push(r.unmatched + ' not in library');
+            if (r.ambiguous) parts.push(r.ambiguous + ' ambiguous');
+            var libPart = r.libraryMovieCount != null
+                ? ' (library has ' + r.libraryMovieCount + ' movie' + (r.libraryMovieCount !== 1 ? 's' : '') + ')'
+                : '';
+            return parts.join(', ') + '.' + libPart;
+        }
+
         ovLbSync.addEventListener('click', function () {
             if (!(ovLbUser.value || '').trim()) {
                 ovLbShowStatus('Save a Letterboxd username first.', 'err', null); return;
@@ -608,12 +620,8 @@
                 if (!r) { ovLbShowStatus('Sync failed.', 'err', null); return; }
                 if (r.error) { ovLbShowStatus(r.error, 'err', null); return; }
                 var total = (r.imported || 0) + (r.updated || 0);
-                var msg = total > 0
-                    ? 'Imported ' + (r.imported || 0) + ', updated ' + (r.updated || 0) +
-                      (r.unmatched ? ', ' + r.unmatched + ' not in library' : '') + '.'
-                    : 'Nothing new on Letterboxd right now.';
+                var msg = total > 0 ? lbResultMsg(r, 'sync') : 'Nothing new on Letterboxd right now.';
                 ovLbShowStatus(msg, 'ok', r.unmatchedTitles);
-                // Refresh the ratings grid since ratings may have changed
                 if (_overlay.classList.contains('ir-ov-open')) loadMyRatings();
             });
         });
@@ -626,19 +634,13 @@
                 ovLbFile.value = ''; return;
             }
             ovLbShowStatus('Importing ' + file.name + '\u2026', '', null);
-            // Read as ArrayBuffer so both ZIP and CSV work — we POST the raw
-            // bytes and let the server detect the format.
             var reader = new FileReader();
             reader.onload = function () {
                 apiLbImportBytes(reader.result, file.name).then(function (r) {
                     ovLbFile.value = '';
                     if (!r) { ovLbShowStatus('Import failed.', 'err', null); return; }
                     if (r.error) { ovLbShowStatus(r.error, 'err', r.unmatchedTitles); return; }
-                    var msg = 'Imported ' + (r.imported || 0) + ' new, ' +
-                              'updated ' + (r.updated || 0) + '. ' +
-                              (r.unmatched || 0) + ' not in library, ' +
-                              (r.ambiguous || 0) + ' ambiguous.';
-                    ovLbShowStatus(msg, 'ok', r.unmatchedTitles);
+                    ovLbShowStatus(lbResultMsg(r, 'import'), 'ok', r.unmatchedTitles);
                     if (_overlay.classList.contains('ir-ov-open')) loadMyRatings();
                 });
             };
@@ -1102,6 +1104,16 @@
             });
         }
 
+        function smallLbResultMsg(r) {
+            var parts = ['Imported ' + (r.imported || 0)];
+            if (r.updated)   parts.push('updated ' + r.updated);
+            if (r.unmatched) parts.push(r.unmatched + ' not in library');
+            var lib = r.libraryMovieCount != null
+                ? ' · lib: ' + r.libraryMovieCount
+                : '';
+            return parts.join(', ') + '.' + lib;
+        }
+
         if (lbSync) {
             lbSync.addEventListener('click', function (e) {
                 e.stopPropagation();
@@ -1115,10 +1127,7 @@
                     if (!r) { showLbStatus('Sync failed.', 'err'); return; }
                     if (r.error) { showLbStatus(r.error, 'err'); return; }
                     var total = (r.imported || 0) + (r.updated || 0);
-                    var msg = total > 0
-                        ? 'Imported ' + (r.imported || 0) + ', updated ' + (r.updated || 0) +
-                          (r.unmatched ? ', ' + r.unmatched + ' not in library' : '') + '.'
-                        : 'Nothing new on Letterboxd right now.';
+                    var msg = total > 0 ? smallLbResultMsg(r) : 'Nothing new on Letterboxd right now.';
                     showLbStatus(msg, 'ok');
                 });
             });

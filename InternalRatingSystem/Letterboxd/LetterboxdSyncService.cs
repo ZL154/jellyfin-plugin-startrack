@@ -70,6 +70,13 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
 
             _logger.LogInformation("[StarTrack] Letterboxd CSV import: {N} rows", rows.Count);
 
+            // Build the in-memory movie lookup ONCE per import instead of
+            // running a separate library query per row. Much faster, and
+            // avoids any quirks with InternalItemsQuery.Years filtering.
+            var lookup = BuildMovieLookup();
+            result.LibraryMovieCount = lookup.TotalMovies;
+            _logger.LogInformation("[StarTrack] Letterboxd import: library has {N} movies indexed for matching", lookup.TotalMovies);
+
             foreach (var row in rows)
             {
                 var name   = GetCol(row, "Name", "Title", "Film");
@@ -95,13 +102,15 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 int? year = null;
                 if (int.TryParse(yearS, out var y)) year = y;
 
-                var matched = FindMovie(name, year, out var ambiguous);
+                var matched = lookup.Find(name, year, out var ambiguous);
                 if (matched == null)
                 {
                     if (ambiguous) result.Ambiguous++;
                     else           result.Unmatched++;
                     if (result.UnmatchedTitles.Count < 100)
                         result.UnmatchedTitles.Add($"{name}{(year.HasValue ? $" ({year})" : "")}");
+                    _logger.LogDebug("[StarTrack] Letterboxd unmatched: '{Name}' ({Year}) -> normalized '{Norm}'",
+                        name, year, NormalizeTitle(name));
                     continue;
                 }
 
@@ -115,8 +124,8 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 else         result.Imported++;
             }
 
-            _logger.LogInformation("[StarTrack] Letterboxd CSV import done: imported={I}, updated={U}, unmatched={N}, ambiguous={A}",
-                result.Imported, result.Updated, result.Unmatched, result.Ambiguous);
+            _logger.LogInformation("[StarTrack] Letterboxd CSV import done: library={L}, rows={R}, imported={I}, updated={U}, unmatched={N}, ambiguous={A}",
+                result.LibraryMovieCount, rows.Count, result.Imported, result.Updated, result.Unmatched, result.Ambiguous);
 
             await _settingsRepo.SetSyncStateAsync(userId, null, DateTime.UtcNow, result.Imported + result.Updated, result.Unmatched).ConfigureAwait(false);
             return result;
@@ -177,15 +186,20 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                     toImport.Add(entry);
             }
 
+            var lookup = BuildMovieLookup();
+            result.LibraryMovieCount = lookup.TotalMovies;
+
             foreach (var entry in toImport)
             {
-                var matched = FindMovie(entry.FilmTitle, entry.FilmYear, out var ambiguous);
+                var matched = lookup.Find(entry.FilmTitle, entry.FilmYear, out var ambiguous);
                 if (matched == null)
                 {
                     if (ambiguous) result.Ambiguous++;
                     else           result.Unmatched++;
                     if (result.UnmatchedTitles.Count < 100)
                         result.UnmatchedTitles.Add($"{entry.FilmTitle}{(entry.FilmYear.HasValue ? $" ({entry.FilmYear})" : "")}");
+                    _logger.LogDebug("[StarTrack] Letterboxd RSS unmatched: '{Name}' ({Year}) -> normalized '{Norm}'",
+                        entry.FilmTitle, entry.FilmYear, NormalizeTitle(entry.FilmTitle));
                     continue;
                 }
 
@@ -213,58 +227,113 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         // ============================================================= //
 
         /// <summary>
-        /// Finds a single Movie in the Jellyfin library matching the given
-        /// (title, year). Returns null if no match or multiple matches (in
-        /// which case <paramref name="ambiguous"/> is set).
+        /// Pulls every Movie from the library once and builds an in-memory
+        /// lookup keyed by normalized title. Matching against this dictionary
+        /// is O(1), handles year drift flexibly, and avoids any quirks with
+        /// InternalItemsQuery's Years filter returning 0 results in some
+        /// Jellyfin setups.
         /// </summary>
-        private BaseItem? FindMovie(string title, int? year, out bool ambiguous)
+        private MovieLookup BuildMovieLookup()
         {
-            ambiguous = false;
-            if (string.IsNullOrWhiteSpace(title)) return null;
-
+            // No filters beyond IncludeItemTypes so we capture every movie
+            // regardless of year metadata quality. Recursive = true walks
+            // all library folders.
             var query = new InternalItemsQuery
             {
                 IncludeItemTypes = new[] { BaseItemKind.Movie },
                 Recursive        = true
             };
-            if (year.HasValue)
-                query.Years = new[] { year.Value };
+            IReadOnlyList<BaseItem> items = _libraryManager.GetItemList(query) ?? (IReadOnlyList<BaseItem>)Array.Empty<BaseItem>();
+            _logger.LogInformation("[StarTrack] Movie library query returned {N} items", items.Count);
 
-            var candidates = _libraryManager.GetItemList(query);
-
-            // Exact case-insensitive title match
-            var exact = candidates
-                .Where(c => c != null && string.Equals(NormalizeTitle(c.Name), NormalizeTitle(title), StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            if (exact.Count == 1) return exact[0];
-            if (exact.Count > 1)
+            // Fallback: if the typed query returned nothing (some Jellyfin
+            // setups are fussy about IncludeItemTypes), pull all items and
+            // filter in-memory by GetBaseItemKind.
+            if (items.Count == 0)
             {
+                var allQuery = new InternalItemsQuery { Recursive = true };
+                var allItems = _libraryManager.GetItemList(allQuery) ?? (IReadOnlyList<BaseItem>)Array.Empty<BaseItem>();
+                items = allItems
+                    .Where(i => i != null && i.GetBaseItemKind() == BaseItemKind.Movie)
+                    .ToList();
+                _logger.LogInformation("[StarTrack] Fallback query (all-items + filter) found {N} movies", items.Count);
+            }
+
+            return new MovieLookup(items, _logger);
+        }
+
+        private sealed class MovieLookup
+        {
+            // Dictionary from normalized title → list of movies with that title
+            private readonly Dictionary<string, List<BaseItem>> _byTitle =
+                new(StringComparer.OrdinalIgnoreCase);
+
+            public int TotalMovies { get; }
+
+            public MovieLookup(IReadOnlyList<BaseItem> movies, ILogger logger)
+            {
+                TotalMovies = movies.Count;
+                int sampleCount = 0;
+                foreach (var m in movies)
+                {
+                    if (m == null || string.IsNullOrEmpty(m.Name)) continue;
+                    var norm = NormalizeTitle(m.Name);
+                    if (string.IsNullOrEmpty(norm)) continue;
+                    if (!_byTitle.TryGetValue(norm, out var list))
+                    {
+                        list = new List<BaseItem>();
+                        _byTitle[norm] = list;
+                    }
+                    list.Add(m);
+
+                    if (sampleCount < 5)
+                    {
+                        logger.LogDebug("[StarTrack] Library sample {I}: '{Orig}' ({Year}) -> '{Norm}'",
+                            sampleCount + 1, m.Name, m.ProductionYear, norm);
+                        sampleCount++;
+                    }
+                }
+                logger.LogInformation("[StarTrack] Built movie lookup: {N} unique normalized titles", _byTitle.Count);
+            }
+
+            /// <summary>
+            /// Finds a single movie matching the given (title, year). Year
+            /// is used only to disambiguate when multiple movies share a
+            /// normalized title. Accepts exact year, +/- 1 year, or no-year
+            /// match in that order.
+            /// </summary>
+            public BaseItem? Find(string title, int? year, out bool ambiguous)
+            {
+                ambiguous = false;
+                var norm = NormalizeTitle(title);
+                if (string.IsNullOrEmpty(norm)) return null;
+
+                if (!_byTitle.TryGetValue(norm, out var candidates) || candidates.Count == 0)
+                    return null;
+
+                if (candidates.Count == 1) return candidates[0];
+
+                // Multiple movies with the same normalized title. Disambiguate by year.
+                if (year.HasValue)
+                {
+                    // 1. Exact year match
+                    var exact = candidates.Where(c => c.ProductionYear == year.Value).ToList();
+                    if (exact.Count == 1) return exact[0];
+                    if (exact.Count > 1)  { ambiguous = true; return null; }
+
+                    // 2. +/- 1 year (Letterboxd vs TMDb release-year drift)
+                    var near = candidates
+                        .Where(c => c.ProductionYear.HasValue && Math.Abs(c.ProductionYear.Value - year.Value) <= 1)
+                        .ToList();
+                    if (near.Count == 1) return near[0];
+                    if (near.Count > 1)  { ambiguous = true; return null; }
+                }
+
+                // No way to disambiguate — treat as ambiguous so the user
+                // sees it in the unmatched list with context
                 ambiguous = true;
                 return null;
             }
-
-            // No exact match — try without year, if a year was specified
-            if (year.HasValue)
-            {
-                var query2 = new InternalItemsQuery
-                {
-                    IncludeItemTypes = new[] { BaseItemKind.Movie },
-                    Recursive        = true
-                };
-                var allMovies = _libraryManager.GetItemList(query2);
-                var byTitle = allMovies
-                    .Where(c => c != null && string.Equals(NormalizeTitle(c.Name), NormalizeTitle(title), StringComparison.OrdinalIgnoreCase))
-                    .ToList();
-                // Accept only if year is within +/- 1 (Letterboxd sometimes disagrees with TMDb)
-                var nearYear = byTitle
-                    .Where(c => c.ProductionYear.HasValue && Math.Abs(c.ProductionYear.Value - year.Value) <= 1)
-                    .ToList();
-                if (nearYear.Count == 1) return nearYear[0];
-                if (nearYear.Count > 1)  { ambiguous = true; return null; }
-            }
-
-            return null;
         }
 
         /// <summary>

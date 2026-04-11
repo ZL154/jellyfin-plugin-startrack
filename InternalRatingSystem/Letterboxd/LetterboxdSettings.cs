@@ -30,6 +30,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         public int Unmatched   { get; set; }
         public int Ambiguous   { get; set; }
         public int Skipped     { get; set; }
+        public int LibraryMovieCount { get; set; }
         public List<string> UnmatchedTitles { get; set; } = new();
         public string? Error   { get; set; }
     }
