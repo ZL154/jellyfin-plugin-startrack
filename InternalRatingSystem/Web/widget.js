@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    console.log('[StarTrack] widget.js loaded — v1.3.4');
+    console.log('[StarTrack] widget.js loaded — v1.3.5');
     init();
 
     // ── Auth ──────────────────────────────────────────────────────────────
@@ -318,6 +318,10 @@
             '.ir-ov-scope-btn{background:#161616!important;border:1px solid rgba(255,255,255,.12)!important;color:rgba(255,255,255,.65)!important;border-radius:8px!important;padding:9px 18px!important;font-size:.78em!important;font-weight:700!important;cursor:pointer!important;letter-spacing:.02em!important;transition:all .15s!important}',
             '.ir-ov-scope-btn:hover{border-color:rgba(200,30,30,.5)!important;color:#fff!important}',
             '.ir-ov-scope-btn.ir-ov-scope-active{background:#cc2020!important;border-color:#cc2020!important;color:#fff!important;box-shadow:0 0 14px rgba(200,30,30,.4)!important}',
+            '.ir-ov-scope-user{background:#161616!important;border:1px solid rgba(255,255,255,.12)!important;color:#fff!important;border-radius:8px!important;padding:9px 14px!important;font-size:.78em!important;cursor:pointer!important;outline:none!important;transition:border-color .15s!important;font-weight:600!important}',
+            '.ir-ov-scope-user:hover{border-color:rgba(200,30,30,.6)!important}',
+            '.ir-ov-scope-user:focus{border-color:#cc2020!important}',
+            '.ir-ov-scope-user option{background:#161616!important;color:#fff!important}',
             // Wanted-by sub-line on cards in everyone\'s watchlist mode
             '.ir-ov-card-wantedby{font-size:.66em!important;color:rgba(96,165,250,.85)!important;font-weight:600!important;margin-top:3px!important;text-shadow:0 1px 4px rgba(0,0,0,1)!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}',
             // Reshuffle button in the For You view
@@ -721,6 +725,8 @@
     var _recsPool = null;
     var _currentListId = null;
     var _watchlistScope = 'mine'; // 'mine' | 'everyone'
+    var _watchlistUserFilter = ''; // empty = all users; otherwise the userName to show only
+    var _everyoneUsers = []; // populated from /EveryonesWatchlist response
 
     // Defensive: every comparator returns a real number even for null/NaN
     // inputs, and falls back to a stable secondary sort by name so ties
@@ -1669,21 +1675,43 @@
             gridWrap.appendChild(btn);
         }
 
-        // Watchlist view shows a "mine vs everyone" scope toggle pill row
+        // Watchlist view shows a "mine vs everyone" scope toggle pill row,
+        // plus a user dropdown when on the everyone scope so the user can
+        // filter the aggregated view down to a specific other user's
+        // watchlist (e.g. "show me Adam's watchlist").
         if (_overlayView === 'watchlist') {
             var scope = document.createElement('div');
             scope.className = 'ir-ov-scope';
+
+            var userOptions = '<option value="">All users</option>';
+            _everyoneUsers.forEach(function (n) {
+                var sel = (n === _watchlistUserFilter) ? ' selected' : '';
+                userOptions += '<option value="' + esc(n) + '"' + sel + '>' + esc(n) + '</option>';
+            });
+
             scope.innerHTML =
                 '<button class="ir-ov-scope-btn ' + (_watchlistScope === 'mine' ? 'ir-ov-scope-active' : '') + '" data-scope="mine">My watchlist</button>' +
-                '<button class="ir-ov-scope-btn ' + (_watchlistScope === 'everyone' ? 'ir-ov-scope-active' : '') + '" data-scope="everyone">\ud83d\udc65 Everyone\u2019s watchlist</button>';
+                '<button class="ir-ov-scope-btn ' + (_watchlistScope === 'everyone' ? 'ir-ov-scope-active' : '') + '" data-scope="everyone">\ud83d\udc65 Everyone\u2019s watchlist</button>' +
+                (_watchlistScope === 'everyone'
+                    ? '<select class="ir-ov-scope-user">' + userOptions + '</select>'
+                    : '');
+
             scope.querySelectorAll('.ir-ov-scope-btn').forEach(function (b) {
                 b.addEventListener('click', function () {
                     var s = b.dataset.scope;
                     if (s === _watchlistScope) return;
                     _watchlistScope = s;
+                    _watchlistUserFilter = '';
                     loadOverlayView();
                 });
             });
+            var userSel = scope.querySelector('.ir-ov-scope-user');
+            if (userSel) {
+                userSel.addEventListener('change', function (e) {
+                    _watchlistUserFilter = e.target.value || '';
+                    loadOverlayView();
+                });
+            }
             gridWrap.appendChild(scope);
         }
 
@@ -1970,12 +1998,26 @@
             // user on the server has on their watchlist.
             if (_watchlistScope === 'everyone') {
                 apiEveryonesWatchlist().then(function (rows) {
-                    hydrateAndRender((rows || []).map(function (e) {
+                    rows = rows || [];
+                    // Build a unique sorted list of usernames for the dropdown.
+                    var userSet = {};
+                    rows.forEach(function (e) {
+                        (e.userNames || []).forEach(function (n) { userSet[n] = 1; });
+                    });
+                    _everyoneUsers = Object.keys(userSet).sort(function (a, b) { return a.localeCompare(b); });
+
+                    // Apply optional per-user filter
+                    var filtered = rows;
+                    if (_watchlistUserFilter) {
+                        filtered = rows.filter(function (e) {
+                            return (e.userNames || []).indexOf(_watchlistUserFilter) !== -1;
+                        });
+                    }
+
+                    hydrateAndRender(filtered.map(function (e) {
                         return {
                             itemId:  e.itemId,
                             ratedAt: e.firstAddedAt,
-                            // Stash who-wants-it on the entry so the card
-                            // builder can render it as the badge text.
                             wantedBy: e.userNames || []
                         };
                     }));
@@ -2139,6 +2181,8 @@
         _starFilter = 'all';
         _currentListId = null;
         _watchlistScope = 'mine';
+        _watchlistUserFilter = '';
+        _everyoneUsers = [];
         var searchEl = _overlay.querySelector('.ir-ov-search');
         if (searchEl) searchEl.value = '';
         var starFilterEl = _overlay.querySelector('.ir-ov-starfilter');

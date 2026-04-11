@@ -7,9 +7,9 @@
 ![Jellyfin](https://img.shields.io/badge/Jellyfin-10.11%2B-CC0000?style=for-the-badge&labelColor=0d0d0d&logo=jellyfin&logoColor=white)
 ![.NET](https://img.shields.io/badge/.NET-9.0-CC0000?style=for-the-badge&labelColor=0d0d0d&logo=dotnet&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-CC0000?style=for-the-badge&labelColor=0d0d0d)
-![Version](https://img.shields.io/badge/Version-1.0.17-CC0000?style=for-the-badge&labelColor=0d0d0d)
+![Version](https://img.shields.io/badge/Version-1.3.5-CC0000?style=for-the-badge&labelColor=0d0d0d)
 
-**Community star ratings for Jellyfin**
+**Letterboxd-style ratings, watchlist, lists & social layer for Jellyfin**
 
 ⭐ *If StarTrack is useful to you, please consider starring this repo!* ⭐
 
@@ -19,31 +19,78 @@
 
 ## Overview
 
-StarTrack adds a **0.5–5 star community rating system** to your Jellyfin server. Every user can rate movies, TV shows and episodes, leave written reviews, and browse their personal ratings in a Letterboxd-style library — all stored as JSON on your own server. Nothing leaves your network.
+StarTrack started as a simple star-rating plugin and has grown into a full **Letterboxd-style social layer for Jellyfin**: ratings, reviews, watchlists, liked films, a chronological diary with rewatches, Top 4 favourites, collaborative lists, recommendations, server-wide watchlist sharing, and full Letterboxd import/sync. Everything is stored as plain JSON on your own server — nothing leaves your network.
+
+Designed to integrate cleanly with modern Jellyfin setups. Works on desktop and mobile.
 
 ---
 
 ## Features
 
+### ⭐ Ratings & reviews
+- **Half-star ratings** (0.5 – 5★) per item, per user
+- **Written reviews** (optional, up to 1000 chars per rating)
+- **Community average badge** displayed on every detail page above the metadata row
+- **Per-user breakdown** — expandable list of every user's score and review on the detail panel
+- **Star tier colours** — five visual tiers (5★ glowing gold → 1★ muted red) so the rating grid is scannable at a glance
+
+### 🎞 Letterboxd-parity views
 | | |
 |---|---|
-| ⭐ **Half-star ratings** | 0.5–5 stars per item, per user |
-| 📝 **Written reviews** | Optional text review on any rating |
-| 📊 **Community average** | `★ 4.3` badge shown above the metadata row on detail pages |
-| 🎬 **Movies, TV Shows & Episodes** | Works on all three item types |
-| 👥 **Per-user breakdown** | Expandable list of every user's score and review |
-| 🕒 **Recent ratings pill** | Home screen pill shows your 15 most recent ratings |
-| 📚 **My Ratings library** | Sidebar link opens a full-screen Letterboxd-style poster grid |
-| 🔀 **10 sort options** | Date rated, film year, your rating, avg rating, runtime — each asc/desc |
-| 🗂️ **Category tabs** | Filter your library by Movies, TV Shows, or Episodes |
-| 🎨 **Theme-compatible** | Works alongside any Jellyfin CSS theme |
+| **★ Films** | Full poster grid of everything you've rated, with a pinned Top 4 row |
+| **☆ Watchlist** | Bookmark films to watch later — toggleable to show **everyone's combined watchlist** with per-user filtering |
+| **♡ Liked** | One-tap heart toggle, separate from your star rating |
+| **📖 Diary** | Chronological journal of every watch with **rewatch detection**, grouped by month, with visual star bars |
+| **✍ Reviews feed** | Server-wide vertical feed of every rating that has a review, with poster, reviewer, star bar, date and review text |
+| **✨ For you** | Personalised recommendations weighted by your top genres (movies + series). Reshuffle button rerolls 30 picks from a 60-candidate pool |
+| **📃 Lists** | Create collaborative film lists that other users on your server can contribute to. Owner-only delete |
+
+### ⭐ Top 4 favourites (per type)
+- Pin up to 4 movies, 4 series and 4 episodes to your profile
+- Sub-rows shown in the type tab they belong to (Movies tab → Top 4 Movies, etc)
+- Empty slots show a clear "+ pin a film" placeholder so the feature is discoverable
+- Hover any pinned slot to reveal an **× remove** button
+- Hover any film card to reveal **⭐ pin to Top 4** and **+ add to a list** buttons
+
+### 🔄 Letterboxd integration
+- **Drop in your Letterboxd export ZIP** to import everything in one pass: `ratings.csv`, `diary.csv`, `watchlist.csv` and `likes/films.csv`
+- **Browser-style User-Agent** so Letterboxd's anti-bot doesn't block sync
+- **Sync now** button pulls your latest ratings (RSS), watchlist (RSS), and likes (HTML scrape) — one click, three data types
+- **Hourly auto-sync** scheduled task for every user with a Letterboxd username configured
+- **Import Top 4** button scrapes your Letterboxd profile's "favourite films" section
+- **Export CSV** — download your StarTrack ratings in Letterboxd-compatible format for backup or migration
+- **Diagnose** button — runs the library matcher and shows you exactly how many movies are indexed, how many duplicates exist, and how titles are normalised
+- **Clean dead ratings** button — removes ratings that point to library items whose underlying file no longer exists (post-HDD-failure cleanup)
+
+### 🔍 Search & filter
+- **Live search input** in the topbar — filters the active view by title with a 150 ms debounce
+- **Discrete star filter dropdown** — `5★ only`, `4.5★ only`, `4★ only` … down to `0.5★ only`
+- **Sort dropdown** — date rated, film year, your rating, community rating, runtime, each ↑↓
+- **Type tabs** — All / Movies / TV Shows / Episodes — drives both the grid and which Top 4 row is visible
+
+### 👥 Collaborative & social
+- **Everyone's watchlist** view — see what every user on your server wants to watch, sorted by most-wanted first, with a per-user filter dropdown to focus on a specific user
+- **Collaborative lists** — owner can mark a list as collaborative and other users can add their own picks. Each item tracks who added it
+- **Reviews feed** — see what everyone on the server thinks
+- **Per-user attribution** on community averages so you know who rated what
+
+### 🛠 Admin & infrastructure
+- **Per-rating cleanup** — purge a single rating without nuking the whole profile
+- **Multi-rating cleanup** — purge every rating that points to a missing library file
+- **Mobile-responsive UI** — full `@media` query overhaul for phones and tablets
+- **Client-side metadata cache** — switching between views is instant after the first load
+- **MIT licensed** — fork it, modify it, self-host it, bundle it
+- **Pure JSON storage** — no database. Just files in `<jellyfin-data>/data/InternalRating/`
+
 ---
 
 ## Requirements
 
-- **Jellyfin 10.11.x** (tested on 10.11.6)
+- **Jellyfin 10.11.x** (built against 10.11.6)
+- A modern browser (Chromium / Firefox / Safari)
+- For Letterboxd auto-sync: a Letterboxd account with **public** profile, watchlist and likes pages
 
-StarTrack uses ASP.NET Core middleware to inject its widget at runtime.
+StarTrack uses ASP.NET Core middleware to inject its widget at runtime. No File Transformation plugin required.
 
 ---
 
@@ -74,63 +121,122 @@ After restarting, visit:
 https://your-jellyfin-server/Plugins/StarTrack/Debug
 ```
 
-You should see `Plugin loaded: YES`. Then open any Movie, TV Show, or Episode detail page — the `☆ Rate` pill will appear in the bottom-right corner.
+You should see `Plugin loaded: YES`. Then open any Movie, TV Show, or Episode detail page — the `☆ Rate` pill will appear.
 
 ---
 
-## How it works
+## How to use
 
 ### Rating pill (detail pages)
+A small floating pill appears at the bottom-right of every Movie / Series / Episode detail page. Click it to:
+- Set your rating (half-star precision)
+- Optionally write a review
+- See the community average and per-user breakdown
+- One-click **❤ like**, **☆ watchlist**, or **★ pin to Top 4**
 
-| State | What you see |
-|:---|:---|
-| No ratings yet | `☆ Rate` — click to be the first |
-| Has ratings | `★ 4.3` — click to expand |
-| Expanded | Large average, half-star input, review field, Save button, per-user list |
+### My Ratings overlay
+Click **My Ratings** in the Jellyfin sidebar to open the full overlay. The view selector at the top has seven tabs:
 
-The average is also shown as a standalone badge above the IMDb/MDBList metadata row.
+- **★ Films** — your full rating grid + pinned Top 4 row
+- **☆ Watchlist** — your watchlist, with a toggle to view everyone's combined watchlist filtered by user
+- **♡ Liked** — every film you've hearted
+- **📖 Diary** — chronological journal with rewatches and visual star bars
+- **✍ Reviews** — server-wide review feed
+- **✨ For you** — personalised recommendations
+- **📃 Lists** — your and others' collaborative lists
 
-### Recent ratings (home / library)
+Each view supports search, sort, type filter, and (where applicable) star filter.
 
-When browsing without an item selected, the pill shows your **15 most recent ratings** as a compact list.
-
-### My Ratings library (sidebar)
-
-Click **My Ratings** in the Jellyfin sidebar to open a full-screen poster grid of everything you have rated.
-
-- **Tabs** — All / Movies / TV Shows / Episodes
-- **Sort** — 10 options: date rated, film year, your rating, avg rating, length (each ↑↓)
-- Click any card to navigate to that item's detail page
-- Press **Escape** or click **Close** to exit
+### Letterboxd sync
+1. Export your data from letterboxd.com → **Settings → Import & Export → Export Your Data**
+2. In StarTrack, click the **⚙ Letterboxd** button in the topbar
+3. Enter your Letterboxd username, optionally enable hourly auto-sync, save
+4. Drop the export ZIP into the upload box — ratings, diary, watchlist and likes import in one pass
+5. Click **⭐ Import Top 4** to scrape your Letterboxd profile's favourite films
+6. Click **Sync now** any time to pull your latest ratings + watchlist + likes via RSS / HTML scrape
 
 ---
 
 ## API Reference
 
-All endpoints are under `/Plugins/StarTrack/`.
+All endpoints are under `/Plugins/StarTrack/`. Every endpoint requires Jellyfin authentication unless otherwise noted.
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `GET` | `/Ratings/{itemId}` | Required | Average + all user ratings and reviews |
-| `POST` | `/Ratings/{itemId}` | Required | Submit or update your rating `{"stars":4,"review":"..."}` |
-| `DELETE` | `/Ratings/{itemId}` | Required | Remove your rating |
-| `GET` | `/MyRatings?limit=N` | Required | All your rated items, newest first (max 10 000) |
-| `GET` | `/Recent?limit=N` | Required | Recent ratings across all users |
-| `GET` | `/Stats` | Required | Server-wide rating count |
-| `GET` | `/Widget` | None | The embedded widget JavaScript |
-| `GET` | `/WhoAmI` | Required | Auth debug for the current session |
-| `GET` | `/Debug` | None | Diagnostic report (plugin version, injection status) |
+### Ratings
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/Ratings/{itemId}` | Average + every user's rating and review |
+| `POST` | `/Ratings/{itemId}` | Submit / update your rating `{"stars":4,"review":"..."}` |
+| `DELETE` | `/Ratings/{itemId}` | Remove your rating |
+| `GET` | `/MyRatings?limit=N` | All your rated items, newest first |
+| `GET` | `/Recent?limit=N` | Recent ratings across all users |
+| `GET` | `/Stats` | Server-wide rating count |
+| `GET` | `/ExportCsv` | Download your ratings as Letterboxd-compatible CSV |
+
+### Watchlist / liked / favourites
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/MyWatchlist` | Your watchlist |
+| `GET` | `/EveryonesWatchlist` | Every user's watchlist aggregated, with per-item user lists |
+| `POST` | `/Watchlist/{itemId}` | Add an item to your watchlist |
+| `DELETE` | `/Watchlist/{itemId}` | Remove an item |
+| `GET` | `/MyLikes` | Your liked films |
+| `POST` | `/Likes/{itemId}` | Like an item |
+| `DELETE` | `/Likes/{itemId}` | Unlike an item |
+| `GET` | `/MyFavorites` | Your Top 4 (max 12 across types) |
+| `POST` | `/MyFavorites` | Replace your favourites `{"itemIds":[...]}` |
+| `GET` | `/Interactions/{itemId}` | Combined watchlisted/liked/favourite status for one item |
+| `GET` | `/Recommendations?limit=N` | Personalised picks weighted by your top genres |
+
+### Diary
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/MyDiary?limit=N` | Your chronological diary with rewatches |
+| `POST` | `/Diary` | Manually add a diary entry (`{"itemId","watchedAt","stars","review","rewatch"}`) |
+| `DELETE` | `/Diary/{entryId}` | Remove a diary entry |
+
+### Lists
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/Lists` | All lists on the server |
+| `POST` | `/Lists` | Create a list `{"name","description","collaborative"}` |
+| `GET` | `/Lists/{listId}` | Single list with all items |
+| `DELETE` | `/Lists/{listId}` | Delete (owner only) |
+| `POST` | `/Lists/{listId}/Items` | Add a film `{"itemId":"..."}` |
+| `DELETE` | `/Lists/{listId}/Items/{itemId}` | Remove a film |
+
+### Letterboxd sync
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/Letterboxd/Settings` | Your Letterboxd username + auto-sync state |
+| `POST` | `/Letterboxd/Settings` | Save username + auto-sync toggle |
+| `POST` | `/Letterboxd/SyncNow` | Pull ratings (RSS) + watchlist (RSS) + likes (HTML scrape) |
+| `POST` | `/Letterboxd/Import` | Upload ZIP or CSV — auto-extracts ratings.csv, diary.csv, watchlist.csv, likes/films.csv |
+| `POST` | `/Letterboxd/ScrapeFavorites` | Scrape your Letterboxd profile's "favourite films" section |
+| `POST` | `/Letterboxd/Cleanup` | Purge ratings whose library item no longer has a file on disk |
+| `GET` | `/Letterboxd/Diagnose` | Library matcher diagnostic + sample of normalised titles |
+
+### Misc
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/Widget` | Embedded widget JavaScript (no auth) |
+| `GET` | `/WhoAmI` | Auth debug for the current session |
+| `GET` | `/Debug` | Diagnostic report (no auth) |
 
 ---
 
 ## Data storage
 
-Ratings are stored in a plain JSON file:
-```
-<jellyfin-data>/data/InternalRating/ratings.json
-```
+All data is stored as plain JSON in `<jellyfin-data>/data/InternalRating/`:
 
-Back it up or migrate it like any other data file — no database required.
+| File | Contents |
+|---|---|
+| `ratings.json` | Per-item rating + review per user |
+| `user_interactions.json` | Per-user watchlist, liked films, Top 4 favourites |
+| `diary.json` | Chronological diary entries with rewatch flag |
+| `lists.json` | All collaborative lists |
+| `letterboxd.json` | Per-user Letterboxd sync settings (username, auto-sync, last-synced state) |
+
+Back them up or migrate them like any other data file — no database required.
 
 ---
 
@@ -144,7 +250,7 @@ dotnet publish -c Release -o ./publish_out
 
 The compiled DLL is at `publish_out/Jellyfin.Plugin.InternalRating.dll`.
 
-> **Version note:** The plugin must be compiled against the Jellyfin.Controller NuGet package version that exactly matches your server. The csproj currently targets `10.11.6`. Update `<PackageReference>` if your server version differs.
+> **Version note:** The plugin must be compiled against the `Jellyfin.Controller` NuGet package version that exactly matches your server. The csproj currently targets `10.11.6`. Update `<PackageReference>` if your server version differs.
 
 ---
 
@@ -160,6 +266,14 @@ Issues and pull requests are welcome.
 ## License
 
 [MIT](LICENSE) — © 2025 ZL154
+
+---
+
+## Disclosure
+
+This plugin was developed with **heavy AI assistance**. Most of the code, the UI, the Letterboxd integration, the matching algorithms, and the documentation were written collaboratively with Anthropic's Claude (specifically [Claude Code](https://claude.ai/claude-code)). The author directed every feature and tested every release on a real Jellyfin server, but the implementation was AI-driven. If you find this kind of human-directed AI development useful or interesting, that's the production model behind StarTrack.
+
+If you hit a bug, the AI made it. If something works really well, also probably the AI. Issues and PRs welcome either way.
 
 ---
 
