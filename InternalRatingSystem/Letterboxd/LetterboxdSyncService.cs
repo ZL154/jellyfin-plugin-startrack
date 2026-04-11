@@ -102,6 +102,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 var name   = GetCol(row, "Name", "Title", "Film");
                 var yearS  = GetCol(row, "Year");
                 var rating = GetCol(row, "Rating");
+                var dateS  = GetCol(row, "Date");
 
                 if (string.IsNullOrWhiteSpace(name))
                 {
@@ -134,11 +135,23 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                     continue;
                 }
 
+                // Use the Letterboxd Date column as the RatedAt timestamp so
+                // imported ratings keep their original chronology and sort
+                // correctly. Without this, every imported rating clusters at
+                // DateTime.UtcNow and the Newest-rated sort returns junk.
+                DateTime? ratedAt = null;
+                if (!string.IsNullOrWhiteSpace(dateS) &&
+                    DateTime.TryParse(dateS, System.Globalization.CultureInfo.InvariantCulture,
+                                      System.Globalization.DateTimeStyles.AssumeUniversal, out var parsedDate))
+                {
+                    ratedAt = parsedDate.ToUniversalTime();
+                }
+
                 // Check if already rated by this user — counts as Update vs Imported
                 var existing = await _ratingRepo.GetRatingsAsync(matched.Id.ToString("N")).ConfigureAwait(false);
                 var userHad  = existing.UserRatings?.Any(r => r.UserId == userId) == true;
 
-                await _ratingRepo.SaveRatingAsync(matched.Id.ToString("N"), userId, userName, stars).ConfigureAwait(false);
+                await _ratingRepo.SaveRatingAsync(matched.Id.ToString("N"), userId, userName, stars, null, ratedAt).ConfigureAwait(false);
 
                 if (userHad) result.Updated++;
                 else         result.Imported++;
@@ -302,6 +315,63 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
 
             var added = await _diaryRepo.ImportEntriesAsync(userId, entries).ConfigureAwait(false);
             _logger.LogInformation("[StarTrack] Letterboxd diary import: added {N} entries (of {T} rows)", added, entries.Count);
+            return added;
+        }
+
+        /// <summary>
+        /// Letterboxd has no public RSS feed for likes, so this scrapes the
+        /// /username/likes/films/ HTML page (first page only — usually 72
+        /// items per page). Same poster-list shape as the favourites scrape.
+        /// </summary>
+        internal async Task<int> SyncLikesScrapeAsync(string userId, string letterboxdUsername, MovieLookup lookup)
+        {
+            if (string.IsNullOrWhiteSpace(letterboxdUsername)) return 0;
+            var url = $"https://letterboxd.com/{Uri.EscapeDataString(letterboxdUsername)}/likes/films/";
+            string html;
+            try { html = await _http.GetStringAsync(url).ConfigureAwait(false); }
+            catch (Exception ex)
+            {
+                _logger.LogWarning("[StarTrack] Likes page fetch failed for {User}: {Msg}", letterboxdUsername, ex.Message);
+                return 0;
+            }
+
+            // The likes page has a long list of <li> elements with film cards.
+            // Each card has alt="Film Name" inside an <img>. We extract every
+            // unique alt text under the main poster list.
+            var titles = new List<string>();
+            try
+            {
+                // Restrict to the films grid container (poster-list class)
+                var listIdx = html.IndexOf("class=\"poster-list", StringComparison.OrdinalIgnoreCase);
+                if (listIdx < 0) return 0;
+                var section = html.Substring(listIdx);
+                var endIdx = section.IndexOf("</ul>", StringComparison.OrdinalIgnoreCase);
+                if (endIdx > 0) section = section.Substring(0, endIdx);
+
+                var altRx = new System.Text.RegularExpressions.Regex("alt=\"([^\"]+)\"",
+                    System.Text.RegularExpressions.RegexOptions.Compiled);
+                foreach (System.Text.RegularExpressions.Match m in altRx.Matches(section))
+                {
+                    var t = m.Groups[1].Value.Trim();
+                    if (t.Length > 0 && !titles.Contains(t, StringComparer.OrdinalIgnoreCase))
+                        titles.Add(t);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[StarTrack] Likes HTML parse failed");
+                return 0;
+            }
+
+            int added = 0;
+            foreach (var title in titles)
+            {
+                var matched = lookup.Find(title, null, out _);
+                if (matched == null) continue;
+                if (await _interactions.AddLikeAsync(userId, matched.Id.ToString("N")).ConfigureAwait(false))
+                    added++;
+            }
+            _logger.LogInformation("[StarTrack] Letterboxd likes scrape for {User}: added {N} new likes", letterboxdUsername, added);
             return added;
         }
 
@@ -513,12 +583,25 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 _logger.LogWarning(ex, "[StarTrack] Watchlist RSS sync threw — continuing");
             }
 
+            // ---- Likes scrape ----
+            // Letterboxd doesn't expose a public RSS for likes, so we scrape
+            // the /username/likes/films/ HTML page (first page only).
+            try
+            {
+                var likesAdded = await SyncLikesScrapeAsync(userId, settings.Username!, lookup).ConfigureAwait(false);
+                result.LikesAdded += likesAdded;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[StarTrack] Likes scrape threw — continuing");
+            }
+
             // Mark newest entry as the last-seen guid so the next run diffs correctly
             var newest = entries.FirstOrDefault();
             await _settingsRepo.SetSyncStateAsync(userId, newest?.Guid, DateTime.UtcNow, result.Imported + result.Updated, result.Unmatched).ConfigureAwait(false);
 
-            _logger.LogInformation("[StarTrack] Letterboxd RSS sync for {User} ({Lb}): imported={I}, updated={U}, unmatched={N}, watchlist+{W}",
-                userName, settings.Username, result.Imported, result.Updated, result.Unmatched, result.WatchlistAdded);
+            _logger.LogInformation("[StarTrack] Letterboxd RSS sync for {User} ({Lb}): imported={I}, updated={U}, unmatched={N}, watchlist+{W}, likes+{L}",
+                userName, settings.Username, result.Imported, result.Updated, result.Unmatched, result.WatchlistAdded, result.LikesAdded);
             return result;
         }
 

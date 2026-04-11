@@ -100,7 +100,18 @@ namespace Jellyfin.Plugin.InternalRating.Data
         }
 
         /// <summary>Inserts or replaces a user's rating for an item.</summary>
-        public async Task SaveRatingAsync(string itemId, string userId, string userName, double stars, string? review = null)
+        public Task SaveRatingAsync(string itemId, string userId, string userName, double stars, string? review = null)
+        {
+            return SaveRatingAsync(itemId, userId, userName, stars, review, null);
+        }
+
+        /// <summary>
+        /// Overload that lets the caller specify the RatedAt timestamp
+        /// directly. Used by the Letterboxd CSV importer so imported
+        /// ratings keep their original Letterboxd date and sort correctly,
+        /// instead of all clustering at "now".
+        /// </summary>
+        public async Task SaveRatingAsync(string itemId, string userId, string userName, double stars, string? review, DateTime? ratedAt)
         {
             await _lock.WaitAsync().ConfigureAwait(false);
             try
@@ -115,7 +126,7 @@ namespace Jellyfin.Plugin.InternalRating.Data
                     UserName = userName,
                     Stars    = stars,
                     Review   = string.IsNullOrWhiteSpace(review) ? null : review.Trim(),
-                    RatedAt  = DateTime.UtcNow
+                    RatedAt  = ratedAt ?? DateTime.UtcNow
                 });
 
                 _store.Ratings[itemId] = ratings;

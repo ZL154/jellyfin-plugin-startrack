@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    console.log('[StarTrack] widget.js loaded — v1.3.0');
+    console.log('[StarTrack] widget.js loaded — v1.3.1');
     init();
 
     // ── Auth ──────────────────────────────────────────────────────────────
@@ -366,6 +366,25 @@
             '.ir-ov-card-play{width:46px!important;height:46px!important;border-radius:50%!important;background:#cc2020!important;display:flex!important;align-items:center!important;justify-content:center!important;color:#fff!important;font-size:1em!important;box-shadow:0 0 20px rgba(200,30,30,.6)!important}',
             '.ir-ov-card-info{position:absolute!important;bottom:0!important;left:0!important;right:0!important;padding:12px 10px 10px!important;z-index:1!important}',
             '.ir-ov-card-stars-badge{display:inline-flex!important;align-items:center!important;gap:3px!important;background:rgba(0,0,0,.82)!important;border:1px solid rgba(244,196,48,.55)!important;border-radius:5px!important;padding:3px 9px!important;font-size:.75em!important;font-weight:800!important;color:#f4c430!important;margin-bottom:6px!important;letter-spacing:.03em!important;backdrop-filter:blur(4px)!important}',
+            // ── Star tier colors — five distinct visual classes ─────────
+            // 5★ (4.5+) → bright gold + soft glow
+            '.ir-ov-card-stars-badge.ir-tier-5{border-color:#ffd700!important;color:#ffe47a!important;background:rgba(80,55,0,.85)!important;box-shadow:0 0 14px rgba(255,215,0,.45)!important}',
+            // 4★ (4-4.4) → solid gold
+            '.ir-ov-card-stars-badge.ir-tier-4{border-color:#f4c430!important;color:#f4c430!important;background:rgba(60,40,0,.85)!important}',
+            // 3★ (3-3.9) → silver-blue
+            '.ir-ov-card-stars-badge.ir-tier-3{border-color:#9fb3c8!important;color:#cfdce8!important;background:rgba(20,30,40,.85)!important}',
+            // 2★ (2-2.9) → bronze
+            '.ir-ov-card-stars-badge.ir-tier-2{border-color:#cd8c52!important;color:#e0a878!important;background:rgba(40,25,10,.85)!important}',
+            // <2★ → muted red
+            '.ir-ov-card-stars-badge.ir-tier-1{border-color:#a23838!important;color:#ff8888!important;background:rgba(40,10,10,.85)!important}',
+            // ── Hover action buttons on grid cards ──────────────────────
+            '.ir-ov-card-actions{position:absolute!important;top:8px!important;right:8px!important;display:flex!important;gap:5px!important;opacity:0!important;transform:translateY(-4px)!important;transition:all .15s!important;z-index:3!important}',
+            '.ir-ov-card:hover .ir-ov-card-actions{opacity:1!important;transform:translateY(0)!important}',
+            '.ir-ov-card-act{background:rgba(0,0,0,.85)!important;border:1px solid rgba(255,255,255,.3)!important;color:rgba(255,255,255,.85)!important;width:28px!important;height:28px!important;border-radius:6px!important;font-size:.85em!important;cursor:pointer!important;display:flex!important;align-items:center!important;justify-content:center!important;padding:0!important;line-height:1!important;backdrop-filter:blur(4px)!important;transition:all .12s!important;font-weight:700!important}',
+            '.ir-ov-card-act:hover{background:rgba(0,0,0,.95)!important;border-color:#fff!important;color:#fff!important;transform:scale(1.1)!important}',
+            '.ir-ov-card-act-fav:hover{border-color:#f4c430!important;color:#f4c430!important;background:rgba(60,40,0,.9)!important}',
+            '.ir-ov-card-act-list:hover{border-color:#60a5fa!important;color:#60a5fa!important;background:rgba(0,30,60,.9)!important}',
+            '.ir-ov-card-act-x:hover{border-color:#ff5068!important;color:#ff5068!important;background:rgba(60,0,0,.9)!important}',
             '.ir-ov-card-name{font-weight:700!important;font-size:.8em!important;color:#fff!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;line-height:1.3!important;text-shadow:0 1px 8px rgba(0,0,0,1),0 0 20px rgba(0,0,0,.9)!important}',
             '.ir-ov-card-meta{font-size:.68em!important;color:rgba(255,255,255,.7)!important;margin-top:3px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;text-shadow:0 1px 4px rgba(0,0,0,1)!important}',
             '.ir-ov-card-rev{font-size:.67em!important;color:rgba(255,255,255,.38)!important;margin-top:3px!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;font-style:italic!important}',
@@ -569,17 +588,29 @@
     var _recsPool = null; // full recommendation candidate pool for reshuffle
     var _currentListId = null; // non-null when viewing a single list
 
+    // Defensive: every comparator returns a real number even for null/NaN
+    // inputs, and falls back to a stable secondary sort by name so ties
+    // never result in random ordering. The original ratedAt sort returned
+    // NaN when ratedAt was null which made the whole sort look random.
+    function tsOf(v) {
+        if (!v) return 0;
+        var d = new Date(v).getTime();
+        return isNaN(d) ? 0 : d;
+    }
+    function nameCmp(a, b) {
+        return (a.name || '').localeCompare(b.name || '');
+    }
     var _sortFns = {
-        'ratedAt-desc':   function (a, b) { return new Date(b.ratedAt) - new Date(a.ratedAt); },
-        'ratedAt-asc':    function (a, b) { return new Date(a.ratedAt) - new Date(b.ratedAt); },
-        'year-desc':      function (a, b) { return (b.year || 0) - (a.year || 0); },
-        'year-asc':       function (a, b) { return (a.year || 0) - (b.year || 0); },
-        'stars-desc':     function (a, b) { return b.stars - a.stars; },
-        'stars-asc':      function (a, b) { return a.stars - b.stars; },
-        'community-desc': function (a, b) { return (b.communityRating || 0) - (a.communityRating || 0); },
-        'community-asc':  function (a, b) { return (a.communityRating || 0) - (b.communityRating || 0); },
-        'runtime-desc':   function (a, b) { return (b.runtime || 0) - (a.runtime || 0); },
-        'runtime-asc':    function (a, b) { return (a.runtime || 0) - (b.runtime || 0); }
+        'ratedAt-desc':   function (a, b) { return (tsOf(b.ratedAt) - tsOf(a.ratedAt)) || nameCmp(a, b); },
+        'ratedAt-asc':    function (a, b) { return (tsOf(a.ratedAt) - tsOf(b.ratedAt)) || nameCmp(a, b); },
+        'year-desc':      function (a, b) { return ((b.year || 0) - (a.year || 0)) || nameCmp(a, b); },
+        'year-asc':       function (a, b) { return ((a.year || 0) - (b.year || 0)) || nameCmp(a, b); },
+        'stars-desc':     function (a, b) { return ((b.stars || 0) - (a.stars || 0)) || nameCmp(a, b); },
+        'stars-asc':      function (a, b) { return ((a.stars || 0) - (b.stars || 0)) || nameCmp(a, b); },
+        'community-desc': function (a, b) { return ((b.communityRating || 0) - (a.communityRating || 0)) || nameCmp(a, b); },
+        'community-asc':  function (a, b) { return ((a.communityRating || 0) - (b.communityRating || 0)) || nameCmp(a, b); },
+        'runtime-desc':   function (a, b) { return ((b.runtime || 0) - (a.runtime || 0)) || nameCmp(a, b); },
+        'runtime-asc':    function (a, b) { return ((a.runtime || 0) - (b.runtime || 0)) || nameCmp(a, b); }
     };
 
     function ensureOverlay() {
@@ -991,6 +1022,18 @@
         return _overlay;
     }
 
+    // Maps a star rating to a CSS tier class so the badge color reflects
+    // how strongly the user rated the film. Five distinct tiers feels
+    // about right — finer than 3 (good/mid/bad) but not so granular it's
+    // 10 colors.
+    function starTierClass(stars) {
+        if (stars >= 4.5) return 'ir-tier-5';   // gold + glow
+        if (stars >= 4)   return 'ir-tier-4';   // gold
+        if (stars >= 3)   return 'ir-tier-3';   // silver
+        if (stars >= 2)   return 'ir-tier-2';   // bronze
+        return 'ir-tier-1';                      // muted red
+    }
+
     function buildOverlayCard(item, opts) {
         opts = opts || {};
         var card = document.createElement('div');
@@ -1006,13 +1049,29 @@
         if (item.runtime)         metaParts.push(formatRuntime(item.runtime));
         if (item.communityRating) metaParts.push('\u2605' + item.communityRating.toFixed(1));
 
-        // Badge changes depending on view — stars for films/diary,
-        // heart for liked, bookmark for watchlist, pin for favorites, nothing for recs
+        // Badge changes depending on view — stars (with tier color) for films,
+        // text label for the other views.
         var badge = '';
-        if (opts.showStars && typeof item.stars === 'number') {
-            badge = '<div class="ir-ov-card-stars-badge">\u2605 ' + item.stars.toFixed(1) + '</div>';
+        if (opts.showStars && typeof item.stars === 'number' && item.stars > 0) {
+            var tier = starTierClass(item.stars);
+            badge = '<div class="ir-ov-card-stars-badge ' + tier + '">\u2605 ' + item.stars.toFixed(1) + '</div>';
         } else if (opts.badge) {
             badge = '<div class="ir-ov-card-stars-badge">' + esc(opts.badge) + '</div>';
+        }
+
+        // Hover action buttons (top-right of the card). The set of actions
+        // depends on the context — favorites slot has just an X to remove,
+        // every other card has favorite-pin + add-to-list.
+        var actionsHtml = '';
+        if (opts.favSlotIndex != null) {
+            actionsHtml = '<div class="ir-ov-card-actions">' +
+                '<button class="ir-ov-card-act ir-ov-card-act-x" title="Remove from Top 4">\u2715</button>' +
+                '</div>';
+        } else if (opts.cardActions !== false) {
+            actionsHtml = '<div class="ir-ov-card-actions">' +
+                '<button class="ir-ov-card-act ir-ov-card-act-fav" title="Pin to Top 4 favorites">\u2605</button>' +
+                '<button class="ir-ov-card-act ir-ov-card-act-list" title="Add to a list">\u002b</button>' +
+                '</div>';
         }
 
         card.innerHTML =
@@ -1020,6 +1079,7 @@
                 ? '<img class="ir-ov-poster" src="' + esc(posterSrc) + '" loading="lazy" alt="">'
                 : '<div class="ir-ov-poster-ph">\u2605</div>') +
             '<div class="ir-ov-card-gradient"></div>' +
+            actionsHtml +
             '<div class="ir-ov-card-overlay"><div class="ir-ov-card-play">\u25b6\ufe0e</div></div>' +
             '<div class="ir-ov-card-info">' +
                 badge +
@@ -1028,12 +1088,93 @@
                 (item.review && opts.showReview ? '<div class="ir-ov-card-rev">' + esc(item.review) + '</div>' : '') +
             '</div>';
 
+        // Wire the hover action buttons. We stop propagation so clicking an
+        // action doesn't also navigate to the item detail page.
+        var xBtn = card.querySelector('.ir-ov-card-act-x');
+        if (xBtn) xBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            removeFromFavorites(item.itemId);
+        });
+        var favBtn = card.querySelector('.ir-ov-card-act-fav');
+        if (favBtn) favBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            addCurrentToFavorites(item.itemId);
+        });
+        var listBtn = card.querySelector('.ir-ov-card-act-list');
+        if (listBtn) listBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            addToListPrompt(item.itemId);
+        });
+
         card.addEventListener('click', function () {
             _overlay.classList.remove('ir-ov-open');
             document.documentElement.style.overflow = '';
             window.location.hash = '#!/details?id=' + item.itemId;
         });
         return card;
+    }
+
+    // ── Hover action handlers ─────────────────────────────────────────────
+
+    function addCurrentToFavorites(itemId) {
+        apiMyFavorites().then(function (favs) {
+            favs = favs || [];
+            if (favs.indexOf(itemId) >= 0) return; // already pinned
+            if (favs.length >= 4) {
+                if (!window.confirm('You already have 4 favorites. Replace the oldest one with this film?')) return;
+                favs.shift();
+            }
+            favs.push(itemId);
+            apiSetFavorites(favs).then(function (ok) {
+                if (ok && _overlayView === 'films') refreshFavoritesRow();
+            });
+        });
+    }
+
+    function removeFromFavorites(itemId) {
+        apiMyFavorites().then(function (favs) {
+            favs = (favs || []).filter(function (x) { return x !== itemId; });
+            apiSetFavorites(favs).then(function (ok) {
+                if (ok && _overlayView === 'films') refreshFavoritesRow();
+            });
+        });
+    }
+
+    function addToListPrompt(itemId) {
+        apiGetLists().then(function (lists) {
+            lists = lists || [];
+            if (lists.length === 0) {
+                if (window.confirm('You don\'t have any lists yet. Create one now?')) {
+                    var name = window.prompt('List name:');
+                    if (name && name.trim()) {
+                        apiCreateList(name.trim(), '', true).then(function (created) {
+                            if (created) apiAddToList(created.id, itemId);
+                        });
+                    }
+                }
+                return;
+            }
+            // Build a numbered selection. Native prompt is ugly but
+            // dependency-free; works on every browser.
+            var menu = lists.map(function (l, i) {
+                return (i + 1) + '. ' + l.name + (l.collaborative ? ' (collaborative)' : '');
+            }).join('\n');
+            var pick = window.prompt('Add to which list?\n\n' + menu + '\n\nEnter the number, or 0 to create a new list:');
+            if (pick == null) return;
+            var idx = parseInt(pick, 10);
+            if (idx === 0) {
+                var newName = window.prompt('New list name:');
+                if (newName && newName.trim()) {
+                    apiCreateList(newName.trim(), '', true).then(function (created) {
+                        if (created) apiAddToList(created.id, itemId);
+                    });
+                }
+                return;
+            }
+            if (idx >= 1 && idx <= lists.length) {
+                apiAddToList(lists[idx - 1].id, itemId);
+            }
+        });
     }
 
     function applyStarFilter(list) {
@@ -1428,7 +1569,7 @@
                         communityRating: m.communityRating || 0,
                         imageTag: m.imageTag || null,
                         type: m.type || 'Unknown'
-                    }, { badge: '\u2605 #' + (i + 1) });
+                    }, { badge: '\u2605 #' + (i + 1), favSlotIndex: i });
                     favsGrid.appendChild(card);
                 }
             };
