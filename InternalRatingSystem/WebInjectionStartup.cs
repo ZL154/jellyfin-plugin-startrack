@@ -2,9 +2,12 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Jellyfin.Plugin.InternalRating.Data;
+using Jellyfin.Plugin.InternalRating.Letterboxd;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Plugins;
+using MediaBrowser.Model.Tasks;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -26,6 +29,21 @@ namespace Jellyfin.Plugin.InternalRating
             // Fallback: also try patching index.html on disk in case middleware
             // somehow doesn't reach it (very unusual setups).
             services.AddHostedService<WebInjectionService>();
+
+            // Expose the existing repositories as DI singletons so controllers
+            // and services can request them via constructor injection. Both are
+            // constructed by Plugin.cs with the ApplicationPaths the base class
+            // provides, so we just forward the already-built instances.
+            services.AddSingleton<RatingRepository>(_ => Plugin.Instance!.Repository);
+            services.AddSingleton<LetterboxdSettingsRepository>(_ => Plugin.Instance!.LetterboxdSettings);
+
+            // Letterboxd sync service — gets ILibraryManager + logger from DI,
+            // repositories from the singletons above.
+            services.AddSingleton<LetterboxdSyncService>();
+
+            // Scheduled task: register as IScheduledTask so Jellyfin's task
+            // scheduler picks it up and runs it hourly by default.
+            services.AddSingleton<IScheduledTask, LetterboxdSyncTask>();
         }
     }
 

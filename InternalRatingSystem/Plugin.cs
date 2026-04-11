@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Jellyfin.Plugin.InternalRating.Data;
+using Jellyfin.Plugin.InternalRating.Letterboxd;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Plugins;
 using MediaBrowser.Model.Plugins;
@@ -23,11 +24,17 @@ namespace Jellyfin.Plugin.InternalRating
         /// </summary>
         public RatingRepository Repository { get; }
 
+        /// <summary>
+        /// Shared Letterboxd settings repository (per-user username + auto-sync state).
+        /// </summary>
+        public LetterboxdSettingsRepository LetterboxdSettings { get; }
+
         public Plugin(IApplicationPaths applicationPaths, IXmlSerializer xmlSerializer)
             : base(applicationPaths, xmlSerializer)
         {
-            Instance   = this;
-            Repository = new RatingRepository(applicationPaths);
+            Instance           = this;
+            Repository         = new RatingRepository(applicationPaths);
+            LetterboxdSettings = new LetterboxdSettingsRepository(applicationPaths);
         }
 
         /// <inheritdoc />

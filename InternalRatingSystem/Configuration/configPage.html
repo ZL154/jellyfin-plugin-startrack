@@ -32,6 +32,28 @@
                 <div id="irStats" style="color:rgba(255,255,255,.8);">Loading…</div>
             </div>
 
+            <div class="verticalSection">
+                <h3 class="sectionTitle">🎞 Letterboxd Sync <span style="font-size:.6em;background:#f4c430;color:#000;padding:2px 8px;border-radius:12px;margin-left:8px;vertical-align:middle;font-weight:700;">NEW in 1.1</span></h3>
+                <p style="color:rgba(255,255,255,.8);line-height:1.55;">
+                    Every user on this server can now sync their Letterboxd ratings into StarTrack.
+                    Click the <strong>⚙ gear icon</strong> inside the StarTrack rating panel on any
+                    movie page to open the Letterboxd settings for that user. Each user can:
+                </p>
+                <ul style="color:rgba(255,255,255,.7);line-height:1.7;margin-top:6px;">
+                    <li>Enter their <strong>Letterboxd username</strong> and enable <strong>hourly auto-sync</strong>
+                        — new ratings posted to Letterboxd import themselves into StarTrack within an hour</li>
+                    <li>Upload their <strong>Letterboxd CSV export</strong> (Settings → Import & Export → Export Your Data
+                        on letterboxd.com) for a one-shot full-history import</li>
+                    <li>Trigger a <strong>manual sync</strong> at any time via the "Sync now" button</li>
+                </ul>
+                <p style="color:rgba(255,255,255,.45);font-size:.85em;margin-top:8px;">
+                    StarTrack matches Letterboxd films to your library by title + year. Films not
+                    in your library are skipped and reported back on the user's sync status line.
+                    The hourly sync is a standard Jellyfin scheduled task — you can adjust its
+                    interval in <code>Dashboard → Scheduled Tasks → StarTrack Letterboxd Sync</code>.
+                </p>
+            </div>
+
         </div>
     </div>
 </div>

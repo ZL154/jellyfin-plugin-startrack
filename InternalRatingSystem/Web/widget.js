@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    console.log('[StarTrack] widget.js loaded — v1.0.17');
+    console.log('[StarTrack] widget.js loaded — v1.1.0');
     init();
 
     // ── Auth ──────────────────────────────────────────────────────────────
@@ -253,6 +253,36 @@
             '.ir-ov-card-name{font-weight:700!important;font-size:.8em!important;color:#fff!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;line-height:1.3!important;text-shadow:0 1px 8px rgba(0,0,0,1),0 0 20px rgba(0,0,0,.9)!important}',
             '.ir-ov-card-meta{font-size:.68em!important;color:rgba(255,255,255,.7)!important;margin-top:3px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;text-shadow:0 1px 4px rgba(0,0,0,1)!important}',
             '.ir-ov-card-rev{font-size:.67em!important;color:rgba(255,255,255,.38)!important;margin-top:3px!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;font-style:italic!important}',
+            // ── Letterboxd sync view (inside the main panel) ───────────────
+            '.ir-lb-gear{position:absolute!important;top:10px!important;right:10px!important;background:none!important;border:none!important;color:rgba(255,255,255,.5)!important;font-size:1.15em!important;cursor:pointer!important;padding:2px 6px!important;border-radius:4px!important;transition:all .15s!important;z-index:2!important}',
+            '.ir-lb-gear:hover{color:#f4c430!important;background:rgba(255,255,255,.08)!important;transform:rotate(30deg)!important}',
+            '.ir-lb-view{color:#fff!important}',
+            '.ir-lb-header{display:flex!important;align-items:center!important;gap:10px!important;margin-bottom:14px!important;padding-bottom:10px!important;border-bottom:1px solid rgba(255,255,255,.1)!important}',
+            '.ir-lb-back{background:none!important;border:none!important;color:rgba(255,255,255,.6)!important;font-size:1.2em!important;cursor:pointer!important;padding:0 4px!important;border-radius:4px!important;transition:color .15s!important}',
+            '.ir-lb-back:hover{color:#fff!important}',
+            '.ir-lb-title{font-size:.95em!important;font-weight:700!important;color:#fff!important;flex:1!important}',
+            '.ir-lb-row{margin-bottom:10px!important}',
+            '.ir-lb-label{display:block!important;font-size:.72em!important;color:rgba(255,255,255,.55)!important;text-transform:uppercase!important;letter-spacing:.05em!important;margin-bottom:4px!important;font-weight:600!important}',
+            '.ir-lb-user{width:100%!important;background:rgba(255,255,255,.05)!important;border:1px solid rgba(255,255,255,.14)!important;border-radius:6px!important;color:#fff!important;font-size:.85em!important;padding:7px 10px!important;outline:none!important;transition:border-color .2s!important}',
+            '.ir-lb-user:focus{border-color:rgba(244,196,48,.55)!important}',
+            '.ir-lb-user::placeholder{color:rgba(255,255,255,.28)!important}',
+            '.ir-lb-check{display:flex!important;align-items:center!important;gap:8px!important;cursor:pointer!important;font-size:.82em!important;color:rgba(255,255,255,.8)!important}',
+            '.ir-lb-check input{accent-color:#f4c430!important;width:15px!important;height:15px!important}',
+            '.ir-lb-btn-row{display:flex!important;gap:8px!important;margin-top:12px!important;flex-wrap:wrap!important}',
+            '.ir-lb-save,.ir-lb-sync{background:#f4c430!important;color:#000!important;border:none!important;border-radius:6px!important;padding:6px 14px!important;font-size:.8em!important;font-weight:700!important;cursor:pointer!important;transition:transform .1s,background .15s!important}',
+            '.ir-lb-save:hover,.ir-lb-sync:hover{background:#ffd84d!important;transform:scale(1.04)!important}',
+            '.ir-lb-sync{background:rgba(200,30,30,.9)!important;color:#fff!important}',
+            '.ir-lb-sync:hover{background:#d42828!important}',
+            '.ir-lb-sep{height:1px!important;background:rgba(255,255,255,.1)!important;margin:14px 0 12px!important}',
+            '.ir-lb-csv-title{font-size:.78em!important;font-weight:700!important;color:rgba(255,255,255,.85)!important;margin-bottom:4px!important}',
+            '.ir-lb-csv-hint{font-size:.72em!important;color:rgba(255,255,255,.45)!important;line-height:1.5!important;margin-bottom:8px!important}',
+            '.ir-lb-csv-hint code{background:rgba(255,255,255,.08)!important;padding:1px 5px!important;border-radius:3px!important;font-family:monospace!important;color:#f4c430!important}',
+            '.ir-lb-upload{display:inline-block!important;cursor:pointer!important;background:rgba(255,255,255,.06)!important;border:1px dashed rgba(255,255,255,.25)!important;border-radius:6px!important;padding:7px 14px!important;font-size:.78em!important;color:rgba(255,255,255,.75)!important;transition:all .15s!important}',
+            '.ir-lb-upload:hover{background:rgba(244,196,48,.08)!important;border-color:#f4c430!important;color:#fff!important}',
+            '.ir-lb-upload input{display:none!important}',
+            '.ir-lb-status{font-size:.76em!important;color:rgba(255,255,255,.6)!important;margin-top:10px!important;line-height:1.5!important;min-height:1em!important}',
+            '.ir-lb-status.ir-lb-ok{color:#52b54b!important}',
+            '.ir-lb-status.ir-lb-err{color:#ff7070!important}',
             // Sidebar link
             '#ir-nav-link{display:flex!important;align-items:center!important;gap:12px!important;padding:10px 20px!important;cursor:pointer!important;background:none!important;border:none!important;width:100%!important;color:inherit!important;text-decoration:none!important;transition:background .15s!important;font-size:inherit!important}',
             '#ir-nav-link:hover{background:rgba(255,255,255,.07)!important}',
@@ -324,6 +354,8 @@
                 '<span class="ir-label">Rate</span>' +
             '</div>' +
             '<div class="ir-panel">' +
+                // Letterboxd gear icon (top-right of every panel view)
+                '<button class="ir-lb-gear" title="Letterboxd sync">\u2699</button>' +
                 // Item rating view
                 '<div class="ir-item-view">' +
                     '<div class="ir-ph">' +
@@ -355,6 +387,40 @@
                         '<button class="ir-rec-open-btn">View all \u2192</button>' +
                     '</div>' +
                     '<div class="ir-rec-list"></div>' +
+                '</div>' +
+                // Letterboxd sync view (hidden by default, opens from gear icon)
+                '<div class="ir-lb-view" style="display:none">' +
+                    '<div class="ir-lb-header">' +
+                        '<button class="ir-lb-back">\u2190</button>' +
+                        '<span class="ir-lb-title">Letterboxd sync</span>' +
+                    '</div>' +
+                    '<div class="ir-lb-row">' +
+                        '<label class="ir-lb-label">Your Letterboxd username</label>' +
+                        '<input type="text" class="ir-lb-user" placeholder="e.g. davidehrlich" maxlength="32" />' +
+                    '</div>' +
+                    '<div class="ir-lb-row">' +
+                        '<label class="ir-lb-check">' +
+                            '<input type="checkbox" class="ir-lb-auto" />' +
+                            '<span>Auto-sync new ratings hourly</span>' +
+                        '</label>' +
+                    '</div>' +
+                    '<div class="ir-lb-btn-row">' +
+                        '<button class="ir-lb-save">Save</button>' +
+                        '<button class="ir-lb-sync">Sync now</button>' +
+                    '</div>' +
+                    '<div class="ir-lb-sep"></div>' +
+                    '<div class="ir-lb-csv-title">Import history from CSV</div>' +
+                    '<div class="ir-lb-csv-hint">' +
+                        'Export your data from letterboxd.com \u2192 Settings \u2192 Import & Export, ' +
+                        'then upload the <code>ratings.csv</code> from inside the ZIP.' +
+                    '</div>' +
+                    '<div class="ir-lb-btn-row">' +
+                        '<label class="ir-lb-upload">' +
+                            '<input type="file" accept=".csv,text/csv" class="ir-lb-file" />' +
+                            '<span>Choose CSV file</span>' +
+                        '</label>' +
+                    '</div>' +
+                    '<div class="ir-lb-status"></div>' +
                 '</div>' +
             '</div>';
 
@@ -783,6 +849,161 @@
         // "View all →" button in recent panel
         var recOpenBtn = el.querySelector('.ir-rec-open-btn');
         if (recOpenBtn) recOpenBtn.addEventListener('click', function (e) { e.stopPropagation(); openMyRatings(); });
+
+        // ── Letterboxd sync view ────────────────────────────────────────
+        var lbGear    = el.querySelector('.ir-lb-gear');
+        var lbView    = el.querySelector('.ir-lb-view');
+        var itemView  = el.querySelector('.ir-item-view');
+        var recentView= el.querySelector('.ir-recent-panel');
+        var lbBack    = el.querySelector('.ir-lb-back');
+        var lbUser    = el.querySelector('.ir-lb-user');
+        var lbAuto    = el.querySelector('.ir-lb-auto');
+        var lbSave    = el.querySelector('.ir-lb-save');
+        var lbSync    = el.querySelector('.ir-lb-sync');
+        var lbFile    = el.querySelector('.ir-lb-file');
+        var lbStatus  = el.querySelector('.ir-lb-status');
+        var prevView  = { item: false, recent: false };
+
+        function showLbStatus(text, kind) {
+            if (!lbStatus) return;
+            lbStatus.textContent = text;
+            lbStatus.classList.remove('ir-lb-ok', 'ir-lb-err');
+            if (kind === 'ok')  lbStatus.classList.add('ir-lb-ok');
+            if (kind === 'err') lbStatus.classList.add('ir-lb-err');
+        }
+
+        function openLbView() {
+            prevView.item   = itemView.style.display !== 'none';
+            prevView.recent = recentView.style.display !== 'none';
+            itemView.style.display   = 'none';
+            recentView.style.display = 'none';
+            lbView.style.display     = '';
+            showLbStatus('', '');
+            // Load current settings into the form
+            apiLbGetSettings().then(function (s) {
+                if (!s) return;
+                if (lbUser) lbUser.value = s.username || '';
+                if (lbAuto) lbAuto.checked = !!s.enableAutoSync;
+                if (s.lastSyncedAt) {
+                    showLbStatus('Last synced ' + timeAgo(s.lastSyncedAt) +
+                        (s.lastImportedCount ? ' — imported ' + s.lastImportedCount + ' rating' + (s.lastImportedCount !== 1 ? 's' : '') : ''), '');
+                }
+            });
+        }
+
+        function closeLbView() {
+            lbView.style.display = 'none';
+            if (prevView.item)   itemView.style.display = '';
+            if (prevView.recent) recentView.style.display = '';
+        }
+
+        if (lbGear) lbGear.addEventListener('click', function (e) { e.stopPropagation(); openLbView(); });
+        if (lbBack) lbBack.addEventListener('click', function (e) { e.stopPropagation(); closeLbView(); });
+
+        // Stop clicks inside the form from bubbling and closing the whole panel
+        lbView && lbView.addEventListener('click', function (e) { e.stopPropagation(); });
+
+        if (lbSave) {
+            lbSave.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var u = (lbUser.value || '').trim();
+                var auto = !!lbAuto.checked;
+                if (auto && !u) { showLbStatus('Enter your Letterboxd username first.', 'err'); return; }
+                lbSave.disabled = true;
+                apiLbSaveSettings(u, auto).then(function (ok) {
+                    lbSave.disabled = false;
+                    showLbStatus(ok ? 'Saved.' : 'Save failed.', ok ? 'ok' : 'err');
+                });
+            });
+        }
+
+        if (lbSync) {
+            lbSync.addEventListener('click', function (e) {
+                e.stopPropagation();
+                if (!(lbUser.value || '').trim()) {
+                    showLbStatus('Save a Letterboxd username first.', 'err'); return;
+                }
+                lbSync.disabled = true;
+                showLbStatus('Syncing from Letterboxd\u2026', '');
+                apiLbSyncNow().then(function (r) {
+                    lbSync.disabled = false;
+                    if (!r) { showLbStatus('Sync failed.', 'err'); return; }
+                    if (r.error) { showLbStatus(r.error, 'err'); return; }
+                    var total = (r.imported || 0) + (r.updated || 0);
+                    var msg = total > 0
+                        ? 'Imported ' + (r.imported || 0) + ', updated ' + (r.updated || 0) +
+                          (r.unmatched ? ', ' + r.unmatched + ' not in library' : '') + '.'
+                        : 'Nothing new on Letterboxd right now.';
+                    showLbStatus(msg, 'ok');
+                });
+            });
+        }
+
+        if (lbFile) {
+            lbFile.addEventListener('change', function (e) {
+                e.stopPropagation();
+                var file = lbFile.files && lbFile.files[0];
+                if (!file) return;
+                if (file.size > 5 * 1024 * 1024) {
+                    showLbStatus('CSV is too large (max 5 MB).', 'err');
+                    lbFile.value = '';
+                    return;
+                }
+                showLbStatus('Importing ' + file.name + '\u2026', '');
+                var reader = new FileReader();
+                reader.onload = function () {
+                    apiLbImportCsv(reader.result).then(function (r) {
+                        lbFile.value = '';
+                        if (!r) { showLbStatus('Import failed.', 'err'); return; }
+                        if (r.error) { showLbStatus(r.error, 'err'); return; }
+                        var msg = 'Imported ' + (r.imported || 0) + ' new, ' +
+                                  'updated ' + (r.updated || 0) + '. ' +
+                                  (r.unmatched || 0) + ' not in library, ' +
+                                  (r.ambiguous || 0) + ' ambiguous.';
+                        showLbStatus(msg, 'ok');
+                    });
+                };
+                reader.onerror = function () { showLbStatus('Could not read file.', 'err'); };
+                reader.readAsText(file);
+            });
+        }
+    }
+
+    // ── Letterboxd API helpers ────────────────────────────────────────────
+
+    function apiLbGetSettings() {
+        var auth = getAuth(); if (!auth) return Promise.resolve(null);
+        return fetch('/Plugins/StarTrack/Letterboxd/Settings', { headers: { Authorization: auth } })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .catch(function () { return null; });
+    }
+
+    function apiLbSaveSettings(username, enableAutoSync) {
+        var auth = getAuth(); if (!auth) return Promise.resolve(false);
+        return fetch('/Plugins/StarTrack/Letterboxd/Settings', {
+            method: 'POST',
+            headers: { Authorization: auth, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: username, enableAutoSync: enableAutoSync })
+        }).then(function (r) { return r.ok; }).catch(function () { return false; });
+    }
+
+    function apiLbSyncNow() {
+        var auth = getAuth(); if (!auth) return Promise.resolve(null);
+        return fetch('/Plugins/StarTrack/Letterboxd/SyncNow', {
+            method: 'POST',
+            headers: { Authorization: auth }
+        }).then(function (r) { return r.ok ? r.json() : null; })
+          .catch(function () { return null; });
+    }
+
+    function apiLbImportCsv(csvText) {
+        var auth = getAuth(); if (!auth) return Promise.resolve(null);
+        return fetch('/Plugins/StarTrack/Letterboxd/Import', {
+            method: 'POST',
+            headers: { Authorization: auth, 'Content-Type': 'text/csv' },
+            body: csvText
+        }).then(function (r) { return r.ok ? r.json() : null; })
+          .catch(function () { return null; });
     }
 
     // ── Show / hide ───────────────────────────────────────────────────────
@@ -793,6 +1014,7 @@
         var el = ensureEl();
         el.querySelector('.ir-item-view').style.display = '';
         el.querySelector('.ir-recent-panel').style.display = 'none';
+        var lbEl = el.querySelector('.ir-lb-view'); if (lbEl) lbEl.style.display = 'none';
 
         var lbl = el.querySelector('.ir-label');
         if (lbl) { lbl.textContent = 'Rate'; lbl.style.color = ''; }
@@ -812,6 +1034,7 @@
         var el = ensureEl();
         el.querySelector('.ir-item-view').style.display = 'none';
         el.querySelector('.ir-recent-panel').style.display = '';
+        var lbEl = el.querySelector('.ir-lb-view'); if (lbEl) lbEl.style.display = 'none';
 
         var icon = el.querySelector('.ir-star-icon'), avgTxt = el.querySelector('.ir-avg-text'), lbl = el.querySelector('.ir-label');
         if (icon) icon.textContent = '\u2605';
@@ -847,6 +1070,25 @@
         return false;
     }
 
+    // Hide the rating pill on admin dashboard, server settings, and
+    // per-user preferences pages. Users never need to rate anything
+    // from these screens and the pill just clutters them.
+    function isAdminOrDashboardPage() {
+        var hash = window.location.hash || '';
+        // Jellyfin admin dashboard routes all share the /dashboard prefix,
+        // and user preferences pages all start with mypreferences*. Metadata
+        // editor, scheduled tasks, plugin pages, library settings, API keys,
+        // user edit and server activity are all under /dashboard.
+        if (/#!?\/dashboard(\.html|\/|$)/i.test(hash)) return true;
+        if (/#!?\/mypreferences/i.test(hash)) return true;
+        if (/#!?\/(metadata|scheduledtasks|plugins|library|apikeys|useredit|serveractivity|notificationsettings|addserver|wizard)/i.test(hash)) return true;
+        // DOM fallback: Jellyfin wraps admin views in .dashboardGeneralForm
+        // or pages with class "page type-interior" which is used for all
+        // admin/settings views.
+        if (document.querySelector('.page.type-interior:not(.hide)')) return true;
+        return false;
+    }
+
     var _lastId = '', _lastHash = '';
 
     function checkNav() {
@@ -854,6 +1096,9 @@
 
         // Never show rating pill while watching video
         if (isVideoPlayerPage()) { hide(); return; }
+
+        // Never show on admin dashboard or user preferences pages
+        if (isAdminOrDashboardPage()) { hide(); return; }
 
         var id    = getItemId();
         var idStr = id || '';

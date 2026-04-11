@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/ZL154/jellyfin-plugin-startrack/main/assets/logo.svg",
     "versions": [
       {
+        "version": "1.1.0.0",
+        "changelog": "Letterboxd sync — each user can now connect their Letterboxd account and pull their ratings into StarTrack. Click the gear icon in the rating panel on any movie to open Letterboxd settings: paste your Letterboxd username, toggle hourly auto-sync (pulls new ratings from your public RSS feed), or upload your Letterboxd CSV export for a full-history one-shot import. Films are matched to your Jellyfin library by title + year; unmatched films are reported back. A new 'StarTrack Letterboxd Sync' scheduled task runs hourly in Dashboard → Scheduled Tasks. Also: hide the floating rating pill on admin dashboard, server settings, metadata editor, scheduled tasks, plugins catalog, library settings, user edit and per-user preferences pages — the pill now only shows on Movie/Series/Episode detail pages. The sidebar nav entry still appears everywhere. Adds MIT LICENSE and third-party attribution notes.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/ZL154/jellyfin-plugin-startrack/releases/download/v1.1.0/Jellyfin.Plugin.InternalRating_1.1.0.0.zip",
+        "checksum": "74bfdb41313ba651729c21da62404ee7",
+        "timestamp": "2026-04-11T00:00:00Z"
+      },
+      {
         "version": "1.0.17.0",
         "changelog": "Fix: stars badge on My Ratings cards now uses a solid near-black background with bright gold text and a gold border — readable over any poster image. Card title and meta text also have stronger drop-shadows for legibility.",
         "targetAbi": "10.11.0.0",

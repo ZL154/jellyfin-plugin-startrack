@@ -1,0 +1,63 @@
+MIT License
+
+Copyright (c) 2026 ZL154 and StarTrack contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+----------------------------------------------------------------------------
+
+Third-party components and attributions
+----------------------------------------------------------------------------
+
+StarTrack is a third-party extension for Jellyfin (https://jellyfin.org/)
+and is not affiliated with or endorsed by the Jellyfin project. Jellyfin
+itself is licensed under the GNU General Public License v2.0.
+
+The plugin references the following NuGet packages at build time, which
+remain the property of their respective authors and retain their own
+licenses:
+
+  - Jellyfin.Controller (GPL-2.0)      https://github.com/jellyfin/jellyfin
+  - Jellyfin.Model      (GPL-2.0)      https://github.com/jellyfin/jellyfin
+
+The Letterboxd-style visual design (poster grid, gradient overlays,
+colored stars) is inspired by letterboxd.com. StarTrack is not affiliated
+with or endorsed by Letterboxd Limited, and no Letterboxd assets are
+redistributed with this plugin.
+
+----------------------------------------------------------------------------
+
+Summary (plain English)
+----------------------------------------------------------------------------
+
+You CAN:
+  * Use this plugin on any Jellyfin server, personal or commercial
+  * Fork the repository and modify it
+  * Redistribute it, modified or unmodified
+  * Bundle it with other software, including proprietary software
+  * Sell it or include it in a paid product
+
+You MUST:
+  * Keep this copyright notice and license text in any copy or
+    substantial portion of the code you redistribute
+
+You CANNOT:
+  * Hold the authors liable if something breaks. This software is
+    provided as-is with no warranty
+  * Claim the authors endorse your fork or derivative work
