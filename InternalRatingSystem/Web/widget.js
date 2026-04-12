@@ -107,20 +107,35 @@
         return Promise.all(batches.map(function (batch) {
             return fetch(
                 '/Users/' + uid + '/Items?Ids=' + batch.join(',') +
-                '&Fields=RunTimeTicks,ProductionYear,CommunityRating&Limit=' + batch.length,
+                '&Fields=RunTimeTicks,ProductionYear,CommunityRating,Genres,Tags&Limit=' + batch.length,
                 { headers: { Authorization: auth } }
             ).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
         })).then(function (results) {
             results.forEach(function (res) {
                 if (!res || !res.Items) return;
                 res.Items.forEach(function (item) {
+                    // Detect anime via either the Genres or Tags arrays.
+                    // Jellyfin convention: anime series/movies get the
+                    // genre "Anime" — but some libraries tag instead.
+                    var genres = item.Genres || [];
+                    var tags   = item.Tags   || [];
+                    var isAnime = false;
+                    for (var gi = 0; gi < genres.length; gi++) {
+                        if (genres[gi] && genres[gi].toLowerCase().indexOf('anime') !== -1) { isAnime = true; break; }
+                    }
+                    if (!isAnime) {
+                        for (var ti = 0; ti < tags.length; ti++) {
+                            if (tags[ti] && tags[ti].toLowerCase().indexOf('anime') !== -1) { isAnime = true; break; }
+                        }
+                    }
                     var meta = {
                         name: item.Name || 'Unknown',
                         year: item.ProductionYear || 0,
                         runtime: item.RunTimeTicks || 0,
                         communityRating: item.CommunityRating || 0,
                         imageTag: item.ImageTags && item.ImageTags.Primary ? item.ImageTags.Primary : null,
-                        type: item.Type || 'Unknown'
+                        type: item.Type || 'Unknown',
+                        isAnime: isAnime
                     };
                     _metaCache[item.Id] = meta;
                     result[item.Id] = meta;
@@ -717,7 +732,7 @@
     var _overlay = null;
     var _overlayData = null; // merged array after metadata fetch
     var _sortKey = 'ratedAt-desc';
-    var _activeTab = 'all'; // 'all' | 'Movie' | 'Series' | 'Episode'
+    var _activeTab = 'all'; // 'all' | 'Movie' | 'Series' | 'Episode' | 'Anime'
     var _overlayView = 'films'; // 'films' | 'watchlist' | 'liked' | 'diary' | 'reviews' | 'recs' | 'lists'
     var _searchQuery = '';
     var _starFilter = 'all'; // 'all' | '5' | '4.5' | ... | '0.5'
@@ -794,7 +809,7 @@
                 '</div>' +
                 // v1.2.0 — view selector (what kind of data to show)
                 '<div class="ir-ov-views">' +
-                    '<button class="ir-ov-view ir-ov-view-active" data-view="films">\u2605 Films</button>' +
+                    '<button class="ir-ov-view ir-ov-view-active" data-view="films">\u2605 Media</button>' +
                     '<button class="ir-ov-view" data-view="watchlist">\u2606 Watchlist</button>' +
                     '<button class="ir-ov-view" data-view="liked">\u2661 Liked</button>' +
                     '<button class="ir-ov-view" data-view="diary">\ud83d\udcd6 Diary</button>' +
@@ -808,6 +823,7 @@
                     '<button class="ir-ov-tab" data-tab="Movie">Movies</button>' +
                     '<button class="ir-ov-tab" data-tab="Series">TV Shows</button>' +
                     '<button class="ir-ov-tab" data-tab="Episode">Episodes</button>' +
+                    '<button class="ir-ov-tab" data-tab="Anime">Anime</button>' +
                 '</div>' +
                 // Collapsible Letterboxd sync panel (inside the overlay topbar,
                 // so it has its own styling separate from the small widget panel)
@@ -1611,10 +1627,18 @@
 
         var source = _overlayData || [];
 
-        // 1. Filter by type tab
-        var filtered = _activeTab === 'all'
-            ? source
-            : source.filter(function (i) { return i.type === _activeTab; });
+        // 1. Filter by type tab. Anime isn't a Jellyfin type — it's a
+        //    Movie or Series with the 'Anime' genre/tag — so it gets its
+        //    own branch that filters on the isAnime flag we computed at
+        //    metadata-fetch time.
+        var filtered;
+        if (_activeTab === 'all') {
+            filtered = source;
+        } else if (_activeTab === 'Anime') {
+            filtered = source.filter(function (i) { return i.isAnime; });
+        } else {
+            filtered = source.filter(function (i) { return i.type === _activeTab; });
+        }
 
         // 2. Filter by search query
         if (_searchQuery) {
@@ -1976,7 +2000,8 @@
                     runtime: m.runtime || 0,
                     communityRating: m.communityRating || 0,
                     imageTag: m.imageTag || null,
-                    type: m.type || 'Unknown'
+                    type: m.type || 'Unknown',
+                    isAnime: !!m.isAnime
                 };
             });
             renderOverlayGrid();
@@ -2121,6 +2146,16 @@
                     renderOneFavRow(favsEl, '\u2605 Top 4 Series', groups.Series, 'Series');
                 } else if (_activeTab === 'Episode') {
                     renderOneFavRow(favsEl, '\u2605 Top 4 Episodes', groups.Episode, 'Episode');
+                } else if (_activeTab === 'Anime') {
+                    // Anime items live inside the Movie/Series/Episode
+                    // groups — pull anime out of each, cap at 4 total.
+                    var animeItems = [];
+                    ['Movie','Series','Episode'].forEach(function (t) {
+                        (groups[t] || []).forEach(function (e) {
+                            if (e.m && e.m.isAnime) animeItems.push(e);
+                        });
+                    });
+                    renderOneFavRow(favsEl, '\u2605 Top 4 Anime', animeItems.slice(0, 4), 'Anime');
                 }
             };
 
@@ -2149,6 +2184,7 @@
                 ph.className = 'ir-ov-fav-empty';
                 var hint = type === 'Series'  ? 'pin a series'
                          : type === 'Episode' ? 'pin an episode'
+                         : type === 'Anime'   ? 'pin an anime'
                          : 'pin a film';
                 ph.innerHTML = '<div class="ir-ov-fav-empty-num">#' + (i + 1) + '</div>' +
                                '<div class="ir-ov-fav-empty-plus">+</div>' +

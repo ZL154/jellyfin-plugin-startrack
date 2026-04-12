@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/ZL154/jellyfin-plugin-startrack/main/assets/logo.svg",
     "versions": [
       {
+        "version": "1.3.7.0",
+        "changelog": "Films view renamed to 'Media' to reflect the fact that it already covers movies, TV shows, and episodes — the label just implied it was movies-only. New Anime type tab sits alongside All / Movies / TV Shows / Episodes. Anime isn't a real Jellyfin type — the detection is genre/tag based: any item whose Genres or Tags field contains the word 'anime' (case-insensitive) is treated as anime, regardless of whether its underlying type is Movie, Series, or Episode. The metadata batch now pulls Genres + Tags alongside the existing fields, and each item carries an isAnime flag through the hydration pipeline. Top 4 Anime row appears when the Anime tab is active, pulling any pinned favorites that are anime regardless of which underlying-type bucket they live in.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/ZL154/jellyfin-plugin-startrack/releases/download/v1.3.7/Jellyfin.Plugin.InternalRating_1.3.7.0.zip",
+        "checksum": "5cc96c14ac0683186975ac48e1a97236",
+        "timestamp": "2026-04-12T00:00:00Z"
+      },
+      {
         "version": "1.3.6.0",
         "changelog": "Hygiene pass from a full-plugin audit. All five JSON repositories (ratings, user interactions, diary, lists, Letterboxd settings) now write atomically: serialize to '<file>.tmp' then 'File.Move(..., overwrite: true)'. Previously 'File.WriteAllTextAsync' was used directly on the live file, so a process kill or power loss mid-write would truncate or corrupt the JSON and wipe every rating, review, watchlist entry, diary entry or list on that file. File.Move is atomic on NTFS when source and target are on the same volume, which they are because the temp file is a sibling. No behaviour changes, no new features — just making the persistence layer safe against crashes.",
         "targetAbi": "10.11.0.0",
