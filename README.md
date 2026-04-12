@@ -86,6 +86,31 @@ Designed to integrate cleanly with modern Jellyfin setups. Works on desktop and 
 
 ## 📸 Screenshots
 
+### Rating pill (detail pages)
+A small floating pill appears at the bottom-right of every Movie / Series / Episode detail page. Click it to expand the full rating panel.
+
+<p align="center">
+  <img alt="Rating pill on detail page" src="assets/screenshots/rating-pill-detail.png" />
+</p>
+
+### Rating panel
+Half-star precision, optional written review, community average with per-user breakdown, one-click heart / watchlist / Top 4 pin. "Show all ratings" expands every user's score.
+
+<p align="center">
+  <img alt="Rating panel expanded" src="assets/screenshots/rating-panel.png" />
+</p>
+
+### Recent ratings + Letterboxd sync
+The pill also shows your recent ratings at a glance. One tap opens the Letterboxd sync panel — enter your username, enable hourly auto-sync, or drop in your export ZIP.
+
+<p align="center">
+  <img alt="Recent ratings list" src="assets/screenshots/recent-ratings.png" />
+</p>
+
+<p align="center">
+  <img alt="Letterboxd sync panel" src="assets/screenshots/letterboxd-sync.png" />
+</p>
+
 ### Sidebar entry
 Auto-injected into the Jellyfin nav menu — no theme changes required.
 
