@@ -84,6 +84,59 @@ Designed to integrate cleanly with modern Jellyfin setups. Works on desktop and 
 
 ---
 
+## 📸 Screenshots
+
+### Sidebar entry
+Auto-injected into the Jellyfin nav menu — no theme changes required.
+
+<p align="center">
+  <img alt="Sidebar entry" src="assets/screenshots/sidebar-entry.png" />
+</p>
+
+### Main view + type tabs
+Seven top-level views — Media / Watchlist / Liked / Diary / Reviews / For You / Lists — and five type tabs on the Media view: All / Movies / TV Shows / Episodes / Anime. Anime is detected via genre or tag, so a movie or series can count as anime regardless of its underlying Jellyfin type.
+
+<p align="center">
+  <img alt="Top-level views and type tabs" src="assets/screenshots/views-and-tabs.png" />
+</p>
+
+### Stats, sort, search, Letterboxd + export
+Live search with a 150 ms debounce, seven sort options (date rated, film year, your rating, community rating, runtime — each ↑↓), one-click Letterboxd settings pane, and CSV export in Letterboxd-compatible format.
+
+<p align="center">
+  <img alt="Controls bar" src="assets/screenshots/controls-bar.png" />
+</p>
+
+### Top 4 Movies + full poster grid
+Pinned Top 4 sits above the full grid, full-poster cards with a star tier ribbon, year and runtime overlay. Hover any card to reveal Pin / Add to list buttons.
+
+<p align="center">
+  <img alt="Top 4 Movies and full poster grid" src="assets/screenshots/top4-and-grid.png" />
+</p>
+
+### Top 4 Movies (detail)
+Per-type Top 4: 4 movies, 4 series, 4 episodes, max 12 total. Each pinned slot shows its rank, star tier, year and runtime, and hovering reveals an × remove button.
+
+<p align="center">
+  <img alt="Top 4 Movies detail" src="assets/screenshots/top4-movies.png" />
+</p>
+
+### Reviews feed
+Server-wide vertical feed of every rating that has a written review, with poster, reviewer, star bar, date and review text. (Reviewer name and review text blurred in this screenshot.)
+
+<p align="center">
+  <img alt="Reviews feed" src="assets/screenshots/reviews-feed.png" />
+</p>
+
+### Letterboxd sync
+Letterboxd-compatible sync pane: username input, hourly auto-sync toggle, one-click Sync Now (pulls RSS ratings + watchlist + likes scrape), ZIP drop zone for full exports, Import Top 4 from your public profile, Diagnose button for matcher diagnostics, and Clean dead ratings to purge zombie entries after a library rebuild.
+
+<p align="center">
+  <img alt="Letterboxd sync settings" src="assets/screenshots/letterboxd-settings.png" />
+</p>
+
+---
+
 ## Requirements
 
 - **Jellyfin 10.11.x** (built against 10.11.6)
