@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    console.log('[StarTrack] widget.js loaded — v1.4.1');
+    console.log('[StarTrack] widget.js loaded — v1.4.2');
 
     // ── i18n + config runtime (StarTrack v1.4) ────────────────────────────
     // Runtime translation for UI text. We load the translation bundle once
@@ -607,6 +607,7 @@
             '.ir-ov-view.ir-ov-view-active{color:#fff!important;border-bottom-color:#cc2020!important}',
             // Top 4 favorites row (only shows in Films view)
             '.ir-ov-favs{padding:20px 0 16px!important;margin-bottom:16px!important;border-bottom:1px solid rgba(255,255,255,.08)!important;display:flex!important;flex-direction:column!important;gap:18px!important}',
+            '.ir-ov-favs.ir-ov-favs-hidden{display:none!important}',
             '.ir-ov-favs-section{display:flex!important;flex-direction:column!important;gap:10px!important}',
             '.ir-ov-favs-title{font-size:.78em!important;text-transform:uppercase!important;letter-spacing:.1em!important;color:#f4c430!important;font-weight:800!important}',
             '.ir-ov-favs-grid{display:grid!important;grid-template-columns:repeat(4,minmax(140px,1fr))!important;gap:16px!important;max-width:720px!important}',
@@ -1882,7 +1883,9 @@
 
         // Favorites row is only shown in Films view — always visible even
         // when empty, so users can see the feature and pin their first film.
-        if (favsEl) favsEl.style.display = (_overlayView === 'films') ? '' : 'none';
+        // Uses a class toggle because the base rule is `display:flex!important`
+        // and a plain inline style won't override it.
+        if (favsEl) favsEl.classList.toggle('ir-ov-favs-hidden', _overlayView !== 'films');
 
         // Lists view has its own renderer
         if (_overlayView === 'lists') { renderListsView(gridWrap); if (countEl) countEl.textContent = ''; return; }
@@ -2051,9 +2054,62 @@
             var seen = {};
             withReviews.forEach(function (r) { if (!seen[r.itemId]) { seen[r.itemId] = 1; ids.push(r.itemId); } });
             getItemsMeta(ids).then(function (meta) {
+                // Apply the active filters/sort so this view respects the
+                // topbar controls just like every other view does.
+                var q = (_searchQuery || '').toLowerCase();
+                var filtered = withReviews.filter(function (r) {
+                    var m = meta[r.itemId] || {};
+                    // Type tab
+                    if (_activeTab && _activeTab !== 'all') {
+                        if (_activeTab === 'Anime') {
+                            if (!m.isAnime) return false;
+                        } else if ((m.type || '') !== _activeTab) {
+                            return false;
+                        }
+                    }
+                    // Search
+                    if (q && (m.name || '').toLowerCase().indexOf(q) === -1) return false;
+                    // Star filter
+                    if (_starFilter && _starFilter !== 'all') {
+                        var target = parseFloat(_starFilter);
+                        if (!isNaN(target) && Math.abs((r.stars || 0) - target) > 0.001) return false;
+                    }
+                    return true;
+                });
+
+                // Sort. Most of the sort keys care about item metadata,
+                // not the review itself — we look them up in the meta map.
+                var sortKey = _sortKey || 'ratedAt-desc';
+                filtered.sort(function (a, b) {
+                    var ma = meta[a.itemId] || {}, mb = meta[b.itemId] || {};
+                    switch (sortKey) {
+                        case 'ratedAt-asc':    return new Date(a.ratedAt) - new Date(b.ratedAt);
+                        case 'year-desc':      return (mb.year || 0) - (ma.year || 0);
+                        case 'year-asc':       return (ma.year || 0) - (mb.year || 0);
+                        case 'mine-desc':      return (b.stars || 0) - (a.stars || 0);
+                        case 'mine-asc':       return (a.stars || 0) - (b.stars || 0);
+                        case 'community-desc': return (mb.communityRating || 0) - (ma.communityRating || 0);
+                        case 'community-asc':  return (ma.communityRating || 0) - (mb.communityRating || 0);
+                        case 'runtime-desc':   return (mb.runtime || 0) - (ma.runtime || 0);
+                        case 'runtime-asc':    return (ma.runtime || 0) - (mb.runtime || 0);
+                        case 'ratedAt-desc':
+                        default:               return new Date(b.ratedAt) - new Date(a.ratedAt);
+                    }
+                });
+
+                if (filtered.length === 0) {
+                    gridWrap.innerHTML = '<div class="ir-ov-empty">No reviews match your filters.</div>';
+                    return;
+                }
+
+                // Update the count pill in the topbar so users see how
+                // many reviews match.
+                var countEl = _overlay.querySelector('.ir-ov-count');
+                if (countEl) countEl.textContent = filtered.length + ' review' + (filtered.length !== 1 ? 's' : '');
+
                 var feed = document.createElement('div');
                 feed.className = 'ir-ov-reviews-feed';
-                withReviews.forEach(function (r) {
+                filtered.forEach(function (r) {
                     var m = meta[r.itemId] || {};
                     var d = r.ratedAt ? new Date(r.ratedAt) : null;
                     var dateStr = d ? d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
@@ -2360,10 +2416,10 @@
 
         // Only show on the Films view — hidden on Watchlist/Liked/Diary/Recs
         if (_overlayView !== 'films') {
-            favsEl.style.display = 'none';
+            favsEl.classList.add('ir-ov-favs-hidden');
             return;
         }
-        favsEl.style.display = '';
+        favsEl.classList.remove('ir-ov-favs-hidden');
 
         apiMyFavorites().then(function (favs) {
             _favItemIds = favs || [];
@@ -2376,7 +2432,7 @@
                 // favorites strip would briefly reappear on Watchlist /
                 // Liked / etc whenever the user switched fast enough.
                 if (_overlayView !== 'films') {
-                    favsEl.style.display = 'none';
+                    favsEl.classList.add('ir-ov-favs-hidden');
                     return;
                 }
                 meta = meta || {};

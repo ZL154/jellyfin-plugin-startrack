@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/ZL154/jellyfin-plugin-startrack/main/assets/logo.svg",
     "versions": [
       {
+        "version": "1.4.2.0",
+        "changelog": "Two bug fixes from community feedback against 1.4.1. (1) FIXED: Top 4 favourites row still appeared on Watchlist / Liked / Diary / Reviews / For you / Lists despite the 1.4.1 fix — root cause was a CSS `display:flex!important` rule on `.ir-ov-favs` that beat the inline `style.display='none'` hide. Now toggled via a class with its own `!important` rule. (2) FIXED: Reviews feed ignored every topbar control — type tabs, search box, star filter, sort dropdown all had no effect. `renderReviewsView` now applies the same filter pipeline as the other views (type tab via metadata.type / isAnime, search query against item name, star filter against rating, ten-way sort by date / year / rating / runtime). Also shows a 'N reviews' count in the topbar pill and an empty-state message when filters match nothing.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/ZL154/jellyfin-plugin-startrack/releases/download/v1.4.2/Jellyfin.Plugin.InternalRating_1.4.2.0.zip",
+        "checksum": "2ee7c1c26850264644fa751680bd1d7f",
+        "timestamp": "2026-04-18T00:00:00Z"
+      },
+      {
         "version": "1.4.1.0",
         "changelog": "Three community-requested admin settings. (1) COMMUNITY RECENT MODE — new admin toggle makes the floating Recent pill show recent ratings from EVERY user on the server (with their name next to each entry) instead of only the current user's. (2) HIDE OVERLAY VIEWS — admin can now hide any of Watchlist / Liked / Diary / Reviews / For you / Lists from every user on the server. The Media (films) view is always available. Previously the full seven-view menu was forced on everyone. (3) Top 4 favourites row is now correctly hidden on non-Media views (Watchlist/Liked/Diary/Reviews/For you/Lists) — it was leaking into other views in 1.4.0 where it made no sense. Fixes 'pin a film' / 'pin a series' label not reflecting the active type tab on non-Media views — moot now that the row is only on Media.",
         "targetAbi": "10.11.0.0",
