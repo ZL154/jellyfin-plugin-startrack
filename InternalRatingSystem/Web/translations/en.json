@@ -280,5 +280,18 @@
   "admin.settings_heading": "StarTrack Settings",
   "admin.support_intro": "StarTrack is built and maintained in my spare time. If you find it useful, consider supporting development:",
   "admin.support_github": "Sponsor on GitHub",
-  "admin.support_kofi": "Ko-fi"
+  "admin.support_kofi": "Ko-fi",
+  "widget.community_recent_ratings": "Community recent ratings",
+  "widget.community_recent_empty": "No ratings on this server yet - rate something to get started.",
+  "admin.group.recent_pill": "Recent pill behaviour",
+  "admin.group.views": "My Ratings views",
+  "admin.community_recent_title": "Show community recent ratings instead of each user's own",
+  "admin.community_recent_sub": "When enabled, the Recent pill shows the latest ratings from every user on the server with their name next to each entry.",
+  "admin.views_sub": "Hide views from every user. The Media (films) view is always available and cannot be hidden.",
+  "admin.hide_watchlist_view": "Hide Watchlist view",
+  "admin.hide_liked_view": "Hide Liked view",
+  "admin.hide_diary_view": "Hide Diary view",
+  "admin.hide_reviews_view": "Hide Reviews view",
+  "admin.hide_recs_view": "Hide For you view",
+  "admin.hide_lists_view": "Hide Lists view"
 }

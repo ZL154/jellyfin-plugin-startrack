@@ -51,7 +51,7 @@
   "widget.current_rating_prefix": "(actual: {n})",
   "widget.empty_no_ratings": "Aún no hay valoraciones – ¡sé el primero!",
   "widget.your_recent_ratings": "Tus valoraciones recientes",
-  "widget.recent_empty": "Aún no has valorado nada.",
+  "widget.recent_empty": "Aun no has valorado nada.",
   "widget.page_badge_title_one": "StarTrack · {n} valoración · haz clic para valorar",
   "widget.page_badge_title_many": "StarTrack · {n} valoraciones · haz clic para valorar",
   "widget.page_badge_text": "★ {avg}  StarTrack ({n})",
@@ -280,5 +280,18 @@
   "admin.settings_heading": "Ajustes de StarTrack",
   "admin.support_intro": "StarTrack se desarrolla y mantiene en mi tiempo libre. Si te resulta util, considera apoyar el desarrollo:",
   "admin.support_github": "Patrocinar en GitHub",
-  "admin.support_kofi": "Ko-fi"
+  "admin.support_kofi": "Ko-fi",
+  "widget.community_recent_ratings": "Valoraciones recientes de la comunidad",
+  "widget.community_recent_empty": "Aun no hay valoraciones en este servidor - valora algo para empezar.",
+  "admin.group.recent_pill": "Comportamiento del boton Recientes",
+  "admin.group.views": "Vistas de Mis valoraciones",
+  "admin.community_recent_title": "Mostrar las valoraciones recientes de la comunidad en lugar de las de cada usuario",
+  "admin.community_recent_sub": "Cuando esta activado, el boton Recientes muestra las ultimas valoraciones de todos los usuarios del servidor con su nombre junto a cada entrada.",
+  "admin.views_sub": "Ocultar vistas para todos los usuarios. La vista Media (peliculas) siempre esta disponible.",
+  "admin.hide_watchlist_view": "Ocultar vista Lista",
+  "admin.hide_liked_view": "Ocultar vista Me gusta",
+  "admin.hide_diary_view": "Ocultar vista Diario",
+  "admin.hide_reviews_view": "Ocultar vista Resenas",
+  "admin.hide_recs_view": "Ocultar vista Para ti",
+  "admin.hide_lists_view": "Ocultar vista Listas"
 }

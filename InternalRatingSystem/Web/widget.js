@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    console.log('[StarTrack] widget.js loaded — v1.4.0');
+    console.log('[StarTrack] widget.js loaded — v1.4.1');
 
     // ── i18n + config runtime (StarTrack v1.4) ────────────────────────────
     // Runtime translation for UI text. We load the translation bundle once
@@ -23,6 +23,8 @@
         replaceMediaBarRating:     true,
         showRatingsOnPosters:      true,
         postPlaybackRatingPopup:   true,
+        communityRecentMode:       false,
+        hiddenOverlayViews:        [],
         supportedLanguages:        ['en','fr','es','de','it','pt','zh','ja']
     };
 
@@ -469,6 +471,7 @@
             '.ir-rec-info{flex:1!important;overflow:hidden!important}',
             '.ir-rec-name{color:#fff!important;font-weight:600!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;margin-bottom:2px!important}',
             '.ir-rec-meta{color:rgba(255,255,255,.45)!important;font-size:.82em!important}',
+            '.ir-rec-by{color:#f4c430!important;font-weight:600!important}',
             '.ir-rec-rev{font-size:.78em!important;color:rgba(255,255,255,.4)!important;margin-top:3px!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;font-style:italic!important}',
             '.ir-rec-stars{color:#f4c430!important;font-size:.92em!important;white-space:nowrap!important;font-weight:700!important;flex-shrink:0!important}',
             // Page badge
@@ -1417,7 +1420,34 @@
         });
 
         document.body.appendChild(_overlay);
+        applyOverlayViewVisibility();
         return _overlay;
+    }
+
+    // Admin can hide specific My Ratings views (watchlist, liked, diary,
+    // reviews, recs, lists) via PluginConfiguration.HiddenOverlayViews.
+    // 'films' / Media is always available.
+    function applyOverlayViewVisibility() {
+        if (!_overlay) return;
+        var hidden = _STARTRACK_CONFIG.hiddenOverlayViews || [];
+        var hiddenSet = {};
+        (Array.isArray(hidden) ? hidden : []).forEach(function (v) {
+            hiddenSet[String(v).toLowerCase()] = true;
+        });
+        _overlay.querySelectorAll('.ir-ov-view').forEach(function (btn) {
+            var v = (btn.getAttribute('data-view') || '').toLowerCase();
+            if (v === 'films') { btn.style.display = ''; return; }
+            btn.style.display = hiddenSet[v] ? 'none' : '';
+        });
+        // If the user is currently on a hidden view (admin just toggled
+        // mid-session), bounce them back to Media.
+        if (_overlayView && _overlayView !== 'films' && hiddenSet[_overlayView]) {
+            _overlayView = 'films';
+            _overlay.querySelectorAll('.ir-ov-view').forEach(function (b) { b.classList.remove('ir-ov-view-active'); });
+            var filmsBtn = _overlay.querySelector('.ir-ov-view[data-view="films"]');
+            if (filmsBtn) filmsBtn.classList.add('ir-ov-view-active');
+            try { loadOverlayView(); } catch (e) {}
+        }
     }
 
     // Maps a star rating to a CSS tier class so the badge color reflects
@@ -2468,6 +2498,7 @@
         document.documentElement.classList.add('ir-ov-locked');
         document.body.classList.add('ir-ov-locked');
         document.documentElement.style.overflow = 'hidden';
+        applyOverlayViewVisibility();
         loadOverlayView();
     }
 
@@ -2613,21 +2644,28 @@
 
     // ── Render: recent panel (home screen) ────────────────────────────────
 
-    function renderRecent(items) {
+    function renderRecent(items, isCommunity) {
         var el = _el; if (!el) return;
         var container = el.querySelector('.ir-rec-list');
         if (!items || !items.length) {
-            container.innerHTML = '<p class="ir-empty">You haven\'t rated anything yet.</p>';
+            container.innerHTML = '<p class="ir-empty">' +
+                (isCommunity
+                    ? esc(tr('widget.community_recent_empty', null, 'No ratings on this server yet — rate something to get started.'))
+                    : esc(tr('widget.recent_empty', null, "You haven't rated anything yet."))) +
+                '</p>';
             return;
         }
         var ids = items.map(function (r) { return r.itemId; });
         getItemsMeta(ids).then(function (meta) {
             container.innerHTML = items.map(function (r) {
                 var m = meta[r.itemId] || {}, name = m.name || r.itemId;
+                var byLine = isCommunity && r.userName
+                    ? '<span class="ir-rec-by">' + esc(r.userName) + '</span> \u00b7 '
+                    : '';
                 return '<div class="ir-rec-item" data-id="' + esc(r.itemId) + '">' +
                     '<div class="ir-rec-info">' +
                         '<div class="ir-rec-name">' + esc(name) + '</div>' +
-                        '<div class="ir-rec-meta">' + (m.year ? m.year + ' \u00b7 ' : '') + timeAgo(r.ratedAt) + '</div>' +
+                        '<div class="ir-rec-meta">' + byLine + (m.year ? m.year + ' \u00b7 ' : '') + timeAgo(r.ratedAt) + '</div>' +
                         (r.review ? '<div class="ir-rec-rev">' + esc(r.review) + '</div>' : '') +
                     '</div>' +
                     '<span class="ir-rec-stars">' + r.stars.toFixed(1) + ' \u2605</span>' +
@@ -3188,8 +3226,16 @@
         _curId = null;
         el.classList.add('ir-on');
 
-        // Load this user's recent ratings (limit 15)
-        apiMyRatings(15).then(function (items) { renderRecent(items || []); });
+        // Community mode: show every user's recent ratings server-wide.
+        // Per-user mode (default): only the current user's own ratings.
+        var recTitleEl = el.querySelector('.ir-rec-title span');
+        if (_STARTRACK_CONFIG.communityRecentMode) {
+            if (recTitleEl) recTitleEl.textContent = tr('widget.community_recent_ratings', null, 'Community recent ratings');
+            apiRecent(15).then(function (items) { renderRecent(items || [], true); });
+        } else {
+            if (recTitleEl) recTitleEl.textContent = tr('widget.your_recent_ratings', null, 'Your recent ratings');
+            apiMyRatings(15).then(function (items) { renderRecent(items || [], false); });
+        }
     }
 
     function hide() {
@@ -3772,6 +3818,20 @@
         _adminSetCheckbox(root.querySelector('#stReplaceMediaBar'),      _adminPickKey(c, 'ReplaceMediaBarRating'));
         _adminSetCheckbox(root.querySelector('#stShowRatingsOnPosters'), _adminPickKey(c, 'ShowRatingsOnPosters'));
         _adminSetCheckbox(root.querySelector('#stPostPlaybackPopup'),    _adminPickKey(c, 'PostPlaybackRatingPopup'));
+        _adminSetCheckbox(root.querySelector('#stCommunityRecentMode'),  _adminPickKey(c, 'CommunityRecentMode'));
+
+        // Hidden views come through as a comma-separated string. Check
+        // the corresponding tick boxes (one per view).
+        var raw = _adminPickKey(c, 'HiddenOverlayViews') || '';
+        var hiddenSet = {};
+        String(raw).split(',').forEach(function (v) {
+            var t = v.trim().toLowerCase();
+            if (t) hiddenSet[t] = true;
+        });
+        root.querySelectorAll('.st-cb[data-view]').forEach(function (cb) {
+            var v = (cb.getAttribute('data-view') || '').toLowerCase();
+            cb.checked = !!hiddenSet[v];
+        });
     }
 
     function _adminReadForm(existing) {
@@ -3786,6 +3846,18 @@
         c.ReplaceMediaBarRating     = !!(root.querySelector('#stReplaceMediaBar')      && root.querySelector('#stReplaceMediaBar').checked);
         c.ShowRatingsOnPosters      = !!(root.querySelector('#stShowRatingsOnPosters') && root.querySelector('#stShowRatingsOnPosters').checked);
         c.PostPlaybackRatingPopup   = !!(root.querySelector('#stPostPlaybackPopup')    && root.querySelector('#stPostPlaybackPopup').checked);
+        c.CommunityRecentMode       = !!(root.querySelector('#stCommunityRecentMode')  && root.querySelector('#stCommunityRecentMode').checked);
+
+        // Hidden views — collect every st-cb[data-view] that's checked and
+        // serialize to the comma string format the server expects.
+        var hidden = [];
+        root.querySelectorAll('.st-cb[data-view]').forEach(function (cb) {
+            if (cb.checked) {
+                var v = (cb.getAttribute('data-view') || '').toLowerCase();
+                if (v) hidden.push(v);
+            }
+        });
+        c.HiddenOverlayViews = hidden.join(',');
         return c;
     }
 

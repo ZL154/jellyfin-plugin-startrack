@@ -50,7 +50,7 @@
   "widget.star_tooltip_many": "{n}つ星",
   "widget.current_rating_prefix": "(現在: {n})",
   "widget.empty_no_ratings": "まだ評価がありません – 最初の評価者になりましょう!",
-  "widget.your_recent_ratings": "最近の評価",
+  "widget.your_recent_ratings": "あなたの最近の評価",
   "widget.recent_empty": "まだ何も評価していません。",
   "widget.page_badge_title_one": "StarTrack · 評価{n}件 · クリックして評価",
   "widget.page_badge_title_many": "StarTrack · 評価{n}件 · クリックして評価",
@@ -280,5 +280,18 @@
   "admin.settings_heading": "StarTrack 設定",
   "admin.support_intro": "StarTrack は空き時間を使って開発・メンテナンスしています。便利に感じたら、開発を応援していただけるとうれしいです：",
   "admin.support_github": "GitHub でスポンサーになる",
-  "admin.support_kofi": "Ko-fi"
+  "admin.support_kofi": "Ko-fi",
+  "widget.community_recent_ratings": "コミュニティの最近の評価",
+  "widget.community_recent_empty": "このサーバーにはまだ評価がありません - 何かを評価してください。",
+  "admin.group.recent_pill": "「最近」ボタンの動作",
+  "admin.group.views": "マイ評価ビュー",
+  "admin.community_recent_title": "各ユーザー自分の評価ではなくコミュニティの最近の評価を表示する",
+  "admin.community_recent_sub": "有効にすると、「最近」ボタンはサーバー上のすべてのユーザーの最新の評価を、各エントリの横に名前付きで表示します。",
+  "admin.views_sub": "全ユーザーからビューを非表示にします。メディア（映画）ビューは常に利用可能です。",
+  "admin.hide_watchlist_view": "Watchlist ビューを非表示",
+  "admin.hide_liked_view": "好き ビューを非表示",
+  "admin.hide_diary_view": "日記 ビューを非表示",
+  "admin.hide_reviews_view": "レビュー ビューを非表示",
+  "admin.hide_recs_view": "おすすめ ビューを非表示",
+  "admin.hide_lists_view": "リスト ビューを非表示"
 }

@@ -36,5 +36,19 @@ namespace Jellyfin.Plugin.InternalRating
 
         /// <summary>Show a rating popup after a movie or episode finishes playback.</summary>
         public bool PostPlaybackRatingPopup { get; set; } = true;
+
+        /// <summary>
+        /// When true, the 'Recent' floating pill shows recent ratings from EVERY
+        /// user on the server (community feed) instead of only the current user's
+        /// own ratings.
+        /// </summary>
+        public bool CommunityRecentMode { get; set; } = false;
+
+        /// <summary>
+        /// Comma-separated list of My Ratings overlay view names that should be
+        /// hidden for all users. Valid values: watchlist, liked, diary, reviews,
+        /// recs, lists. (The 'films' / Media view is always available.)
+        /// </summary>
+        public string HiddenOverlayViews { get; set; } = string.Empty;
     }
 }

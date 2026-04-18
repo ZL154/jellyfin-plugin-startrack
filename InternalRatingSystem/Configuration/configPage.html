@@ -165,6 +165,54 @@
                         </label>
                     </div>
 
+                    <!-- Recent pill behaviour -->
+                    <div class="st-group">
+                        <div class="st-group-title" data-tr="Recent pill behaviour">Recent pill behaviour</div>
+
+                        <label class="st-row">
+                            <input type="checkbox" id="stCommunityRecentMode" class="st-cb" />
+                            <span class="st-row-body">
+                                <span class="st-row-title" data-tr="Show community recent ratings instead of each user's own">Show community recent ratings instead of each user's own</span>
+                                <span class="st-row-sub" data-tr="When enabled, the Recent pill shows the latest ratings from every user on the server with their name next to each entry.">When enabled, the Recent pill shows the latest ratings from every user on the server with their name next to each entry.</span>
+                            </span>
+                        </label>
+                    </div>
+
+                    <!-- Visible views -->
+                    <div class="st-group">
+                        <div class="st-group-title" data-tr="My Ratings views">My Ratings views</div>
+                        <div class="st-row" style="border-bottom:none;padding-bottom:4px;">
+                            <span class="st-row-body">
+                                <span class="st-row-sub" data-tr="Hide views from every user. The Media (films) view is always available and cannot be hidden.">Hide views from every user. The Media (films) view is always available and cannot be hidden.</span>
+                            </span>
+                        </div>
+
+                        <label class="st-row">
+                            <input type="checkbox" id="stHideWatchlistView" class="st-cb" data-view="watchlist" />
+                            <span class="st-row-body"><span class="st-row-title" data-tr="Hide Watchlist view">Hide Watchlist view</span></span>
+                        </label>
+                        <label class="st-row">
+                            <input type="checkbox" id="stHideLikedView" class="st-cb" data-view="liked" />
+                            <span class="st-row-body"><span class="st-row-title" data-tr="Hide Liked view">Hide Liked view</span></span>
+                        </label>
+                        <label class="st-row">
+                            <input type="checkbox" id="stHideDiaryView" class="st-cb" data-view="diary" />
+                            <span class="st-row-body"><span class="st-row-title" data-tr="Hide Diary view">Hide Diary view</span></span>
+                        </label>
+                        <label class="st-row">
+                            <input type="checkbox" id="stHideReviewsView" class="st-cb" data-view="reviews" />
+                            <span class="st-row-body"><span class="st-row-title" data-tr="Hide Reviews view">Hide Reviews view</span></span>
+                        </label>
+                        <label class="st-row">
+                            <input type="checkbox" id="stHideRecsView" class="st-cb" data-view="recs" />
+                            <span class="st-row-body"><span class="st-row-title" data-tr="Hide For you view">Hide For you view</span></span>
+                        </label>
+                        <label class="st-row">
+                            <input type="checkbox" id="stHideListsView" class="st-cb" data-view="lists" />
+                            <span class="st-row-body"><span class="st-row-title" data-tr="Hide Lists view">Hide Lists view</span></span>
+                        </label>
+                    </div>
+
                     <br />
                     <div>
                         <button is="emby-button" type="submit" class="raised button-submit block">

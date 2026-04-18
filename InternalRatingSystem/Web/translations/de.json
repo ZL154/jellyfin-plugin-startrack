@@ -50,7 +50,7 @@
   "widget.star_tooltip_many": "{n} Sterne",
   "widget.current_rating_prefix": "(aktuell: {n})",
   "widget.empty_no_ratings": "Noch keine Bewertungen – sei der Erste!",
-  "widget.your_recent_ratings": "Deine letzten Bewertungen",
+  "widget.your_recent_ratings": "Deine neuesten Bewertungen",
   "widget.recent_empty": "Du hast noch nichts bewertet.",
   "widget.page_badge_title_one": "StarTrack · {n} Bewertung · zum Bewerten klicken",
   "widget.page_badge_title_many": "StarTrack · {n} Bewertungen · zum Bewerten klicken",
@@ -280,5 +280,18 @@
   "admin.settings_heading": "StarTrack-Einstellungen",
   "admin.support_intro": "StarTrack wird in meiner Freizeit entwickelt und gepflegt. Wenn es dir nuetzlich ist, unterstuetze gerne die Entwicklung:",
   "admin.support_github": "Auf GitHub unterstuetzen",
-  "admin.support_kofi": "Ko-fi"
+  "admin.support_kofi": "Ko-fi",
+  "widget.community_recent_ratings": "Neueste Bewertungen der Community",
+  "widget.community_recent_empty": "Noch keine Bewertungen auf diesem Server - bewerte etwas, um anzufangen.",
+  "admin.group.recent_pill": "Verhalten der Aktuell-Pille",
+  "admin.group.views": "Meine Bewertungen - Ansichten",
+  "admin.community_recent_title": "Community-Bewertungen statt der eigenen anzeigen",
+  "admin.community_recent_sub": "Wenn aktiviert, zeigt die Aktuell-Pille die neuesten Bewertungen aller Benutzer auf dem Server mit dem jeweiligen Namen an.",
+  "admin.views_sub": "Ansichten fuer alle Benutzer ausblenden. Die Medien-Ansicht (Filme) ist immer verfuegbar.",
+  "admin.hide_watchlist_view": "Watchlist-Ansicht ausblenden",
+  "admin.hide_liked_view": "Liked-Ansicht ausblenden",
+  "admin.hide_diary_view": "Tagebuch-Ansicht ausblenden",
+  "admin.hide_reviews_view": "Rezensionen-Ansicht ausblenden",
+  "admin.hide_recs_view": "Fuer-dich-Ansicht ausblenden",
+  "admin.hide_lists_view": "Listen-Ansicht ausblenden"
 }

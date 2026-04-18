@@ -280,5 +280,18 @@
   "admin.settings_heading": "Impostazioni StarTrack",
   "admin.support_intro": "StarTrack e sviluppato e mantenuto nel mio tempo libero. Se ti e utile, considera di sostenere lo sviluppo:",
   "admin.support_github": "Sponsorizza su GitHub",
-  "admin.support_kofi": "Ko-fi"
+  "admin.support_kofi": "Ko-fi",
+  "widget.community_recent_ratings": "Valutazioni recenti della community",
+  "widget.community_recent_empty": "Nessuna valutazione su questo server - valuta qualcosa per iniziare.",
+  "admin.group.recent_pill": "Comportamento della pillola Recenti",
+  "admin.group.views": "Viste Le mie valutazioni",
+  "admin.community_recent_title": "Mostra le valutazioni recenti della community invece di quelle di ogni utente",
+  "admin.community_recent_sub": "Quando attivato, la pillola Recenti mostra le ultime valutazioni di tutti gli utenti del server con il nome accanto a ogni voce.",
+  "admin.views_sub": "Nascondi viste per tutti gli utenti. La vista Media (film) e sempre disponibile.",
+  "admin.hide_watchlist_view": "Nascondi vista Watchlist",
+  "admin.hide_liked_view": "Nascondi vista Mi piace",
+  "admin.hide_diary_view": "Nascondi vista Diario",
+  "admin.hide_reviews_view": "Nascondi vista Recensioni",
+  "admin.hide_recs_view": "Nascondi vista Per te",
+  "admin.hide_lists_view": "Nascondi vista Liste"
 }

@@ -34,6 +34,9 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         public IActionResult GetPublicConfig()
         {
             var cfg = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+            var hiddenViews = (cfg.HiddenOverlayViews ?? string.Empty)
+                .Split(new[] { ',' }, System.StringSplitOptions.RemoveEmptyEntries);
+            for (var i = 0; i < hiddenViews.Length; i++) hiddenViews[i] = hiddenViews[i].Trim().ToLowerInvariant();
             Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
             return Ok(new
             {
@@ -45,6 +48,8 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 replaceMediaBarRating        = cfg.ReplaceMediaBarRating,
                 showRatingsOnPosters         = cfg.ShowRatingsOnPosters,
                 postPlaybackRatingPopup      = cfg.PostPlaybackRatingPopup,
+                communityRecentMode          = cfg.CommunityRecentMode,
+                hiddenOverlayViews           = hiddenViews,
                 supportedLanguages           = SupportedLanguages
             });
         }
