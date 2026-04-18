@@ -1,7 +1,229 @@
 (function () {
     'use strict';
 
-    console.log('[StarTrack] widget.js loaded — v1.3.5');
+    console.log('[StarTrack] widget.js loaded — v1.4.0');
+
+    // ── i18n + config runtime (StarTrack v1.4) ────────────────────────────
+    // Runtime translation for UI text. We load the translation bundle once
+    // from /Plugins/StarTrack/Translations/{lang} and every piece of text
+    // that was previously hardcoded now flows through tr().
+    //
+    // Strategy for gradually i18n-ing the widget without rewriting every
+    // string site: we also run a DOM scrub pass after renders that swaps
+    // English literals (exact match against en.json values) to the active
+    // language. tr(key) is used for new/modified strings; the scrub pass
+    // handles the 200+ pre-existing literals.
+
+    var _STARTRACK_CONFIG = {
+        language:                  'en',
+        hideRecentButton:          false,
+        hideLetterboxdButton:      false,
+        rateButtonOnlyInMediaItem: false,
+        replaceMediaDetailsRating: true,
+        replaceMediaBarRating:     true,
+        showRatingsOnPosters:      true,
+        postPlaybackRatingPopup:   true,
+        supportedLanguages:        ['en','fr','es','de','it','pt','zh','ja']
+    };
+
+    var _STARTRACK_STRINGS_EN = null;   // en.json (reference for substitution)
+    var _STARTRACK_STRINGS    = null;   // active language bundle
+    var _STARTRACK_SWAPMAP    = null;   // { englishValue: localizedValue }
+    var _STARTRACK_READY      = false;
+
+    function _userLangOverride() {
+        try { return localStorage.getItem('startrack_lang') || null; } catch (e) { return null; }
+    }
+
+    // Per-user preferences live in localStorage, not on the server —
+    // they're for "I personally don't want the Rate pill cluttering
+    // my home screen" overrides that should survive refreshes but
+    // only affect this browser / user.
+    function _userPrefs() {
+        try {
+            var raw = localStorage.getItem('startrack_user_prefs');
+            if (raw) return JSON.parse(raw);
+        } catch (e) {}
+        return {};
+    }
+    function _saveUserPrefs(p) {
+        try { localStorage.setItem('startrack_user_prefs', JSON.stringify(p || {})); } catch (e) {}
+    }
+    window.StarTrackUserPrefs = _userPrefs;
+    window.StarTrackSaveUserPrefs = _saveUserPrefs;
+    function setLanguage(lang) {
+        try { localStorage.setItem('startrack_lang', lang); } catch (e) {}
+        loadTranslations(lang).then(function () {
+            try { scrubTranslations(document.body); } catch (e) {}
+        });
+    }
+    window.StarTrackSetLanguage = setLanguage;
+
+    function tr(key, vars, fallback) {
+        var s = (_STARTRACK_STRINGS && _STARTRACK_STRINGS[key]) ||
+                (_STARTRACK_STRINGS_EN && _STARTRACK_STRINGS_EN[key]);
+        // Key missing from both bundles → use the caller's fallback,
+        // or return the key as a last resort so the UI has *something*
+        // to render. Never return null/undefined because esc(null) ==
+        // "null" and would surface as literal text in the DOM.
+        if (!s) s = fallback || key;
+        if (vars) {
+            s = s.replace(/\{(\w+)\}/g, function (_, k) {
+                return (k in vars) ? String(vars[k]) : ('{' + k + '}');
+            });
+        }
+        return s;
+    }
+    window.StarTrackTr = tr;
+
+    // Set of canonical English strings we know how to translate — used to
+    // identify text nodes on first visit that should be tagged with their
+    // original English so we can always re-translate from canonical (not
+    // whatever the current rendered language happens to be).
+    function buildSwapMap() {
+        if (!_STARTRACK_STRINGS_EN) { _STARTRACK_SWAPMAP = {}; return; }
+        var m = {};
+        for (var key in _STARTRACK_STRINGS_EN) {
+            var en = _STARTRACK_STRINGS_EN[key];
+            var tr = (_STARTRACK_STRINGS && _STARTRACK_STRINGS[key]) || en;
+            if (typeof en === 'string' && typeof tr === 'string' && en.indexOf('{') === -1) {
+                m[en] = tr;
+            }
+        }
+        _STARTRACK_SWAPMAP = m;
+    }
+
+    function _isKnownEnglish(t) {
+        return !!(t && _STARTRACK_SWAPMAP && _STARTRACK_SWAPMAP.hasOwnProperty(t));
+    }
+
+    // Two-phase scrub.
+    //   Phase 1 (tag): for every text node whose trimmed value matches a
+    //     known English string we haven't tagged yet, stash the English in
+    //     a synthetic property on the node (`_stOrig`) plus — for attribute
+    //     lookups — a data attr on the parent element.
+    //   Phase 2 (paint): for every tagged node, set its text to the
+    //     current language's translation of the stashed English.
+    // Calling this after changing languages always picks up from the
+    // canonical English baseline, so switching fr → de → en → ja always
+    // works instead of only working once.
+    function scrubTranslations(root) {
+        if (!_STARTRACK_SWAPMAP || !root) return;
+        var map = _STARTRACK_SWAPMAP;
+        var enStrings = _STARTRACK_STRINGS_EN || {};
+        var active = _STARTRACK_STRINGS || enStrings;
+
+        // Text nodes
+        var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+        var n, txt, t;
+        while ((n = walker.nextNode())) {
+            txt = n.nodeValue;
+            if (!txt) continue;
+            if (n._stOrig) {
+                // Already tagged: repaint from canonical English → current lang.
+                // We replace the currently-painted text (tracked in _stPaint)
+                // with the new translation, preserving surrounding whitespace.
+                var canonical = n._stOrig;
+                var prev = n._stPaint || canonical;
+                var target = _translateCanonical(canonical, enStrings, active);
+                if (prev !== target && txt.indexOf(prev) !== -1) {
+                    n.nodeValue = txt.split(prev).join(target);
+                }
+                n._stPaint = target;
+                continue;
+            }
+            t = txt.trim();
+            if (t && _isKnownEnglish(t)) {
+                // First visit: tag + paint
+                n._stOrig = t;
+                var translated = _translateCanonical(t, enStrings, active);
+                n._stPaint = translated;
+                n.nodeValue = txt.replace(t, translated);
+            }
+        }
+
+        // Attributes
+        var attrs = ['placeholder', 'title', 'aria-label'];
+        var nodes = root.querySelectorAll('[placeholder],[title],[aria-label]');
+        for (var i = 0; i < nodes.length; i++) {
+            var el = nodes[i];
+            for (var j = 0; j < attrs.length; j++) {
+                var a = attrs[j], v = el.getAttribute(a);
+                if (!v) continue;
+                var stashKey = 'stOrig-' + a;
+                var original = el.dataset[stashKey];
+                if (!original && _isKnownEnglish(v)) {
+                    original = v;
+                    el.dataset[stashKey] = v;
+                }
+                if (original) {
+                    var tr = _translateCanonical(original, enStrings, active);
+                    if (v !== tr) el.setAttribute(a, tr);
+                }
+            }
+        }
+    }
+
+    function _translateCanonical(englishText, enStrings, activeStrings) {
+        // Find the key that maps to this English value, then look it up in
+        // the active language bundle. If the active bundle doesn't have it,
+        // fall back to the English canonical.
+        for (var k in enStrings) {
+            if (enStrings[k] === englishText) {
+                return activeStrings[k] || englishText;
+            }
+        }
+        return englishText;
+    }
+
+    function _previousPaint(node) {
+        return node._stPaint || null;
+    }
+
+    function loadTranslations(lang) {
+        return fetch('/Plugins/StarTrack/Translations/' + encodeURIComponent(lang))
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (j) {
+                if (j) _STARTRACK_STRINGS = j;
+                buildSwapMap();
+            })
+            .catch(function () {});
+    }
+
+    function loadEnglishThenActive(lang) {
+        return fetch('/Plugins/StarTrack/Translations/en')
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (en) {
+                _STARTRACK_STRINGS_EN = en || {};
+                if (lang === 'en') { _STARTRACK_STRINGS = _STARTRACK_STRINGS_EN; buildSwapMap(); return; }
+                return loadTranslations(lang);
+            });
+    }
+
+    function loadPublicConfig() {
+        return fetch('/Plugins/StarTrack/PublicConfig', { cache: 'no-store' })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (cfg) {
+                if (cfg) {
+                    for (var k in cfg) _STARTRACK_CONFIG[k] = cfg[k];
+                }
+            })
+            .catch(function () {});
+    }
+
+    function startI18nWatchdog() {
+        if (!_STARTRACK_SWAPMAP) return;
+        // Sweep periodically to catch async-rendered pieces (overlay, lists…).
+        setInterval(function () {
+            try {
+                var el = document.getElementById('ir-widget');
+                if (el) scrubTranslations(el);
+                var ov = document.getElementById('ir-overlay');
+                if (ov) scrubTranslations(ov);
+            } catch (e) {}
+        }, 1500);
+    }
+
     init();
 
     // ── Auth ──────────────────────────────────────────────────────────────
@@ -253,7 +475,8 @@
             '#ir-page-badge{display:block!important;margin-bottom:8px!important;background:rgba(10,10,10,.85)!important;border:1px solid rgba(244,196,48,.5)!important;border-radius:4px!important;padding:3px 10px!important;font-size:.82em!important;font-weight:700!important;color:#f4c430!important;cursor:pointer!important;white-space:nowrap!important;line-height:1.6!important;width:fit-content!important}',
             '#ir-page-badge:hover{background:rgba(30,30,30,.95)!important}',
             // ── My Ratings overlay — red/black theme ──────────────────────
-            '#ir-overlay{position:fixed!important;inset:0!important;z-index:2147483646!important;background:#080808!important;display:none!important;flex-direction:column!important;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif!important;color:#fff!important}',
+            '#ir-overlay{position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:0!important;width:100vw!important;height:100vh!important;height:100dvh!important;max-width:100vw!important;max-height:100vh!important;z-index:2147483646!important;background:#080808!important;display:none!important;flex-direction:column!important;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif!important;color:#fff!important;margin:0!important;padding:0!important;transform:none!important;box-sizing:border-box!important;overflow:hidden!important}',
+            'html.ir-ov-locked,body.ir-ov-locked{overflow:hidden!important}',
             '#ir-overlay.ir-ov-open{display:flex!important}',
             // Sticky topbar
             '.ir-ov-topbar{background:#0e0e0e!important;border-bottom:2px solid #b81c1c!important;flex-shrink:0!important;padding:0 36px!important}',
@@ -270,6 +493,8 @@
             // Overlay Letterboxd button + dropdown panel
             '.ir-ov-lb{background:none!important;border:1px solid rgba(244,196,48,.35)!important;color:rgba(244,196,48,.85)!important;border-radius:8px!important;padding:8px 16px!important;font-size:.8em!important;font-weight:600!important;cursor:pointer!important;transition:all .15s!important;white-space:nowrap!important;letter-spacing:.02em!important}',
             '.ir-ov-lb:hover{background:rgba(244,196,48,.12)!important;border-color:#f4c430!important;color:#fff!important}',
+            '.ir-ov-prefs{background:none!important;border:1px solid rgba(255,255,255,.18)!important;color:rgba(255,255,255,.75)!important;border-radius:8px!important;padding:8px 16px!important;font-size:.8em!important;font-weight:600!important;cursor:pointer!important;transition:all .15s!important;white-space:nowrap!important;letter-spacing:.02em!important}',
+            '.ir-ov-prefs:hover{background:rgba(255,255,255,.08)!important;border-color:rgba(255,255,255,.35)!important;color:#fff!important}',
             '.ir-ov-lb.ir-ov-lb-active{background:rgba(244,196,48,.18)!important;border-color:#f4c430!important;color:#fff!important}',
             '.ir-ov-lb-panel{background:#141414!important;border:1px solid rgba(244,196,48,.22)!important;border-radius:10px!important;padding:14px 18px!important;margin:0 0 14px!important}',
             '.ir-ov-lb-row{display:flex!important;align-items:center!important;gap:10px!important;margin-bottom:10px!important;flex-wrap:wrap!important}',
@@ -676,6 +901,7 @@
                     '<button class="ir-tb">Show all ratings \u25be</button>' +
                     '<div class="ir-list" style="display:none"></div>' +
                     '<button class="ir-lb-open-btn" title="Connect your Letterboxd account">\u2699 Letterboxd sync</button>' +
+                    '<button class="ir-lang-btn" title="Change language" style="background:none;border:none;color:rgba(255,255,255,.45);cursor:pointer;padding:4px 8px;font-size:.8em;margin-left:6px">\ud83c\udf10 <span class="ir-lang-label">EN</span></button>' +
                 '</div>' +
                 // Recent view
                 '<div class="ir-recent-panel" style="display:none">' +
@@ -685,6 +911,7 @@
                     '</div>' +
                     '<div class="ir-rec-list"></div>' +
                     '<button class="ir-lb-open-btn" title="Connect your Letterboxd account">\u2699 Letterboxd sync</button>' +
+                    '<button class="ir-lang-btn" title="Change language" style="background:none;border:none;color:rgba(255,255,255,.45);cursor:pointer;padding:4px 8px;font-size:.8em;margin-left:6px">\ud83c\udf10 <span class="ir-lang-label">EN</span></button>' +
                 '</div>' +
                 // Letterboxd sync view (hidden by default, opens from gear icon)
                 '<div class="ir-lb-view" style="display:none">' +
@@ -724,6 +951,8 @@
 
         bindInteractions(_el);
         document.body.appendChild(_el);
+        try { scrubTranslations(_el); } catch (e) {}
+        try { applyConfigVisibility(); } catch (e) {}
         return _el;
     }
 
@@ -805,6 +1034,7 @@
                     '<input type="text" class="ir-ov-search" placeholder="Search titles\u2026" />' +
                     '<button class="ir-ov-export" title="Export ratings as Letterboxd-compatible CSV">\u21E9 Export</button>' +
                     '<button class="ir-ov-lb">\u2699 Letterboxd</button>' +
+                    '<button class="ir-ov-prefs" title="User preferences">\u2699 Preferences</button>' +
                     '<button class="ir-ov-close">\u2715 Close</button>' +
                 '</div>' +
                 // v1.2.0 — view selector (what kind of data to show)
@@ -860,8 +1090,12 @@
 
         _overlay.querySelector('.ir-ov-close').addEventListener('click', function () {
             _overlay.classList.remove('ir-ov-open');
+            document.documentElement.classList.remove('ir-ov-locked');
+            document.body.classList.remove('ir-ov-locked');
             document.documentElement.style.overflow = '';
         });
+        var prefsBtn = _overlay.querySelector('.ir-ov-prefs');
+        if (prefsBtn) prefsBtn.addEventListener('click', openUserPreferences);
         _overlay.querySelector('.ir-ov-sort').addEventListener('change', function (e) {
             _sortKey = e.target.value;
             if (_overlayData) renderOverlayGrid();
@@ -2231,6 +2465,8 @@
         if (filmsView) filmsView.classList.add('ir-ov-view-active');
 
         ov.classList.add('ir-ov-open');
+        document.documentElement.classList.add('ir-ov-locked');
+        document.body.classList.add('ir-ov-locked');
         document.documentElement.style.overflow = 'hidden';
         loadOverlayView();
     }
@@ -2409,6 +2645,8 @@
     // ── Interactions ──────────────────────────────────────────────────────
 
     function bindInteractions(el) {
+        bindLanguagePickers(el);
+
         var pill = el.querySelector('.ir-pill'), panel = el.querySelector('.ir-panel');
         var tb = el.querySelector('.ir-tb'), listEl = el.querySelector('.ir-list');
         var rb = el.querySelector('.ir-rb'), submit = el.querySelector('.ir-submit');
@@ -3019,7 +3257,21 @@
         if (idStr === _lastId && hash === _lastHash) return;
         _lastId = idStr; _lastHash = hash;
 
-        if (!id) { showRecent(); return; }
+        if (!id) {
+            // Per-user preference takes priority over admin defaults.
+            if (_userPrefs().hideRatePill) { hide(); return; }
+            // Admin can hide the Recent floating button, and can also require
+            // the Rate button to only appear inside media items (i.e. hide it
+            // everywhere that no item id is in the URL).
+            if (_STARTRACK_CONFIG.hideRecentButton || _STARTRACK_CONFIG.rateButtonOnlyInMediaItem) {
+                hide();
+                return;
+            }
+            showRecent();
+            return;
+        }
+        // On detail pages, honour the user's hide-pill preference too
+        if (_userPrefs().hideRatePill) { hide(); return; }
 
         console.log('[StarTrack] item:', id);
         showItem(id);
@@ -3031,6 +3283,21 @@
 
     function init() {
         var start = function () {
+            // Load /public-config + translations in parallel with widget boot
+            loadPublicConfig().then(function () {
+                var lang = _userLangOverride() || _STARTRACK_CONFIG.language || 'en';
+                return loadEnglishThenActive(lang);
+            }).then(function () {
+                _STARTRACK_READY = true;
+                startI18nWatchdog();
+                applyConfigVisibility();
+                // Replace native ratings on media details
+                try { startMediaDetailsReplace(); } catch (e) {}
+                try { startPosterBadges(); } catch (e) {}
+                try { startMediaBarReplace(); } catch (e) {}
+                try { startPostPlaybackPopup(); } catch (e) {}
+            });
+
             setInterval(checkNav, 800);
             window.addEventListener('hashchange', function () { setTimeout(checkNav, 200); });
             window.addEventListener('popstate',   function () { setTimeout(checkNav, 200); });
@@ -3039,5 +3306,647 @@
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
         else start();
     }
+
+    // ── Admin-toggle enforcement ─────────────────────────────────────────
+    // applyConfigVisibility() hides pieces of the widget based on server
+    // config. It's called on boot + whenever ensureEl mounts.
+
+    function bindLanguagePickers(root) {
+        var btns = root.querySelectorAll('.ir-lang-btn');
+        if (!btns.length) return;
+        var langs = _STARTRACK_CONFIG.supportedLanguages || ['en','fr','es','de','it','pt','zh','ja'];
+        var labelMap = { en: 'EN', fr: 'FR', es: 'ES', de: 'DE', it: 'IT', pt: 'PT', zh: '中', ja: '日' };
+        var nameMap  = { en: 'English', fr: 'Français', es: 'Español', de: 'Deutsch', it: 'Italiano', pt: 'Português', zh: '简体中文', ja: '日本語' };
+
+        function currentLang() {
+            return _userLangOverride() || _STARTRACK_CONFIG.language || 'en';
+        }
+        function refreshLabel() {
+            var c = currentLang();
+            root.querySelectorAll('.ir-lang-label').forEach(function (l) {
+                l.textContent = labelMap[c] || c.toUpperCase();
+            });
+        }
+        refreshLabel();
+
+        btns.forEach(function (btn) {
+            btn.addEventListener('click', function (ev) {
+                ev.stopPropagation();
+                var existing = document.getElementById('ir-lang-menu');
+                if (existing) { existing.remove(); return; }
+                // Recompute each time the menu opens so the tick reflects
+                // the currently active language, not the one at bind time.
+                var cur = currentLang();
+                var menu = document.createElement('div');
+                menu.id = 'ir-lang-menu';
+                menu.style.cssText = 'position:fixed;z-index:2147483647;background:#1a1c23;color:#fff;padding:6px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.12);min-width:160px';
+                langs.forEach(function (l) {
+                    var item = document.createElement('div');
+                    var isActive = (l === cur);
+                    item.style.cssText = 'padding:7px 12px;border-radius:4px;cursor:pointer;font-size:.9em;display:flex;align-items:center;justify-content:space-between;gap:10px;' +
+                        (isActive ? 'background:rgba(244,196,48,.16);color:#f4c430;font-weight:600;' : '');
+                    item.innerHTML =
+                        '<span>' + (nameMap[l] || l) + '</span>' +
+                        (isActive ? '<span style="color:#f4c430">\u2713</span>' : '<span></span>');
+                    item.addEventListener('click', function () {
+                        menu.remove();
+                        window.StarTrackSetLanguage(l);
+                        refreshLabel();
+                    });
+                    item.addEventListener('mouseenter', function () {
+                        if (!isActive) item.style.background = 'rgba(255,255,255,.08)';
+                    });
+                    item.addEventListener('mouseleave', function () {
+                        if (!isActive) item.style.background = '';
+                    });
+                    menu.appendChild(item);
+                });
+                document.body.appendChild(menu);
+                var r = btn.getBoundingClientRect();
+                menu.style.left = Math.max(8, Math.min(window.innerWidth - menu.offsetWidth - 8, r.left)) + 'px';
+                menu.style.top  = Math.max(8, r.top - menu.offsetHeight - 6) + 'px';
+                var off = function (e) {
+                    if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', off); }
+                };
+                setTimeout(function () { document.addEventListener('click', off); }, 0);
+            });
+        });
+    }
+
+    function applyConfigVisibility() {
+        var el = document.getElementById('ir-widget');
+        if (!el) return;
+        // Hide the floating Letterboxd-sync buttons system-wide
+        if (_STARTRACK_CONFIG.hideLetterboxdButton) {
+            el.querySelectorAll('.ir-lb-open-btn').forEach(function (b) { b.style.display = 'none'; });
+        } else {
+            el.querySelectorAll('.ir-lb-open-btn').forEach(function (b) { b.style.display = ''; });
+        }
+    }
+
+    // ── StarTrack rating swap into Media Details page ────────────────────
+    // Jellyfin renders the native community rating in the detail page
+    // "itemMiscInfo" / ".starRatingContainer" area. Swap it with the
+    // StarTrack average when one is available.
+
+    function startMediaDetailsReplace() {
+        if (!_STARTRACK_CONFIG.replaceMediaDetailsRating) return;
+        var lastId = '';
+        setInterval(function () {
+            try {
+                var id = getItemId();
+                if (!id || id === lastId) return;
+                // Only when on a details page, not an overlay/play view
+                var page = document.querySelector('.itemDetailPage:not(.hide), .detailPage:not(.hide)');
+                if (!page) return;
+                lastId = id;
+                apiGet(id).then(function (d) {
+                    if (!d || !d.totalRatings) return;
+                    // Find the community rating cluster Jellyfin uses.
+                    var hosts = page.querySelectorAll('.starRatingContainer, .itemMiscInfo, .starRating');
+                    hosts.forEach(function (host) {
+                        // Remove any prior StarTrack badge on this host
+                        var prev = host.querySelector('.ir-detail-st'); if (prev) prev.remove();
+                        var badge = document.createElement('span');
+                        badge.className = 'ir-detail-st';
+                        badge.style.cssText = 'display:inline-flex;align-items:center;gap:.3em;margin-left:.6em;padding:.15em .5em;border-radius:999px;background:rgba(244,196,48,.15);color:#f4c430;font-weight:600';
+                        badge.textContent = '\u2605 ' + d.averageRating.toFixed(1) + ' StarTrack (' + d.totalRatings + ')';
+                        badge.title = 'StarTrack community rating';
+                        host.appendChild(badge);
+                    });
+                });
+            } catch (e) {}
+        }, 1200);
+    }
+
+    // ── Poster-overlay rating badges ─────────────────────────────────────
+    // Scan all item cards on the current page, look up StarTrack ratings
+    // for each, and stamp a small badge in the corner.
+
+    function startPosterBadges() {
+        if (!_STARTRACK_CONFIG.showRatingsOnPosters) return;
+        setInterval(scanPostersOnce, 1500);
+    }
+
+    function _extractItemId(el) {
+        // Jellyfin stores the item id in multiple attributes/locations
+        // depending on card kind. Check each, return the first that
+        // looks like a valid Jellyfin item id (a 32-char hex string —
+        // sometimes with dashes, sometimes without).
+        var candidates = [];
+        var selectors = ['[data-id]', '[data-itemid]', '[data-item-id]', 'a[href*="id="]'];
+        for (var i = 0; i < selectors.length; i++) {
+            var nodes = el.matches(selectors[i]) ? [el] : Array.prototype.slice.call(el.querySelectorAll(selectors[i]));
+            for (var j = 0; j < nodes.length; j++) {
+                var n = nodes[j];
+                candidates.push(n.getAttribute('data-id'));
+                candidates.push(n.getAttribute('data-itemid'));
+                candidates.push(n.getAttribute('data-item-id'));
+                var href = n.getAttribute('href') || '';
+                var m = href.match(/[?&#]id=([a-f0-9-]{20,})/i);
+                if (m) candidates.push(m[1]);
+            }
+        }
+        for (var k = 0; k < candidates.length; k++) {
+            var c = candidates[k];
+            if (!c) continue;
+            var cleaned = c.replace(/-/g, '').toLowerCase();
+            if (/^[a-f0-9]{32}$/.test(cleaned)) return cleaned;
+        }
+        return null;
+    }
+
+    function scanPostersOnce() {
+        try {
+            // Include both .card (classic Jellyfin) and .listItem variants.
+            var cards = document.querySelectorAll('.card:not([data-ir-scanned]), .listItem:not([data-ir-scanned])');
+            if (!cards.length) return;
+            cards.forEach(function (card) {
+                card.setAttribute('data-ir-scanned', '1');
+                var id = _extractItemId(card);
+                if (!id) return;
+
+                apiGet(id).then(function (d) {
+                    if (!d || !d.totalRatings) return;
+                    // Prefer the image container so the badge overlays the poster
+                    var host = card.querySelector('.cardImageContainer') ||
+                               card.querySelector('.cardPadder') ||
+                               card.querySelector('.listItemImage') ||
+                               card;
+                    if (host.querySelector('.ir-poster-badge')) return;
+                    var b = document.createElement('span');
+                    b.className = 'ir-poster-badge';
+                    b.style.cssText = 'position:absolute;top:6px;right:6px;padding:3px 8px;border-radius:999px;background:rgba(0,0,0,.82);color:#f4c430;font-size:.75em;font-weight:700;z-index:5;pointer-events:none;line-height:1.25;letter-spacing:.02em;box-shadow:0 2px 6px rgba(0,0,0,.5);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)';
+                    b.textContent = '\u2605 ' + d.averageRating.toFixed(1);
+                    if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
+                    host.appendChild(b);
+                }).catch(function () {});
+            });
+        } catch (e) {}
+    }
+
+    // ── Media Bar plugin rating replacement ──────────────────────────────
+    // The Media Bar plugin renders rows with its own rating pill. If present,
+    // swap the text to the StarTrack average for that item.
+
+    function startMediaBarReplace() {
+        if (!_STARTRACK_CONFIG.replaceMediaBarRating) return;
+        setInterval(function () {
+            try {
+                var pills = document.querySelectorAll('.mediabar-rating[data-id]:not([data-ir-mb])');
+                pills.forEach(function (p) {
+                    p.setAttribute('data-ir-mb', '1');
+                    var id = p.getAttribute('data-id');
+                    if (!id) return;
+                    apiGet(id).then(function (d) {
+                        if (!d || !d.totalRatings) return;
+                        p.textContent = '\u2605 ' + d.averageRating.toFixed(1);
+                        p.title = 'StarTrack (' + d.totalRatings + ')';
+                    });
+                });
+            } catch (e) {}
+        }, 2000);
+    }
+
+    // ── Post-playback rating popup ───────────────────────────────────────
+    // When a video player closes after playing a Movie or Episode the user
+    // is rated, show a quick rating prompt if they haven't already rated it.
+
+    var _lastPlayedId = null, _wasPlaying = false;
+    function startPostPlaybackPopup() {
+        if (!_STARTRACK_CONFIG.postPlaybackRatingPopup) return;
+        // Check per-user override each time the timer fires, not once at boot —
+        // user may toggle it on/off via the Preferences dialog during the session.
+        setInterval(function () {
+            try {
+                var playing = isVideoPlayerPage();
+                if (playing) {
+                    var id = getItemId();
+                    if (id) _lastPlayedId = id;
+                    _wasPlaying = true;
+                } else if (_wasPlaying && _lastPlayedId) {
+                    _wasPlaying = false;
+                    var pid = _lastPlayedId; _lastPlayedId = null;
+                    if (_userPrefs().hidePostPlayback) return;
+                    // After playback, ask for a rating — but only if the user
+                    // hasn't already rated this item.
+                    apiGet(pid).then(function (d) {
+                        var uid = getUserId();
+                        var mine = (d && d.userRatings || []).find(function (u) { return u.userId === uid; });
+                        if (mine) return; // already rated
+                        showPostPlaybackPrompt(pid);
+                    }).catch(function () {});
+                }
+            } catch (e) {}
+        }, 1500);
+    }
+
+    function showPostPlaybackPrompt(itemId) {
+        if (document.getElementById('ir-pp-prompt')) return;
+        var prompt = document.createElement('div');
+        prompt.id = 'ir-pp-prompt';
+        prompt.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:2147483646;background:#1a1c23;color:#fff;padding:14px 18px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.5);font-family:inherit;max-width:360px;border:1px solid rgba(244,196,48,.3)';
+        prompt.innerHTML =
+            '<div style="font-weight:600;margin-bottom:8px;color:#f4c430">' + esc(tr('ui.pill.rate_label')) + '?</div>' +
+            '<div style="margin-bottom:10px;opacity:.85;font-size:.9em">' + esc(tr('widget.your_rating_legacy') || 'Your rating:') + '</div>' +
+            '<div class="ir-pp-stars" style="display:flex;gap:4px;margin-bottom:10px;cursor:pointer;font-size:1.5em">' +
+                '<span data-v="1">\u2606</span><span data-v="2">\u2606</span><span data-v="3">\u2606</span><span data-v="4">\u2606</span><span data-v="5">\u2606</span>' +
+            '</div>' +
+            '<div style="display:flex;gap:8px;justify-content:flex-end">' +
+                '<button class="ir-pp-later" style="background:transparent;color:#aaa;border:none;cursor:pointer">' + esc(tr('btn.cancel')) + '</button>' +
+                '<button class="ir-pp-save" style="background:#f4c430;color:#111;border:none;padding:6px 12px;border-radius:6px;font-weight:600;cursor:pointer">' + esc(tr('btn.save_rating')) + '</button>' +
+            '</div>';
+        document.body.appendChild(prompt);
+
+        var selected = 0;
+        var stars = prompt.querySelectorAll('.ir-pp-stars span');
+        stars.forEach(function (s) {
+            s.addEventListener('click', function () {
+                selected = parseInt(s.getAttribute('data-v'), 10);
+                stars.forEach(function (ss, i) { ss.textContent = (i < selected) ? '\u2605' : '\u2606'; });
+            });
+        });
+        prompt.querySelector('.ir-pp-later').addEventListener('click', function () { prompt.remove(); });
+        prompt.querySelector('.ir-pp-save').addEventListener('click', function () {
+            if (!selected) { prompt.remove(); return; }
+            var auth = getAuth();
+            if (!auth) { prompt.remove(); return; }
+            fetch('/Plugins/StarTrack/Ratings/' + itemId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: auth },
+                body: JSON.stringify({ stars: selected })
+            }).finally(function () { prompt.remove(); });
+        });
+        setTimeout(function () { if (prompt.parentNode) prompt.remove(); }, 30000);
+    }
+
+    // ── User Preferences dialog ─────────────────────────────────────
+    // Personal overrides a user can toggle from the My Ratings overlay —
+    // stored in localStorage, not on the server. Covers the case where
+    // a user wants to turn the Rate pill off just for themselves without
+    // admin help.
+    function openUserPreferences() {
+        if (document.getElementById('ir-prefs-modal')) return;
+        var prefs = _userPrefs();
+        var curLang = _userLangOverride() || _STARTRACK_CONFIG.language || 'en';
+        var langs = [
+            ['en', 'English'],
+            ['fr', 'Français'],
+            ['es', 'Español'],
+            ['de', 'Deutsch'],
+            ['it', 'Italiano'],
+            ['pt', 'Português'],
+            ['zh', '简体中文'],
+            ['ja', '日本語']
+        ];
+        var nameOf = function (code) {
+            for (var i = 0; i < langs.length; i++) if (langs[i][0] === code) return langs[i][1];
+            return code;
+        };
+        // Build a custom language selector — native <select> dropdowns
+        // get styled weirdly inside Jellyfin's high-specificity themes
+        // and some mobile webviews break them entirely. A plain button
+        // + list is predictable everywhere.
+        var selectedLang = curLang;
+        var langRowsHtml = langs.map(function (l) {
+            var isSel = l[0] === selectedLang;
+            return '<div class="ir-prefs-lang-item" data-lang="' + l[0] + '"' +
+                   ' style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid rgba(255,255,255,.05);' +
+                   (isSel ? 'background:rgba(244,196,48,.14);color:#f4c430' : 'color:#fff') + '">' +
+                        '<span>' + esc(l[1]) + '</span>' +
+                        '<span style="font-size:1.1em;color:' + (isSel ? '#f4c430' : 'transparent') + '">\u2713</span>' +
+                   '</div>';
+        }).join('');
+
+        var modal = document.createElement('div');
+        modal.id = 'ir-prefs-modal';
+        modal.style.cssText =
+            'position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.72);' +
+            'display:flex;align-items:center;justify-content:center;font-family:inherit;padding:20px';
+        modal.innerHTML =
+            '<div style="background:#161821;border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:24px 26px;max-width:480px;width:100%;color:#fff;box-shadow:0 12px 40px rgba(0,0,0,.6);max-height:90vh;overflow-y:auto">' +
+                '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">' +
+                    '<span style="font-size:1.4em;color:#f4c430">\u2699</span>' +
+                    '<h3 style="margin:0;font-size:1.15em;font-weight:700">' + esc(tr('prefs.title', null, 'My preferences')) + '</h3>' +
+                '</div>' +
+                '<p style="margin:0 0 18px;color:rgba(255,255,255,.55);font-size:.85em;line-height:1.45">' +
+                    esc(tr('prefs.intro', null, 'These settings apply only to you on this browser.')) +
+                '</p>' +
+
+                '<div style="padding:14px 0;border-top:1px solid rgba(255,255,255,.08)">' +
+                    '<div style="color:#fff;font-size:.95em;margin-bottom:4px">' +
+                        '\ud83c\udf10 ' + esc(tr('prefs.language', null, 'Language')) +
+                    '</div>' +
+                    '<div style="color:rgba(255,255,255,.5);font-size:.78em;margin-bottom:10px">' +
+                        esc(tr('prefs.language_sub', null, 'Applies to the StarTrack widget and overlay on this browser.')) +
+                    '</div>' +
+                    '<button id="ir-prefs-lang-btn" type="button" style="width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:8px;padding:11px 14px;font-size:.95em;outline:none;cursor:pointer;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:8px">' +
+                        '<span id="ir-prefs-lang-label">' + esc(nameOf(selectedLang)) + '</span>' +
+                        '<span style="color:rgba(255,255,255,.5)">\u25be</span>' +
+                    '</button>' +
+                    '<div id="ir-prefs-lang-list" style="display:none;margin-top:6px;background:#0f1117;border:1px solid rgba(255,255,255,.12);border-radius:8px;overflow:hidden">' +
+                        langRowsHtml +
+                    '</div>' +
+                '</div>' +
+
+                '<label style="display:flex;gap:12px;align-items:flex-start;padding:14px 0;border-top:1px solid rgba(255,255,255,.08);cursor:pointer">' +
+                    '<input type="checkbox" id="ir-prefs-hidepill" style="width:20px;height:20px;margin:2px 0 0;accent-color:#f4c430;flex-shrink:0" />' +
+                    '<div style="flex:1">' +
+                        '<div style="color:#fff;font-size:.95em">' + esc(tr('prefs.hide_pill', null, 'Hide the StarTrack floating Rate pill')) + '</div>' +
+                        '<div style="color:rgba(255,255,255,.5);font-size:.78em;margin-top:3px">' + esc(tr('prefs.hide_pill_sub', null, 'You can still open My Ratings from the sidebar at any time.')) + '</div>' +
+                    '</div>' +
+                '</label>' +
+                '<label style="display:flex;gap:12px;align-items:flex-start;padding:14px 0;border-top:1px solid rgba(255,255,255,.08);cursor:pointer">' +
+                    '<input type="checkbox" id="ir-prefs-hidepostplay" style="width:20px;height:20px;margin:2px 0 0;accent-color:#f4c430;flex-shrink:0" />' +
+                    '<div style="flex:1">' +
+                        '<div style="color:#fff;font-size:.95em">' + esc(tr('prefs.hide_post_playback', null, 'Hide the post-playback rating popup')) + '</div>' +
+                        '<div style="color:rgba(255,255,255,.5);font-size:.78em;margin-top:3px">' + esc(tr('prefs.hide_post_playback_sub', null, 'No rating prompt when a movie or episode finishes.')) + '</div>' +
+                    '</div>' +
+                '</label>' +
+                '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:22px;padding-top:16px;border-top:1px solid rgba(255,255,255,.08)">' +
+                    '<button id="ir-prefs-cancel" style="background:transparent;color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:8px 18px;cursor:pointer;font-size:.88em">' + esc(tr('btn.cancel', null, 'Cancel')) + '</button>' +
+                    '<button id="ir-prefs-save" style="background:#f4c430;color:#111;border:none;border-radius:8px;padding:8px 20px;cursor:pointer;font-weight:700;font-size:.88em">' + esc(tr('admin.save', null, 'Save')) + '</button>' +
+                '</div>' +
+            '</div>';
+        document.body.appendChild(modal);
+        modal.querySelector('#ir-prefs-hidepill').checked = !!prefs.hideRatePill;
+        modal.querySelector('#ir-prefs-hidepostplay').checked = !!prefs.hidePostPlayback;
+
+        // Custom language dropdown behaviour
+        var langBtn = modal.querySelector('#ir-prefs-lang-btn');
+        var langList = modal.querySelector('#ir-prefs-lang-list');
+        var langLabel = modal.querySelector('#ir-prefs-lang-label');
+        langBtn.addEventListener('click', function () {
+            langList.style.display = (langList.style.display === 'none') ? 'block' : 'none';
+        });
+        modal.querySelectorAll('.ir-prefs-lang-item').forEach(function (item) {
+            item.addEventListener('click', function () {
+                var code = item.getAttribute('data-lang');
+                selectedLang = code;
+                langLabel.textContent = nameOf(code);
+                // Update row highlight
+                modal.querySelectorAll('.ir-prefs-lang-item').forEach(function (row) {
+                    var isSel = row.getAttribute('data-lang') === code;
+                    row.style.background = isSel ? 'rgba(244,196,48,.14)' : '';
+                    row.style.color = isSel ? '#f4c430' : '#fff';
+                    var tick = row.querySelector('span:last-child');
+                    if (tick) tick.style.color = isSel ? '#f4c430' : 'transparent';
+                });
+                langList.style.display = 'none';
+            });
+            item.addEventListener('mouseenter', function () {
+                if (item.getAttribute('data-lang') !== selectedLang) {
+                    item.style.background = 'rgba(255,255,255,.06)';
+                }
+            });
+            item.addEventListener('mouseleave', function () {
+                if (item.getAttribute('data-lang') !== selectedLang) {
+                    item.style.background = '';
+                }
+            });
+        });
+
+        var close = function () { if (modal.parentNode) modal.remove(); };
+        modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
+        modal.querySelector('#ir-prefs-cancel').addEventListener('click', close);
+        modal.querySelector('#ir-prefs-save').addEventListener('click', function () {
+            var p = _userPrefs();
+            p.hideRatePill       = modal.querySelector('#ir-prefs-hidepill').checked;
+            p.hidePostPlayback   = modal.querySelector('#ir-prefs-hidepostplay').checked;
+            _saveUserPrefs(p);
+            if (selectedLang && selectedLang !== curLang) {
+                window.StarTrackSetLanguage(selectedLang);
+            }
+            close();
+            // Re-evaluate pill visibility immediately
+            try { _lastId = '__force_rerun__'; checkNav(); } catch (e) {}
+        });
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // Admin config page wiring (lives here, not in configPage.html,
+    // because Jellyfin's SPA loader strips inline <script> tags from
+    // plugin config pages. widget.js is injected globally via the
+    // ScriptInjectionMiddleware on every page load — admin included —
+    // so it's the reliable place for this logic.
+    // ══════════════════════════════════════════════════════════════════
+
+    var STARTRACK_PLUGIN_ID = 'a8b5e2f3-4c1d-4e8a-b2f9-6d3c7e1a5b2f';
+    var _adminEn = null, _adminTr = null;
+    var _adminCachedConfig = null;
+    var _adminLocalDirty = false;
+    var _adminLastKnownPage = null;
+
+    function _adminLog() {
+        try { console.log.apply(console, ['[StarTrack admin]'].concat([].slice.call(arguments))); } catch (e) {}
+    }
+
+    function _adminPickKey(c, pascal) {
+        if (c == null) return undefined;
+        if (pascal in c) return c[pascal];
+        var camel = pascal.charAt(0).toLowerCase() + pascal.slice(1);
+        if (camel in c) return c[camel];
+        return undefined;
+    }
+
+    function _adminSetCheckbox(el, val) {
+        if (!el) return;
+        el.checked = !!val;
+    }
+
+    function _adminFillForm(c) {
+        if (!c) return;
+        _adminLog('fillForm:', c);
+        var root = document.querySelector('#StarTrackConfigPage');
+        if (!root) return;
+        var lang = root.querySelector('#stLanguage');
+        if (lang) {
+            var override = null;
+            try { override = localStorage.getItem('startrack_lang'); } catch (e) {}
+            lang.value = override || _adminPickKey(c, 'Language') || 'en';
+        }
+        _adminSetCheckbox(root.querySelector('#stHideRecentButton'),     _adminPickKey(c, 'HideRecentButton'));
+        _adminSetCheckbox(root.querySelector('#stHideLetterboxdButton'), _adminPickKey(c, 'HideLetterboxdButton'));
+        _adminSetCheckbox(root.querySelector('#stRateOnlyInMedia'),      _adminPickKey(c, 'RateButtonOnlyInMediaItem'));
+        _adminSetCheckbox(root.querySelector('#stReplaceMediaDetails'),  _adminPickKey(c, 'ReplaceMediaDetailsRating'));
+        _adminSetCheckbox(root.querySelector('#stReplaceMediaBar'),      _adminPickKey(c, 'ReplaceMediaBarRating'));
+        _adminSetCheckbox(root.querySelector('#stShowRatingsOnPosters'), _adminPickKey(c, 'ShowRatingsOnPosters'));
+        _adminSetCheckbox(root.querySelector('#stPostPlaybackPopup'),    _adminPickKey(c, 'PostPlaybackRatingPopup'));
+    }
+
+    function _adminReadForm(existing) {
+        var root = document.querySelector('#StarTrackConfigPage');
+        var c = Object.assign({}, existing || {});
+        if (!root) return c;
+        c.Language                  = root.querySelector('#stLanguage') ? root.querySelector('#stLanguage').value : 'en';
+        c.HideRecentButton          = !!(root.querySelector('#stHideRecentButton')     && root.querySelector('#stHideRecentButton').checked);
+        c.HideLetterboxdButton      = !!(root.querySelector('#stHideLetterboxdButton') && root.querySelector('#stHideLetterboxdButton').checked);
+        c.RateButtonOnlyInMediaItem = !!(root.querySelector('#stRateOnlyInMedia')      && root.querySelector('#stRateOnlyInMedia').checked);
+        c.ReplaceMediaDetailsRating = !!(root.querySelector('#stReplaceMediaDetails')  && root.querySelector('#stReplaceMediaDetails').checked);
+        c.ReplaceMediaBarRating     = !!(root.querySelector('#stReplaceMediaBar')      && root.querySelector('#stReplaceMediaBar').checked);
+        c.ShowRatingsOnPosters      = !!(root.querySelector('#stShowRatingsOnPosters') && root.querySelector('#stShowRatingsOnPosters').checked);
+        c.PostPlaybackRatingPopup   = !!(root.querySelector('#stPostPlaybackPopup')    && root.querySelector('#stPostPlaybackPopup').checked);
+        return c;
+    }
+
+    function _adminGetClient() {
+        return window.ApiClient ||
+            (window.connectionManager && window.connectionManager.currentApiClient && window.connectionManager.currentApiClient()) ||
+            null;
+    }
+
+    function _adminLoadSettings(attempt) {
+        attempt = attempt || 0;
+        var client = _adminGetClient();
+        var cache = function (c) { _adminCachedConfig = c; _adminFillForm(c); return c; };
+        if (!client || typeof client.getPluginConfiguration !== 'function') {
+            var auth = getAuth();
+            if (!auth) {
+                if (attempt < 10) return new Promise(function (res) { setTimeout(res, 500); }).then(function () { return _adminLoadSettings(attempt + 1); });
+                _adminLog('giving up — ApiClient never initialised');
+                return Promise.resolve();
+            }
+            return fetch('/Plugins/StarTrack/AdminConfig', { headers: { Authorization: auth } })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(cache)
+                .catch(function (e) { _adminLog('AdminConfig fetch failed', e); });
+        }
+        return client.getPluginConfiguration(STARTRACK_PLUGIN_ID)
+            .then(cache)
+            .catch(function (e) { _adminLog('getPluginConfiguration failed', e); });
+    }
+
+    function _adminSaveSettings(ev) {
+        if (ev && ev.preventDefault) ev.preventDefault();
+        var root = document.querySelector('#StarTrackConfigPage');
+        var s = root && root.querySelector('#stSaveStatus');
+        var markOk = function () {
+            _adminCachedConfig = _adminReadForm(_adminCachedConfig);
+            _adminLocalDirty = false;
+            if (s) { s.style.opacity = '1'; s.style.color = '#52b54b'; s.textContent = '\u2713 Saved'; setTimeout(function () { s.style.opacity = '0'; }, 2000); }
+        };
+        var markErr = function (msg) { if (s) { s.style.opacity = '1'; s.style.color = '#ff8080'; s.textContent = '\u2717 ' + (msg || 'Save failed'); } };
+
+        // Keep the admin's chosen language visible immediately
+        try {
+            var chosen = root && root.querySelector('#stLanguage') && root.querySelector('#stLanguage').value;
+            if (chosen) localStorage.setItem('startrack_lang', chosen);
+        } catch (e) {}
+
+        var client = _adminGetClient();
+        if (client && typeof client.updatePluginConfiguration === 'function' && typeof client.getPluginConfiguration === 'function') {
+            client.getPluginConfiguration(STARTRACK_PLUGIN_ID).then(function (existing) {
+                var body = _adminReadForm(existing);
+                return client.updatePluginConfiguration(STARTRACK_PLUGIN_ID, body);
+            }).then(markOk).catch(function (err) { markErr(err && err.message); });
+        } else {
+            var auth = getAuth(); if (!auth) { markErr('No auth'); return false; }
+            var body = _adminReadForm(null);
+            fetch('/Plugins/StarTrack/AdminConfig', {
+                method: 'POST',
+                headers: { Authorization: auth, 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            }).then(function (r) { return r.ok ? markOk() : markErr('HTTP ' + r.status); }).catch(function (e) { markErr(e.message); });
+        }
+        return false;
+    }
+
+    function _adminCurrentLang() {
+        try { var ls = localStorage.getItem('startrack_lang'); if (ls) return ls; } catch (e) {}
+        var root = document.querySelector('#StarTrackConfigPage');
+        var sel = root && root.querySelector('#stLanguage');
+        return (sel && sel.value) || 'en';
+    }
+
+    function _adminLoadTranslations(lang) {
+        return Promise.resolve().then(function () {
+            if (_adminEn) return null;
+            return fetch('/Plugins/StarTrack/Translations/en').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { _adminEn = j || {}; });
+        }).then(function () {
+            if (lang === 'en') { _adminTr = _adminEn; return; }
+            return fetch('/Plugins/StarTrack/Translations/' + encodeURIComponent(lang)).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { if (j) _adminTr = j; });
+        }).catch(function () { _adminTr = _adminEn; });
+    }
+
+    function _adminTranslatePage() {
+        if (!_adminEn) { _adminLog('translate skipped: _adminEn not loaded'); return; }
+        var active = _adminTr || _adminEn;
+        var nodes = document.querySelectorAll('#StarTrackConfigPage [data-tr]');
+        var hit = 0, miss = 0;
+        nodes.forEach(function (el) {
+            var english = el.getAttribute('data-tr');
+            if (!english) return;
+            var found = false;
+            for (var k in _adminEn) {
+                if (_adminEn[k] === english) {
+                    el.textContent = active[k] || english;
+                    found = true; hit++;
+                    break;
+                }
+            }
+            if (!found) miss++;
+        });
+        _adminLog('translated', hit, 'hit,', miss, 'miss, total', nodes.length);
+    }
+
+    function _adminLoadStats() {
+        var auth = getAuth(); if (!auth) return;
+        var el = document.getElementById('irStats');
+        if (!el) return;
+        fetch('/Plugins/StarTrack/Stats', { headers: { Authorization: auth } })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (d) {
+                if (!d || !el) return;
+                el.innerHTML = '<b>' + d.totalRatings + '</b> total rating' + (d.totalRatings !== 1 ? 's' : '') +
+                    ' across <b>' + d.totalItems + '</b> item' + (d.totalItems !== 1 ? 's' : '');
+            })
+            .catch(function () {});
+    }
+
+    function _adminWireInstance(page) {
+        if (!page || page.dataset.stWired === '1') return;
+        page.dataset.stWired = '1';
+        _adminLog('wiring config page instance', page);
+
+        var form = page.querySelector('#starTrackSettingsForm');
+        if (form) {
+            form.addEventListener('submit', _adminSaveSettings);
+            form.addEventListener('change', function () { _adminLocalDirty = true; });
+            form.addEventListener('input',  function () { _adminLocalDirty = true; });
+        }
+
+        var langSel = page.querySelector('#stLanguage');
+        if (langSel) {
+            langSel.addEventListener('change', function () {
+                try { localStorage.setItem('startrack_lang', langSel.value); } catch (e) {}
+                _adminLoadTranslations(langSel.value).then(_adminTranslatePage);
+            });
+        }
+    }
+
+    function _adminTick() {
+        var page = document.querySelector('#StarTrackConfigPage');
+        if (!page) { _adminLastKnownPage = null; return; }
+        if (page !== _adminLastKnownPage) {
+            _adminLastKnownPage = page;
+            _adminLocalDirty = false;
+            _adminLog('new page element detected');
+            _adminWireInstance(page);
+            _adminLoadTranslations(_adminCurrentLang()).then(_adminTranslatePage);
+            _adminLoadSettings();
+            _adminLoadStats();
+        } else if (_adminCachedConfig && !_adminLocalDirty) {
+            // Reassert cached state — protects against Jellyfin or theme
+            // scripts that silently clear the checkboxes after render.
+            _adminFillForm(_adminCachedConfig);
+        }
+    }
+
+    if (!window.__starTrackAdminPollerInstalled) {
+        window.__starTrackAdminPollerInstalled = true;
+        setInterval(_adminTick, 500);
+        _adminLog('global poller installed (from widget.js)');
+    }
+    _adminTick();
 
 })();

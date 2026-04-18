@@ -6,7 +6,7 @@
     <RootNamespace>Jellyfin.Plugin.InternalRating</RootNamespace>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <Nullable>enable</Nullable>
-    <Version>1.3.7.0</Version>
+    <Version>1.4.0.0</Version>
     <Authors>ZL154</Authors>
     <Copyright>Copyright © 2025 ZL154</Copyright>
     <Description>StarTrack – community star ratings for Jellyfin movies and TV shows</Description>
@@ -20,6 +20,18 @@
   <ItemGroup>
     <EmbeddedResource Include="Configuration\configPage.html" />
     <EmbeddedResource Include="Web\widget.js" />
+    <!-- Translations. Pinned with WithCulture=false + LogicalName so the
+         per-culture *.json files don't get pulled into satellite
+         assemblies (which collapses GetManifestResourceStream to null
+         on the main assembly for every non-English language). -->
+    <EmbeddedResource Include="Web\translations\en.json" WithCulture="false" LogicalName="Jellyfin.Plugin.InternalRating.Web.translations.en.json" />
+    <EmbeddedResource Include="Web\translations\fr.json" WithCulture="false" LogicalName="Jellyfin.Plugin.InternalRating.Web.translations.fr.json" />
+    <EmbeddedResource Include="Web\translations\es.json" WithCulture="false" LogicalName="Jellyfin.Plugin.InternalRating.Web.translations.es.json" />
+    <EmbeddedResource Include="Web\translations\de.json" WithCulture="false" LogicalName="Jellyfin.Plugin.InternalRating.Web.translations.de.json" />
+    <EmbeddedResource Include="Web\translations\it.json" WithCulture="false" LogicalName="Jellyfin.Plugin.InternalRating.Web.translations.it.json" />
+    <EmbeddedResource Include="Web\translations\pt.json" WithCulture="false" LogicalName="Jellyfin.Plugin.InternalRating.Web.translations.pt.json" />
+    <EmbeddedResource Include="Web\translations\zh.json" WithCulture="false" LogicalName="Jellyfin.Plugin.InternalRating.Web.translations.zh.json" />
+    <EmbeddedResource Include="Web\translations\ja.json" WithCulture="false" LogicalName="Jellyfin.Plugin.InternalRating.Web.translations.ja.json" />
   </ItemGroup>
 
 </Project>

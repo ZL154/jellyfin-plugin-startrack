@@ -9,44 +9,187 @@
     <div data-role="content">
         <div class="content-primary">
 
+            <!-- Inline styles so they survive Jellyfin's SPA page loader -->
+            <style>
+                #StarTrackConfigPage .st-group{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:4px 18px 8px;margin-bottom:14px;display:block}
+                #StarTrackConfigPage .st-group-title{color:#f4c430;font-weight:700;font-size:.85em;text-transform:uppercase;letter-spacing:.08em;padding:14px 0 10px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:0}
+                #StarTrackConfigPage .st-row{display:flex;align-items:flex-start;gap:14px;padding:14px 0;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.05);margin:0}
+                #StarTrackConfigPage .st-row:last-of-type{border-bottom:none}
+                #StarTrackConfigPage .st-row:hover{background:rgba(255,255,255,.02)}
+                #StarTrackConfigPage input.st-cb{
+                    -webkit-appearance:checkbox!important;
+                    -moz-appearance:checkbox!important;
+                    appearance:checkbox!important;
+                    width:20px!important;
+                    height:20px!important;
+                    min-width:20px!important;
+                    min-height:20px!important;
+                    max-width:20px!important;
+                    max-height:20px!important;
+                    margin:2px 0 0!important;
+                    padding:0!important;
+                    flex-shrink:0!important;
+                    cursor:pointer!important;
+                    accent-color:#f4c430!important;
+                    opacity:1!important;
+                    visibility:visible!important;
+                    display:inline-block!important;
+                    position:static!important;
+                    pointer-events:auto!important;
+                    background:transparent!important;
+                    border:2px solid rgba(255,255,255,.4)!important;
+                    border-radius:3px!important;
+                    clip:auto!important;
+                    overflow:visible!important;
+                }
+                #StarTrackConfigPage input.st-cb:checked{
+                    background:#f4c430!important;
+                    border-color:#f4c430!important;
+                }
+                #StarTrackConfigPage .st-row-body{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}
+                #StarTrackConfigPage .st-row-title{color:#fff;font-size:.95em;line-height:1.4;display:block}
+                #StarTrackConfigPage .st-row-sub{color:rgba(255,255,255,.5);font-size:.78em;line-height:1.4;display:block}
+                #StarTrackConfigPage #stLanguage{background:rgba(255,255,255,.05)!important;border:1px solid rgba(255,255,255,.15)!important;color:#fff!important;border-radius:6px!important;padding:10px 14px!important;font-size:.95em!important;outline:none!important;min-width:260px;width:100%;max-width:360px}
+                #StarTrackConfigPage #stLanguage:focus{border-color:#f4c430!important}
+                #StarTrackConfigPage #stLanguage option{background:#141414;color:#fff}
+                #StarTrackConfigPage .st-row .st-row-title{pointer-events:none}
+                #StarTrackConfigPage .st-row .st-row-sub{pointer-events:none}
+            </style>
+
             <div class="verticalSection">
-                <h2 class="sectionTitle">⭐ StarTrack – Internal Rating System</h2>
-                <p style="color:rgba(255,255,255,.7)">
+                <h2 class="sectionTitle">⭐ <span data-tr="StarTrack – Internal Rating System">StarTrack – Internal Rating System</span></h2>
+                <p style="color:rgba(255,255,255,.7)" data-tr="Community star ratings for movies and TV shows, stored privately on your server.">
                     Community star ratings for movies and TV shows, stored privately on your server.
                 </p>
             </div>
 
             <div class="verticalSection">
-                <h3 class="sectionTitle">Widget Status</h3>
-                <p style="color:rgba(255,255,255,.8)">
+                <h3 class="sectionTitle" data-tr="Widget Status">Widget Status</h3>
+                <p style="color:rgba(255,255,255,.8)" data-tr="The StarTrack widget is automatically active for all users on this server, including mobile. No browser extensions or manual steps required — just navigate to any Movie or TV Show and the pill will appear.">
                     The StarTrack widget is <strong style="color:#52b54b;">automatically active</strong> for all users on this server,
                     including mobile. No browser extensions or manual steps required — just navigate to any Movie or TV Show and the ☆ pill will appear.
                 </p>
-                <p style="color:rgba(255,255,255,.45);font-size:.85em;margin-top:6px;">
+                <p style="color:rgba(255,255,255,.45);font-size:.85em;margin-top:6px;" data-tr="If you don't see the widget after restarting Jellyfin, check the server logs for [StarTrack] messages.">
                     If you don't see the widget after restarting Jellyfin, check the server logs for <code>[StarTrack]</code> messages.
                 </p>
             </div>
 
             <div class="verticalSection">
-                <h3 class="sectionTitle">Server Statistics</h3>
-                <div id="irStats" style="color:rgba(255,255,255,.8);">Loading…</div>
+                <h3 class="sectionTitle" data-tr="Server Statistics">Server Statistics</h3>
+                <div id="irStats" style="color:rgba(255,255,255,.8);" data-tr="Loading...">Loading…</div>
             </div>
 
             <div class="verticalSection">
-                <h3 class="sectionTitle">🎞 Letterboxd Sync <span style="font-size:.6em;background:#f4c430;color:#000;padding:2px 8px;border-radius:12px;margin-left:8px;vertical-align:middle;font-weight:700;">NEW in 1.1</span></h3>
-                <p style="color:rgba(255,255,255,.8);line-height:1.55;">
+                <h3 class="sectionTitle"><span style="color:#f4c430;">⚙</span> <span data-tr="StarTrack Settings">StarTrack Settings</span></h3>
+                <p data-tr="Changes apply to every user on this server. Individual users can still override their own language from the globe picker inside the StarTrack rating panel." style="color:rgba(255,255,255,.6);font-size:.9em;margin:4px 0 18px;max-width:720px;">
+                    Changes apply to every user on this server. Individual users can still override their own language from the globe picker inside the StarTrack rating panel.
+                </p>
+
+                <form id="starTrackSettingsForm" style="max-width:720px;">
+
+                    <!-- Default language -->
+                    <div class="inputContainer" style="margin-bottom:1.5em;">
+                        <label class="inputLabel inputLabelUnfocused" for="stLanguage" data-tr="Default language">Default language</label>
+                        <select id="stLanguage" is="emby-select">
+                            <option value="en">English</option>
+                            <option value="fr">Français (French)</option>
+                            <option value="es">Español (Spanish)</option>
+                            <option value="de">Deutsch (German)</option>
+                            <option value="it">Italiano (Italian)</option>
+                            <option value="pt">Português (Portuguese)</option>
+                            <option value="zh">简体中文 (Simplified Chinese)</option>
+                            <option value="ja">日本語 (Japanese)</option>
+                        </select>
+                        <div class="fieldDescription" data-tr="Applied to users who have not picked their own language yet.">Applied to users who have not picked their own language yet.</div>
+                    </div>
+
+                    <!-- Floating buttons group -->
+                    <div class="st-group">
+                        <div class="st-group-title" data-tr="Floating buttons">Floating buttons</div>
+
+                        <label class="st-row">
+                            <input type="checkbox" id="stRateOnlyInMedia" class="st-cb" />
+                            <span class="st-row-body">
+                                <span class="st-row-title" data-tr="Only show the Rate pill inside movie / TV detail pages">Only show the Rate pill inside movie / TV detail pages</span>
+                                <span class="st-row-sub" data-tr="Hides the floating pill on Home, Library, and search screens.">Hides the floating pill on Home, Library, and search screens.</span>
+                            </span>
+                        </label>
+
+                        <label class="st-row">
+                            <input type="checkbox" id="stHideRecentButton" class="st-cb" />
+                            <span class="st-row-body">
+                                <span class="st-row-title" data-tr="Hide the floating Recent button">Hide the floating Recent button</span>
+                                <span class="st-row-sub" data-tr="Recent shows the user most recent ratings from the rating pill.">Recent shows the user's most recent ratings from the rating pill.</span>
+                            </span>
+                        </label>
+
+                        <label class="st-row">
+                            <input type="checkbox" id="stHideLetterboxdButton" class="st-cb" />
+                            <span class="st-row-body">
+                                <span class="st-row-title" data-tr="Hide the Letterboxd sync button">Hide the Letterboxd sync button</span>
+                                <span class="st-row-sub" data-tr="Removes the Letterboxd entry from the rating panel footer.">Removes the Letterboxd entry from the rating panel footer.</span>
+                            </span>
+                        </label>
+                    </div>
+
+                    <!-- Rating display group -->
+                    <div class="st-group">
+                        <div class="st-group-title" data-tr="Rating display">Rating display</div>
+
+                        <label class="st-row">
+                            <input type="checkbox" id="stReplaceMediaDetails" class="st-cb" />
+                            <span class="st-row-body">
+                                <span class="st-row-title" data-tr="Replace the native rating on media detail pages with the StarTrack average">Replace the native rating on media detail pages with the StarTrack average</span>
+                            </span>
+                        </label>
+
+                        <label class="st-row">
+                            <input type="checkbox" id="stReplaceMediaBar" class="st-cb" />
+                            <span class="st-row-body">
+                                <span class="st-row-title" data-tr="Replace ratings in the Media Bar plugin with the StarTrack average">Replace ratings in the Media Bar plugin with the StarTrack average</span>
+                            </span>
+                        </label>
+
+                        <label class="st-row">
+                            <input type="checkbox" id="stShowRatingsOnPosters" class="st-cb" />
+                            <span class="st-row-body">
+                                <span class="st-row-title" data-tr="Overlay the StarTrack rating on media posters">Overlay the StarTrack rating on media posters</span>
+                            </span>
+                        </label>
+
+                        <label class="st-row">
+                            <input type="checkbox" id="stPostPlaybackPopup" class="st-cb" />
+                            <span class="st-row-body">
+                                <span class="st-row-title" data-tr="Show a rating popup after a movie or episode finishes playing">Show a rating popup after a movie or episode finishes playing</span>
+                            </span>
+                        </label>
+                    </div>
+
+                    <br />
+                    <div>
+                        <button is="emby-button" type="submit" class="raised button-submit block">
+                            <span data-tr="Save">Save</span>
+                        </button>
+                        <span id="stSaveStatus" data-tr="Saved" style="margin-left:10px;color:#52b54b;opacity:0;transition:opacity .25s;font-weight:600;">✓ Saved</span>
+                    </div>
+                </form>
+            </div>
+
+            <div class="verticalSection">
+                <h3 class="sectionTitle">🎞 <span data-tr="Letterboxd Sync">Letterboxd Sync</span> <span data-tr="NEW in 1.1" style="font-size:.6em;background:#f4c430;color:#000;padding:2px 8px;border-radius:12px;margin-left:8px;vertical-align:middle;font-weight:700;">NEW in 1.1</span></h3>
+                <p style="color:rgba(255,255,255,.8);line-height:1.55;" data-tr="Every user on this server can now sync their Letterboxd ratings into StarTrack. Click the gear icon inside the StarTrack rating panel on any movie page to open the Letterboxd settings for that user. Each user can:">
                     Every user on this server can now sync their Letterboxd ratings into StarTrack.
                     Click the <strong>⚙ gear icon</strong> inside the StarTrack rating panel on any
                     movie page to open the Letterboxd settings for that user. Each user can:
                 </p>
                 <ul style="color:rgba(255,255,255,.7);line-height:1.7;margin-top:6px;">
-                    <li>Enter their <strong>Letterboxd username</strong> and enable <strong>hourly auto-sync</strong>
+                    <li data-tr="Enter their Letterboxd username and enable hourly auto-sync — new ratings posted to Letterboxd import themselves into StarTrack within an hour">Enter their <strong>Letterboxd username</strong> and enable <strong>hourly auto-sync</strong>
                         — new ratings posted to Letterboxd import themselves into StarTrack within an hour</li>
-                    <li>Upload their <strong>Letterboxd CSV export</strong> (Settings → Import & Export → Export Your Data
+                    <li data-tr="Upload their Letterboxd CSV export (Settings → Import & Export → Export Your Data on letterboxd.com) for a one-shot full-history import">Upload their <strong>Letterboxd CSV export</strong> (Settings → Import & Export → Export Your Data
                         on letterboxd.com) for a one-shot full-history import</li>
-                    <li>Trigger a <strong>manual sync</strong> at any time via the "Sync now" button</li>
+                    <li data-tr="Trigger a manual sync at any time via the &quot;Sync now&quot; button">Trigger a <strong>manual sync</strong> at any time via the "Sync now" button</li>
                 </ul>
-                <p style="color:rgba(255,255,255,.45);font-size:.85em;margin-top:8px;">
+                <p style="color:rgba(255,255,255,.45);font-size:.85em;margin-top:8px;" data-tr="StarTrack matches Letterboxd films to your library by title + year. Films not in your library are skipped and reported back on the user's sync status line. The hourly sync is a standard Jellyfin scheduled task — you can adjust its interval in Dashboard → Scheduled Tasks → StarTrack Letterboxd Sync.">
                     StarTrack matches Letterboxd films to your library by title + year. Films not
                     in your library are skipped and reported back on the user's sync status line.
                     The hourly sync is a standard Jellyfin scheduled task — you can adjust its
@@ -161,279 +304,6 @@
 .ir-list-val   { color: rgba(255,255,255,.5) !important; min-width: 30px !important; text-align: right !important; }
 .ir-empty      { color: rgba(255,255,255,.4) !important; text-align: center !important; padding: 14px 0 !important; margin: 0 !important; font-size: .9em !important; }
 </style>
-
-<script>
-(function () {
-    'use strict';
-
-    function esc(str) {
-        const d = document.createElement('div');
-        d.appendChild(document.createTextNode(String(str)));
-        return d.innerHTML;
-    }
-
-    function starsHtml(val, total = 5) {
-        const f = Math.round(Math.max(0, Math.min(total, val)));
-        return '★'.repeat(f) + '☆'.repeat(total - f);
-    }
-
-    function getClient() {
-        return window.ApiClient
-            || (window.connectionManager?.currentApiClient?.())
-            || null;
-    }
-
-    function getAuth() {
-        const c = getClient();
-        if (!c) return null;
-        const t = typeof c.accessToken === 'function' ? c.accessToken() : c._accessToken;
-        return t ? `MediaBrowser Token="${t}"` : null;
-    }
-
-    function getUserId() {
-        const c = getClient();
-        if (!c) return null;
-        if (typeof c.getCurrentUserId === 'function') return c.getCurrentUserId();
-        return c._currentUser?.Id ?? c.currentUserId ?? null;
-    }
-
-    function getItemId() {
-        const src = decodeURIComponent(window.location.hash + window.location.search);
-        const m   = src.match(/[?&#]id=([a-f0-9]{20,})/i);
-        return m ? m[1] : null;
-    }
-
-    function onDetailPage() {
-        const loc = window.location.hash + window.location.pathname + window.location.search;
-        if (/details/i.test(loc)) return true;
-        return !!(document.querySelector('.btnPlay, [class*="btnPlay"]') && getItemId());
-    }
-
-    async function apiFetch(path, opts = {}) {
-        const auth = getAuth();
-        if (!auth) return null;
-        try {
-            const res = await fetch(path, {
-                ...opts,
-                headers: { Authorization: auth, 'Content-Type': 'application/json', ...(opts.headers || {}) }
-            });
-            return res.ok ? res : null;
-        } catch { return null; }
-    }
-
-    const apiGet    = id      => apiFetch(`/Plugins/StarTrack/Ratings/${id}`).then(r => r ? r.json() : null);
-    const apiPost   = (id, s) => apiFetch(`/Plugins/StarTrack/Ratings/${id}`, { method: 'POST',   body: JSON.stringify({ stars: s }) }).then(Boolean);
-    const apiDelete = id      => apiFetch(`/Plugins/StarTrack/Ratings/${id}`, { method: 'DELETE' }).then(Boolean);
-
-    async function getItemType(id) {
-        const c = getClient(), uid = getUserId();
-        if (!c || !uid) return null;
-        try { return (await c.getItem(uid, id))?.Type ?? null; }
-        catch { return null; }
-    }
-
-    function injectStyles() {
-        if (document.getElementById('ir-styles-injected')) return;
-        const src = document.getElementById('ir-styles');
-        if (!src) return;
-        const clone = src.cloneNode(true);
-        clone.id = 'ir-styles-injected';
-        document.head.appendChild(clone);
-    }
-
-    function buildWidget() {
-        const w = document.createElement('div');
-        w.id = 'ir-widget';
-        w.innerHTML = `
-            <div class="ir-collapsed" title="StarTrack – click to rate">
-                <span class="ir-star-icon">☆</span>
-                <span class="ir-avg-text" style="display:none"></span>
-                <span class="ir-caret">▾</span>
-            </div>
-            <div class="ir-panel" style="display:none">
-                <div class="ir-panel-header">
-                    <span class="ir-big-star">★</span>
-                    <span class="ir-big-avg">–</span>
-                    <span class="ir-count">(0 ratings)</span>
-                </div>
-                <div class="ir-your-row">
-                    <span class="ir-your-label">Your rating:</span>
-                    <div class="ir-star-input">
-                        ${[1,2,3,4,5].map(n => `<span class="ir-star-btn" data-v="${n}" title="${n} star${n>1?'s':''}">★</span>`).join('')}
-                    </div>
-                    <span class="ir-your-current"></span>
-                    <span class="ir-flash">✓ Saved</span>
-                    <button class="ir-remove-btn" style="display:none">✕ Remove</button>
-                </div>
-                <button class="ir-toggle-btn">Show individual ratings ▾</button>
-                <div class="ir-list" style="display:none"></div>
-            </div>`;
-        return w;
-    }
-
-    function renderWidget(widget, data) {
-        if (!widget?.isConnected) return;
-        const myUid = getUserId();
-        const total = data?.totalRatings ?? 0;
-        const avg   = data?.averageRating ?? 0;
-        const starIcon = widget.querySelector('.ir-star-icon');
-        const avgText  = widget.querySelector('.ir-avg-text');
-        if (total > 0) {
-            starIcon.textContent   = '★'; starIcon.style.opacity = '1';
-            avgText.textContent    = avg.toFixed(1); avgText.style.display = '';
-        } else {
-            starIcon.textContent   = '☆'; starIcon.style.opacity = '0.45';
-            avgText.style.display  = 'none';
-        }
-        widget.querySelector('.ir-big-avg').textContent = total > 0 ? avg.toFixed(1) : '–';
-        widget.querySelector('.ir-count').textContent   = `(${total} rating${total !== 1 ? 's' : ''})`;
-        const myRating = (data?.userRatings ?? []).find(r => r.userId === myUid);
-        const myVal    = myRating?.stars ?? 0;
-        widget.querySelectorAll('.ir-star-btn').forEach((b, i) =>
-            b.classList.toggle('ir-active', i < Math.round(myVal)));
-        widget.querySelector('.ir-your-current').textContent =
-            myVal ? `(current: ${myVal.toFixed(1)})` : '';
-        widget.querySelector('.ir-remove-btn').style.display = myVal ? '' : 'none';
-        const items = data?.userRatings ?? [];
-        widget.querySelector('.ir-list').innerHTML = items.length
-            ? items.map(r => `
-                <div class="ir-list-item">
-                    <span class="ir-list-name">${esc(r.userName)}</span>
-                    <span class="ir-list-stars">${starsHtml(r.stars)}</span>
-                    <span class="ir-list-val">${r.stars.toFixed(1)}</span>
-                </div>`).join('')
-            : '<p class="ir-empty">No ratings yet – be the first!</p>';
-    }
-
-    function bindInteractions(widget, itemId) {
-        const collapsed = widget.querySelector('.ir-collapsed');
-        const panel     = widget.querySelector('.ir-panel');
-        const toggleBtn = widget.querySelector('.ir-toggle-btn');
-        const list      = widget.querySelector('.ir-list');
-        const starBtns  = widget.querySelectorAll('.ir-star-btn');
-        const removeBtn = widget.querySelector('.ir-remove-btn');
-        let panelOpen = false, listOpen = false;
-
-        collapsed.addEventListener('click', () => {
-            panelOpen = !panelOpen;
-            panel.style.display = panelOpen ? 'block' : 'none';
-            widget.querySelector('.ir-caret').textContent = panelOpen ? '▴' : '▾';
-        });
-        document.addEventListener('click', e => {
-            if (panelOpen && !widget.contains(e.target)) {
-                panelOpen = false; panel.style.display = 'none';
-                widget.querySelector('.ir-caret').textContent = '▾';
-            }
-        });
-        toggleBtn.addEventListener('click', () => {
-            listOpen = !listOpen;
-            list.style.display = listOpen ? 'block' : 'none';
-            toggleBtn.textContent = listOpen ? 'Hide individual ratings ▴' : 'Show individual ratings ▾';
-        });
-        starBtns.forEach((btn, idx) => {
-            btn.addEventListener('mouseenter', () =>
-                starBtns.forEach((b, i) => b.classList.toggle('ir-active', i <= idx)));
-            btn.addEventListener('mouseleave', () => {
-                const m   = widget.querySelector('.ir-your-current').textContent.match(/([\d.]+)/);
-                const val = m ? parseFloat(m[1]) : 0;
-                starBtns.forEach((b, i) => b.classList.toggle('ir-active', i < Math.round(val)));
-            });
-            btn.addEventListener('click', async () => {
-                if (await apiPost(itemId, idx + 1)) {
-                    const fl = widget.querySelector('.ir-flash');
-                    fl.classList.add('ir-show');
-                    setTimeout(() => fl.classList.remove('ir-show'), 1800);
-                    renderWidget(widget, await apiGet(itemId));
-                }
-            });
-        });
-        removeBtn.addEventListener('click', async () => {
-            if (await apiDelete(itemId)) renderWidget(widget, await apiGet(itemId));
-        });
-    }
-
-    function findTarget() {
-        const playBtn = document.querySelector(
-            '.btnPlay, [class*="btnPlay"], [class*="BtnPlay"], button[title*="Play"], button[aria-label*="Play"]'
-        );
-        if (playBtn) {
-            let el = playBtn.parentElement;
-            for (let i = 0; i < 5; i++) {
-                if (el && el.children.length >= 2) return el;
-                el = el?.parentElement;
-            }
-            if (playBtn.parentElement) return playBtn.parentElement;
-        }
-        for (const s of [
-            '.mainDetailButtons', '.detailButtons', '.itemButtons',
-            '[class*="detailButton"]', '[class*="DetailButton"]',
-            '[class*="actionButton"]', '[class*="ActionButton"]',
-            '.itemMiscInfo-secondary', '.itemMiscInfo', '.itemOverview',
-            '.detailPagePrimaryContent', '.detailPageContent', '[class*="detailPage"]', 'main'
-        ]) {
-            const el = document.querySelector(s);
-            if (el) return el;
-        }
-        return null;
-    }
-
-    let _injectItemId = null, _injectAttempts = 0;
-
-    async function startInject(itemId) {
-        if (!itemId) return;
-        document.getElementById('ir-widget')?.remove();
-        _injectItemId = itemId; _injectAttempts = 0;
-        injectStyles();
-        tryInject();
-    }
-
-    async function tryInject() {
-        const itemId = _injectItemId;
-        if (!itemId || _injectAttempts++ > 40) return;
-        if (document.getElementById('ir-widget')) return;
-        if (getItemId() !== itemId) return;
-        const target = findTarget();
-        if (!target) { setTimeout(tryInject, 500); return; }
-        const type = await getItemType(itemId);
-        if (type !== null && type !== 'Movie' && type !== 'Series') return;
-        if (getItemId() !== itemId) return;
-        const widget = buildWidget();
-        target.insertAdjacentElement('afterend', widget);
-        renderWidget(widget, await apiGet(itemId));
-        bindInteractions(widget, itemId);
-    }
-
-    let _lastUrl = '';
-    function checkNav() {
-        const url = window.location.href, itemId = getItemId();
-        if (url === _lastUrl) return;
-        _lastUrl = url;
-        document.getElementById('ir-widget')?.remove();
-        _injectItemId = null;
-        if (onDetailPage() && itemId) setTimeout(() => startInject(itemId), 700);
-    }
-
-    setInterval(checkNav, 800);
-    window.addEventListener('hashchange', () => setTimeout(checkNav, 400));
-    window.addEventListener('popstate',   () => setTimeout(checkNav, 400));
-    if (onDetailPage()) setTimeout(() => startInject(getItemId()), 1000);
-
-    // Config page stats
-    async function loadStats() {
-        const auth = getAuth();
-        if (!auth) return;
-        try {
-            const r = await fetch('/Plugins/StarTrack/Stats', { headers: { Authorization: auth } });
-            if (!r.ok) return;
-            const d = await r.json(), el = document.getElementById('irStats');
-            if (el) el.innerHTML =
-                `<b>${d.totalRatings}</b> total rating${d.totalRatings !== 1 ? 's' : ''} across ` +
-                `<b>${d.totalItems}</b> item${d.totalItems !== 1 ? 's' : ''}`;
-        } catch {}
-    }
-    loadStats();
-})();
-</script>
 
 </body>
 </html>

@@ -7,7 +7,7 @@
 ![Jellyfin](https://img.shields.io/badge/Jellyfin-10.11%2B-CC0000?style=for-the-badge&labelColor=0d0d0d&logo=jellyfin&logoColor=white)
 ![.NET](https://img.shields.io/badge/.NET-9.0-CC0000?style=for-the-badge&labelColor=0d0d0d&logo=dotnet&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-CC0000?style=for-the-badge&labelColor=0d0d0d)
-![Version](https://img.shields.io/badge/Version-1.3.7-CC0000?style=for-the-badge&labelColor=0d0d0d)
+![Version](https://img.shields.io/badge/Version-1.4.0-CC0000?style=for-the-badge&labelColor=0d0d0d)
 
 **Letterboxd-style ratings, watchlist, lists & social layer for Jellyfin**
 
@@ -26,6 +26,16 @@ Designed to integrate cleanly with modern Jellyfin setups. Works on desktop and 
 ---
 
 ## Features
+
+### 🆕 New in 1.4
+- **8-language i18n** — en, fr, es, de, it, pt, zh, ja. Widget pill + panel + My Ratings overlay + admin page all translate.
+- **User language picker** — 🌐 button in the rating panel lets each user pick their own language. Stored per-browser in localStorage.
+- **User preferences modal** — ⚙ Preferences button in My Ratings opens a per-user settings dialog. Change language, hide the floating Rate pill, hide the post-playback rating popup.
+- **Admin toggles** — Dashboard → Plugins → StarTrack now has a full settings form: default language, hide Recent / Letterboxd / Rate-pill floating buttons system-wide, replace native ratings on media detail pages, replace Media Bar plugin ratings, overlay ratings on library posters, post-playback rating popup.
+- **Poster rating badges** — gold ★ badge in the top-right corner of every library card whose item has a StarTrack rating.
+- **Media detail rating swap** — replaces Jellyfin's native community rating on detail pages with the StarTrack average + rater count.
+- **Media Bar plugin rating swap** — if the Media Bar plugin is installed, its rating pills are replaced with StarTrack's average.
+- **Post-playback rating popup** — when a movie or episode finishes, a small prompt appears asking the user to rate (only once per item, skipped if already rated).
 
 ### ⭐ Ratings & reviews
 - **Half-star ratings** (0.5 – 5★) per item, per user
@@ -292,6 +302,14 @@ All endpoints are under `/Plugins/StarTrack/`. Every endpoint requires Jellyfin 
 | `POST` | `/Letterboxd/ScrapeFavorites` | Scrape your Letterboxd profile's "favourite films" section |
 | `POST` | `/Letterboxd/Cleanup` | Purge ratings whose library item no longer has a file on disk |
 | `GET` | `/Letterboxd/Diagnose` | Library matcher diagnostic + sample of normalised titles |
+
+### Config & translations *(new in 1.4)*
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/PublicConfig` | Admin toggle state + supported languages (no auth) |
+| `GET` | `/Translations/{lang}` | JSON translation bundle for a language (no auth) |
+| `GET` | `/AdminConfig` | Current plugin configuration (admin only) |
+| `POST` | `/AdminConfig` | Save plugin configuration (admin only) |
 
 ### Misc
 | Method | Endpoint | Description |
