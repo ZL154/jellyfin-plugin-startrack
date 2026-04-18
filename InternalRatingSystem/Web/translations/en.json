@@ -277,5 +277,8 @@
   "admin.server_stats_heading": "Server Statistics",
   "admin.loading": "Loading...",
   "admin.letterboxd_badge_new": "NEW in 1.1",
-  "admin.settings_heading": "StarTrack Settings"
+  "admin.settings_heading": "StarTrack Settings",
+  "admin.support_intro": "StarTrack is built and maintained in my spare time. If you find it useful, consider supporting development:",
+  "admin.support_github": "Sponsor on GitHub",
+  "admin.support_kofi": "Ko-fi"
 }

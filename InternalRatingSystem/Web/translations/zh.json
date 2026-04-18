@@ -277,5 +277,8 @@
   "admin.server_stats_heading": "服务器统计",
   "admin.loading": "加载中...",
   "admin.letterboxd_badge_new": "1.1 新增",
-  "admin.settings_heading": "StarTrack 设置"
+  "admin.settings_heading": "StarTrack 设置",
+  "admin.support_intro": "StarTrack 是我在业余时间开发和维护的。如果它对您有用，欢迎支持开发：",
+  "admin.support_github": "在 GitHub 上赞助",
+  "admin.support_kofi": "Ko-fi"
 }

@@ -10,8 +10,9 @@ obj/
 artifacts/
 publish_out/
 
-## Release ZIPs (attached to GitHub Releases, not stored in the repo)
+## Release artefacts (attached to GitHub Releases, not stored in the repo)
 *.zip
+release/
 
 ## Rider / Resharper
 .idea/

@@ -29,6 +29,7 @@
 - [Data storage](#data-storage)
 - [Building from source](#building-from-source)
 - [Contributing](#contributing)
+- [Support the project](#-support-the-project)
 - [License](#license)
 
 ---
@@ -372,6 +373,18 @@ Issues and pull requests are welcome.
 
 - [Report a bug](https://github.com/ZL154/jellyfin-plugin-startrack/issues)
 - [Suggest a feature](https://github.com/ZL154/jellyfin-plugin-startrack/discussions)
+
+---
+
+## ❤ Support the project
+
+StarTrack is built and maintained in my spare time. If it's useful to you and you'd like to support ongoing development, any of these means a lot:
+
+- ⭐ **Star this repo** — it's free and helps others find it
+- 💖 **[Sponsor on GitHub](https://github.com/sponsors/ZL154)** — one-off or monthly, every dollar reaches the project
+- ☕ **[Buy me a coffee on Ko-fi](https://ko-fi.com/zl154)** — one-off tips
+
+Not expected, just appreciated. Contributions — issues, PRs, translation fixes — are equally valuable.
 
 ---
 
