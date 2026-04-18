@@ -17,6 +17,22 @@
 
 ---
 
+## 📑 Table of contents
+
+- [Overview](#overview)
+- [Features](#features) — i18n, ratings, views, Top 4, Letterboxd, search, social, admin
+- [Screenshots](#-screenshots)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [How to use](#how-to-use) — rating pill, My Ratings, Letterboxd
+- [API Reference](#api-reference) — ratings, watchlist, diary, lists, Letterboxd, config
+- [Data storage](#data-storage)
+- [Building from source](#building-from-source)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
+
 ## Overview
 
 StarTrack started as a simple star-rating plugin and has grown into a full **Letterboxd-style social layer for Jellyfin**: ratings, reviews, watchlists, liked films, a chronological diary with rewatches, Top 4 favourites, collaborative lists, recommendations, server-wide watchlist sharing, and full Letterboxd import/sync. Everything is stored as plain JSON on your own server — nothing leaves your network.
