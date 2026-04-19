@@ -565,6 +565,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
 
             // Collect RSS entries that need to become diary entries too
             var diaryAdds = new List<Models.DiaryEntry>();
+            var likesFromRss = 0;
 
             foreach (var entry in toImport)
             {
@@ -580,13 +581,15 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                     continue;
                 }
 
+                var itemIdStr = matched.Id.ToString("N");
+
                 // Each RSS entry corresponds to a watch on Letterboxd, so it
                 // also belongs in the diary store. Without this, "Sync now"
                 // updated the films view but never populated the diary, and
                 // rewatches via sync would silently miss the diary tab.
                 diaryAdds.Add(new Models.DiaryEntry
                 {
-                    ItemId    = matched.Id.ToString("N"),
+                    ItemId    = itemIdStr,
                     WatchedAt = (entry.WatchedDate ?? DateTime.UtcNow).ToUniversalTime(),
                     Stars     = entry.Rating,
                     Review    = null,
@@ -594,13 +597,35 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 });
 
                 var stars = Math.Clamp(entry.Rating!.Value, 0.5, 5.0);
-                var existing = await _ratingRepo.GetRatingsAsync(matched.Id.ToString("N")).ConfigureAwait(false);
+                var existing = await _ratingRepo.GetRatingsAsync(itemIdStr).ConfigureAwait(false);
                 var userHad  = existing.UserRatings?.Any(r => r.UserId == userId) == true;
 
-                await _ratingRepo.SaveRatingAsync(matched.Id.ToString("N"), userId, userName, stars).ConfigureAwait(false);
+                await _ratingRepo.SaveRatingAsync(itemIdStr, userId, userName, stars).ConfigureAwait(false);
 
                 if (userHad) result.Updated++;
                 else         result.Imported++;
+
+                // If the user also liked this film on Letterboxd, mirror
+                // the like into StarTrack. AddLikeAsync is idempotent so
+                // re-syncing won't create duplicates.
+                if (entry.Liked)
+                {
+                    try
+                    {
+                        if (await _interactions.AddLikeAsync(userId, itemIdStr).ConfigureAwait(false))
+                            likesFromRss++;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "[StarTrack] RSS-sync: liking {Item} failed — continuing", itemIdStr);
+                    }
+                }
+            }
+
+            if (likesFromRss > 0)
+            {
+                result.LikesAdded += likesFromRss;
+                _logger.LogInformation("[StarTrack] RSS sync imported {N} new likes from rated entries", likesFromRss);
             }
 
             // ---- Diary entries ----
@@ -1135,6 +1160,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             public double? Rating     { get; set; }
             public DateTime? WatchedDate { get; set; }
             public bool    Rewatch    { get; set; }
+            public bool    Liked      { get; set; }
         }
 
         private static List<LetterboxdRssEntry> ParseRss(string xml)
@@ -1170,6 +1196,15 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 var rewatchStr = item.Element(lb + "rewatch")?.Value;
                 entry.Rewatch = string.Equals(rewatchStr, "Yes", StringComparison.OrdinalIgnoreCase) ||
                                 string.Equals(rewatchStr, "true", StringComparison.OrdinalIgnoreCase);
+
+                // Letterboxd's RSS includes <letterboxd:liked>Yes</letterboxd:liked>
+                // on entries the user has liked. Parsing it here means a
+                // rate+like in one Letterboxd action becomes a rating +
+                // diary entry + like in StarTrack, all from a single RSS
+                // pass — no need to wait for the HTML likes scrape.
+                var likedStr = item.Element(lb + "liked")?.Value;
+                entry.Liked = string.Equals(likedStr, "Yes", StringComparison.OrdinalIgnoreCase) ||
+                              string.Equals(likedStr, "true", StringComparison.OrdinalIgnoreCase);
 
                 // Fallback: some entries put title in <title> like "Film Name, 2022 - ★★★★½"
                 if (string.IsNullOrEmpty(entry.FilmTitle))
