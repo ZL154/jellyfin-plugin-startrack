@@ -232,7 +232,7 @@ You should see `Plugin loaded: YES`. Then open any Movie, TV Show, or Episode de
 
 ## How to use
 
-### Rating pill (detail pages)
+### Rating pill (detail page)
 A small floating pill appears at the bottom-right of every Movie / Series / Episode detail page. Click it to:
 - Set your rating (half-star precision)
 - Optionally write a review
