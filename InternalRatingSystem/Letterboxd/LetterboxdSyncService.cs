@@ -628,6 +628,44 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 _logger.LogInformation("[StarTrack] RSS sync imported {N} new likes from rated entries", likesFromRss);
             }
 
+            // ---- Likes catch-up ----
+            // If a user likes something days/weeks AFTER they rated it on
+            // Letterboxd, the main sync loop above will break at the
+            // lastSyncedGuid before reaching that entry (rating + diary
+            // were already synced; there's nothing "new"). So we do a
+            // separate pass across every RSS entry — ignoring lastSyncedGuid
+            // — and call AddLikeAsync for any rated+liked entry we haven't
+            // already liked. Both AddLikeAsync and the match are cheap so
+            // this is safe to run every sync.
+            var likesCatchup = 0;
+            foreach (var entry in entries)
+            {
+                if (!entry.Liked) continue;
+                if (!entry.Rating.HasValue) continue; // pure unrated likes are handled by the HTML scraper
+                var matched = lookup.Find(entry.FilmTitle, entry.FilmYear, out _);
+                if (matched == null) continue;
+                var itemIdStr = matched.Id.ToString("N");
+                try
+                {
+                    if (await _interactions.AddLikeAsync(userId, itemIdStr).ConfigureAwait(false))
+                        likesCatchup++;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "[StarTrack] Likes-catchup: liking {Item} failed — continuing", itemIdStr);
+                }
+            }
+            if (likesCatchup > 0)
+            {
+                // likesFromRss and likesCatchup are disjoint sets (both
+                // only increment when AddLikeAsync returns true, i.e. a
+                // NEW like was written; entries already liked during the
+                // main loop will have AddLikeAsync return false the
+                // second time). So just add them straight.
+                result.LikesAdded += likesCatchup;
+                _logger.LogInformation("[StarTrack] RSS likes catch-up added {N} likes on already-synced rated entries", likesCatchup);
+            }
+
             // ---- Diary entries ----
             // Each RSS rating becomes a diary entry too (rewatch-aware).
             // Dedupes on (itemId, watched-day) so re-syncing doesn't spam.
