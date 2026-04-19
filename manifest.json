@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/ZL154/jellyfin-plugin-startrack/main/assets/logo.svg",
     "versions": [
       {
+        "version": "1.4.5.0",
+        "changelog": "Actual fix for Letterboxd likes not syncing (v1.4.3 + v1.4.4 were wrong). Root cause: the RSS parser was looking for <letterboxd:liked> but the real field name in Letterboxd RSS is <letterboxd:memberLike> (values 'Yes'/'No'). So entry.Liked was always false and the like catch-up loop found nothing. Verified against davidehrlich's public RSS feed, which ships <letterboxd:memberLike>No</letterboxd:memberLike> on every entry. Parser now reads memberLike (with liked as a forward-compat fallback) so rated+liked entries finally mirror their like into StarTrack. No other code changes required — the 1.4.4 catch-up pass was correct, it just never had any data to work with.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/ZL154/jellyfin-plugin-startrack/releases/download/v1.4.5/Jellyfin.Plugin.InternalRating_1.4.5.0.zip",
+        "checksum": "f627cbfe8e46f2fc7a9b10092232f171",
+        "timestamp": "2026-04-19T00:00:00Z"
+      },
+      {
         "version": "1.4.4.0",
         "changelog": "Follow-up to 1.4.3 likes-sync fix: also catch up likes on PREVIOUSLY-SYNCED rated entries. Root cause: SyncRssAsync uses LastSyncedGuid to break out of the walk once it hits a previously-seen entry. So if you rate a film on Monday, sync on Monday (rating + diary come through), then like it on Tuesday and sync on Tuesday — the Monday-rated entry is skipped because its GUID IS the last-synced-guid, and the like is never mirrored. Fixed by adding a separate likes-only pass after the main loop that walks every RSS entry (ignores LastSyncedGuid) and calls AddLikeAsync for any rated+liked entry. AddLikeAsync is idempotent so re-syncing is free. Works for likes added days or weeks after the original rating.",
         "targetAbi": "10.11.0.0",

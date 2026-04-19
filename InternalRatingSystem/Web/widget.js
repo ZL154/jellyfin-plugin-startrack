@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    console.log('[StarTrack] widget.js loaded — v1.4.4');
+    console.log('[StarTrack] widget.js loaded — v1.4.5');
 
     // ── i18n + config runtime (StarTrack v1.4) ────────────────────────────
     // Runtime translation for UI text. We load the translation bundle once

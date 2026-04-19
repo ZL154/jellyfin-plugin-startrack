@@ -1235,12 +1235,14 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 entry.Rewatch = string.Equals(rewatchStr, "Yes", StringComparison.OrdinalIgnoreCase) ||
                                 string.Equals(rewatchStr, "true", StringComparison.OrdinalIgnoreCase);
 
-                // Letterboxd's RSS includes <letterboxd:liked>Yes</letterboxd:liked>
-                // on entries the user has liked. Parsing it here means a
-                // rate+like in one Letterboxd action becomes a rating +
-                // diary entry + like in StarTrack, all from a single RSS
-                // pass — no need to wait for the HTML likes scrape.
-                var likedStr = item.Element(lb + "liked")?.Value;
+                // Letterboxd's RSS puts the like flag in <letterboxd:memberLike>
+                // (values "Yes" / "No"). An earlier version of this parser
+                // wrongly looked for <letterboxd:liked> which never exists,
+                // so entry.Liked was always false and no likes were ever
+                // mirrored from RSS. Keeping the legacy name as a fallback
+                // in case Letterboxd ever aliases it.
+                var likedStr = item.Element(lb + "memberLike")?.Value
+                               ?? item.Element(lb + "liked")?.Value;
                 entry.Liked = string.Equals(likedStr, "Yes", StringComparison.OrdinalIgnoreCase) ||
                               string.Equals(likedStr, "true", StringComparison.OrdinalIgnoreCase);
 
