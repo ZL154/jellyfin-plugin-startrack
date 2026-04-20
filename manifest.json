@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/ZL154/jellyfin-plugin-startrack/main/assets/logo.svg",
     "versions": [
       {
+        "version": "1.4.6.0",
+        "changelog": "Bug fix: the Rate pill and My Ratings sidebar entry were showing up on Jellyfin's login page and server-picker. New isPreAuthPage() check: hides on any URL matching /login.html, #!/login, #!/addserver, #!/selectserver, #!/wizard, /quickconnect, or when document.body has class 'loginPage', or when no user is logged in yet (no getUserId()). Physically removes the sidebar link + hides the pill so nothing leaks pre-auth.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/ZL154/jellyfin-plugin-startrack/releases/download/v1.4.6/Jellyfin.Plugin.InternalRating_1.4.6.0.zip",
+        "checksum": "f8d341d3631551818b9e23d8f595e9d4",
+        "timestamp": "2026-04-19T00:00:00Z"
+      },
+      {
         "version": "1.4.5.0",
         "changelog": "Actual fix for Letterboxd likes not syncing (v1.4.3 + v1.4.4 were wrong). Root cause: the RSS parser was looking for <letterboxd:liked> but the real field name in Letterboxd RSS is <letterboxd:memberLike> (values 'Yes'/'No'). So entry.Liked was always false and the like catch-up loop found nothing. Verified against davidehrlich's public RSS feed, which ships <letterboxd:memberLike>No</letterboxd:memberLike> on every entry. Parser now reads memberLike (with liked as a forward-compat fallback) so rated+liked entries finally mirror their like into StarTrack. No other code changes required — the 1.4.4 catch-up pass was correct, it just never had any data to work with.",
         "targetAbi": "10.11.0.0",

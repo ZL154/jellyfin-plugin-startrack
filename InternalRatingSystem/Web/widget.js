@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    console.log('[StarTrack] widget.js loaded — v1.4.5');
+    console.log('[StarTrack] widget.js loaded — v1.4.6');
 
     // ── i18n + config runtime (StarTrack v1.4) ────────────────────────────
     // Runtime translation for UI text. We load the translation bundle once
@@ -3335,6 +3335,27 @@
         return false;
     }
 
+    // Hide the pill and sidebar entry on any pre-auth page: login,
+    // server-picker, wizard, quick-connect. Also hide if we simply
+    // don't have a logged-in user yet — covers the gap between
+    // page load and ApiClient init on brand-new sessions.
+    function isPreAuthPage() {
+        var hash = (window.location.hash || '').toLowerCase();
+        var path = (window.location.pathname || '').toLowerCase();
+        var combined = path + ' ' + hash;
+        if (combined.indexOf('/login.html') >= 0) return true;
+        if (combined.indexOf('#!/login') >= 0) return true;
+        if (combined.indexOf('#/login') >= 0) return true;
+        if (combined.indexOf('#!/addserver') >= 0) return true;
+        if (combined.indexOf('#!/selectserver') >= 0) return true;
+        if (combined.indexOf('#!/wizard') >= 0) return true;
+        if (combined.indexOf('/quickconnect') >= 0) return true;
+        if (document.body && document.body.classList && document.body.classList.contains('loginPage')) return true;
+        // No credentials yet → treat as pre-auth so nothing renders
+        if (!getUserId()) return true;
+        return false;
+    }
+
     var _lastId = '', _lastHash = '';
 
     // Sentinel hash used when we're on a filtered page (video player or admin).
@@ -3344,6 +3365,20 @@
     var FILTERED_SENTINEL = '__ab_filtered__';
 
     function checkNav() {
+        // Pre-auth gate: on the login / server-pick / wizard pages we have
+        // no user context, so neither the pill nor the sidebar entry should
+        // exist. Remove anything we've already injected and bail early.
+        if (isPreAuthPage()) {
+            hide();
+            _lastHash = FILTERED_SENTINEL;
+            _lastId = '';
+            var navLink = document.getElementById('ir-nav-link');
+            if (navLink && navLink.parentNode) navLink.parentNode.removeChild(navLink);
+            var navSection = document.getElementById('ir-nav-section');
+            if (navSection && navSection.parentNode) navSection.parentNode.removeChild(navSection);
+            return;
+        }
+
         injectSidebar();
 
         // Never show rating pill while watching video
