@@ -118,6 +118,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> AddToWatchlist([FromRoute] string itemId)
         {
+            if (!Guid.TryParse(itemId, out _)) return BadRequest("Invalid item id.");
             var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
             if (userId == null) return Unauthorized();
             var added = await _repo.AddToWatchlistAsync(userId.Value.ToString("N"), itemId).ConfigureAwait(false);
@@ -150,6 +151,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> AddLike([FromRoute] string itemId)
         {
+            if (!Guid.TryParse(itemId, out _)) return BadRequest("Invalid item id.");
             var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
             if (userId == null) return Unauthorized();
             var added = await _repo.AddLikeAsync(userId.Value.ToString("N"), itemId).ConfigureAwait(false);
@@ -183,7 +185,17 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         {
             var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
             if (userId == null) return Unauthorized();
-            await _repo.SetFavoritesAsync(userId.Value.ToString("N"), req.ItemIds ?? new List<string>()).ConfigureAwait(false);
+
+            // Reject oversized payloads + non-Guid ids so user_interactions.json
+            // can't be polluted with arbitrary blobs. 100 favorites is generous —
+            // the UI surface only displays the top 12.
+            var ids = req.ItemIds ?? new List<string>();
+            if (ids.Count > 100) return BadRequest("Too many favorites (max 100).");
+            foreach (var id in ids)
+                if (!Guid.TryParse(id, out _))
+                    return BadRequest("Invalid item id in favorites list.");
+
+            await _repo.SetFavoritesAsync(userId.Value.ToString("N"), ids).ConfigureAwait(false);
             return Ok();
         }
 

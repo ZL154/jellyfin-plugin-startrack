@@ -33,16 +33,21 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
 
         public string Name => "StarTrack Letterboxd Sync";
         public string Description =>
-            "Pulls new ratings from each user's Letterboxd RSS feed and imports any that match items in your library.";
+            "Polls each user's Letterboxd RSS every 10 minutes and only imports when the feed has actually changed (uses HTTP 304 Not Modified to stay cheap).";
         public string Category => "StarTrack";
         public string Key => "StarTrackLetterboxdSync";
 
         public IEnumerable<TaskTriggerInfo> GetDefaultTriggers() => new[]
         {
+            // 10-minute interval is cheap because the conditional GET
+            // (If-None-Match / If-Modified-Since) returns 304 Not Modified
+            // when nothing has changed on Letterboxd's side. Worst-case lag
+            // between a Letterboxd post and StarTrack picking it up is 10
+            // minutes — close to "automatic" without webhooks.
             new TaskTriggerInfo
             {
                 Type          = TaskTriggerInfoType.IntervalTrigger,
-                IntervalTicks = TimeSpan.FromHours(1).Ticks
+                IntervalTicks = TimeSpan.FromMinutes(10).Ticks
             }
         };
 
@@ -86,6 +91,11 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                     var result = await _syncService.SyncRssAsync(userId, userName).ConfigureAwait(false);
                     if (!string.IsNullOrEmpty(result.Error))
                         _logger.LogWarning("[StarTrack] Letterboxd auto-sync error for {User}: {Err}", userName, result.Error);
+                    else if (result.NotModified)
+                        _logger.LogDebug("[StarTrack] Letterboxd auto-sync: feed unchanged for {User} (304)", userName);
+                    else if (result.Imported + result.Updated + result.WatchlistAdded + result.LikesAdded > 0)
+                        _logger.LogInformation("[StarTrack] Letterboxd auto-sync detected updates for {User}: imported={I} updated={U} watchlist+{W} likes+{L}",
+                            userName, result.Imported, result.Updated, result.WatchlistAdded, result.LikesAdded);
                 }
                 catch (Exception ex)
                 {

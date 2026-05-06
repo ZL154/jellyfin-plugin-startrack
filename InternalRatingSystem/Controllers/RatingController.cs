@@ -60,6 +60,10 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             [FromRoute] string itemId,
             [FromBody]  SubmitRatingRequest request)
         {
+            // Reject non-Guid itemIds up front so an authenticated user can't
+            // pollute ratings.json with arbitrary string keys (DoS / disk fill).
+            if (!Guid.TryParse(itemId, out _))
+                return BadRequest("Invalid item id.");
             if (request.Stars < 0.5 || request.Stars > 5)
                 return BadRequest("Stars must be between 0.5 and 5.");
 
@@ -148,9 +152,10 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             return Ok(new { totalItems, totalRatings });
         }
 
-        /// <summary>Returns auth info for the current user — useful for debugging save failures.</summary>
+        /// <summary>Returns auth info for the current user — useful for debugging save failures. Admin-only.</summary>
         // GET /Plugins/StarTrack/WhoAmI
         [HttpGet("WhoAmI")]
+        [Authorize(Policy = "RequiresElevation")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> GetWhoAmI()
         {
@@ -175,10 +180,10 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             });
         }
 
-        /// <summary>Diagnostic info — no auth needed.</summary>
+        /// <summary>Diagnostic info — admin-only to avoid leaking host paths and last-error text.</summary>
         // GET /Plugins/StarTrack/Debug
         [HttpGet("Debug")]
-        [AllowAnonymous]
+        [Authorize(Policy = "RequiresElevation")]
         [Produces("text/plain")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         public IActionResult GetDebug()

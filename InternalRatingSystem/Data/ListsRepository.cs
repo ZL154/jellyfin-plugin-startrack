@@ -52,7 +52,7 @@ namespace Jellyfin.Plugin.InternalRating.Data
             finally { _lock.Release(); }
         }
 
-        public async Task<UserList> CreateAsync(string ownerId, string ownerName, string name, string? description, bool collaborative)
+        public async Task<UserList> CreateAsync(string ownerId, string ownerName, string name, string? description, bool collaborative, bool isPrivate = false)
         {
             await _lock.WaitAsync().ConfigureAwait(false);
             try
@@ -65,6 +65,7 @@ namespace Jellyfin.Plugin.InternalRating.Data
                     Name          = name.Trim(),
                     Description   = description?.Trim(),
                     Collaborative = collaborative,
+                    IsPrivate     = isPrivate,
                     CreatedAt     = DateTime.UtcNow,
                     Items         = new List<ListItem>()
                 };
@@ -148,6 +149,7 @@ namespace Jellyfin.Plugin.InternalRating.Data
             Name = src.Name,
             Description = src.Description,
             Collaborative = src.Collaborative,
+            IsPrivate = src.IsPrivate,
             CreatedAt = src.CreatedAt,
             Items = src.Items.Select(i => new ListItem
             {

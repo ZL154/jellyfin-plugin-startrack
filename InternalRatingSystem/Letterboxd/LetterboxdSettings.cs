@@ -20,6 +20,14 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         [JsonPropertyName("lastSyncedAt")]       public DateTime? LastSyncedAt  { get; set; }
         [JsonPropertyName("lastImportedCount")]  public int   LastImportedCount { get; set; }
         [JsonPropertyName("lastUnmatchedCount")] public int   LastUnmatchedCount { get; set; }
+
+        // HTTP caching headers captured on the last RSS fetch. Sent back as
+        // If-None-Match / If-Modified-Since on the next poll so unchanged
+        // feeds return 304 Not Modified — letting us poll every 10 minutes
+        // for near-real-time detection without doing real work each time.
+        [JsonPropertyName("rssETag")]            public string?  RssETag         { get; set; }
+        [JsonPropertyName("rssLastModified")]    public string?  RssLastModified { get; set; }
+        [JsonPropertyName("lastCheckedAt")]      public DateTime? LastCheckedAt  { get; set; }
     }
 
     /// <summary>Top-level storage wrapper: userId → settings.</summary>
@@ -48,6 +56,11 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         [JsonPropertyName("watchlistSkipped")]  public int WatchlistSkipped  { get; set; }
         [JsonPropertyName("likesAdded")]        public int LikesAdded        { get; set; }
         [JsonPropertyName("likesSkipped")]      public int LikesSkipped      { get; set; }
+
+        // True when the conditional GET returned 304 Not Modified — feed
+        // hadn't changed since last poll, so no work was done. Used by the
+        // scheduled task to skip logging "imported 0".
+        [JsonPropertyName("notModified")]       public bool NotModified      { get; set; }
     }
 
     /// <summary>

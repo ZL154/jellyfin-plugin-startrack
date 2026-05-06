@@ -138,6 +138,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         /// removed.
         /// </summary>
         [HttpPost("Cleanup")]
+        [Authorize(Policy = "RequiresElevation")]
         [ProducesResponseType(typeof(CleanupResult), StatusCodes.Status200OK)]
         public async Task<IActionResult> CleanupDeadRatings()
         {
@@ -172,13 +173,30 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             // Guard against runaway uploads: cap at 5 MB. A Letterboxd full
             // export ZIP for 5000 films is about 200-400 KB compressed, so
             // 5 MB is generous headroom.
-            if (Request.ContentLength > 5 * 1024 * 1024)
-                return StatusCode(StatusCodes.Status413PayloadTooLarge, "File too large (max 5 MB).");
+            //
+            // Reject when Content-Length is missing OR over the cap. A
+            // chunked-encoded request without Content-Length would otherwise
+            // bypass the size check entirely and stream unbounded into the
+            // MemoryStream below — OOM the host.
+            const long MaxBytes = 5L * 1024 * 1024;
+            if (Request.ContentLength is null || Request.ContentLength > MaxBytes)
+                return StatusCode(StatusCodes.Status413PayloadTooLarge, "Upload missing Content-Length or exceeds 5 MB.");
 
             // Buffer the request body into memory so we can detect the format
             // (ZIP vs CSV) by magic bytes and then rewind for the real parser.
+            // Defense in depth: enforce the cap a second time during the copy
+            // in case ContentLength lied about the actual body size.
             using var buffer = new MemoryStream();
-            await Request.Body.CopyToAsync(buffer).ConfigureAwait(false);
+            var copyBuf = new byte[64 * 1024];
+            int read;
+            long total = 0;
+            while ((read = await Request.Body.ReadAsync(copyBuf.AsMemory(0, copyBuf.Length)).ConfigureAwait(false)) > 0)
+            {
+                total += read;
+                if (total > MaxBytes)
+                    return StatusCode(StatusCodes.Status413PayloadTooLarge, "Upload exceeded 5 MB during transfer.");
+                buffer.Write(copyBuf, 0, read);
+            }
             buffer.Position = 0;
 
             Stream csvStream;

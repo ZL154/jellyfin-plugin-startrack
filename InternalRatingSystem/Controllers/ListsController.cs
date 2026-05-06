@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Mime;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.InternalRating.Data;
@@ -40,7 +41,12 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         public async Task<IActionResult> GetAllLists()
         {
             var all = await _repo.GetAllAsync().ConfigureAwait(false);
-            return Ok(all);
+            // Filter out private lists owned by other users — they're only
+            // visible to their owner. Public + collaborative lists pass through.
+            var meId = await GetCurrentUserIdAsync().ConfigureAwait(false);
+            var meStr = meId?.ToString("N");
+            var visible = all.Where(l => !l.IsPrivate || string.Equals(l.OwnerId, meStr, StringComparison.OrdinalIgnoreCase)).ToList();
+            return Ok(visible);
         }
 
         [HttpGet("Lists/{listId}")]
@@ -50,6 +56,14 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         {
             var l = await _repo.GetByIdAsync(listId).ConfigureAwait(false);
             if (l == null) return NotFound();
+            // Private lists are owner-only; return 404 (not 403) so a probing
+            // client can't enumerate which list ids exist-but-are-private.
+            if (l.IsPrivate)
+            {
+                var meId = await GetCurrentUserIdAsync().ConfigureAwait(false);
+                var meStr = meId?.ToString("N");
+                if (!string.Equals(l.OwnerId, meStr, StringComparison.OrdinalIgnoreCase)) return NotFound();
+            }
             return Ok(l);
         }
 
@@ -61,15 +75,20 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
             if (userId == null) return Unauthorized();
             if (string.IsNullOrWhiteSpace(req.Name)) return BadRequest("name is required");
+            // Belt-and-braces: ASP.NET ModelState already enforces [MaxLength],
+            // but re-check here in case a future config disables auto-validation.
+            if (req.Name.Length > 120)                 return BadRequest("name too long (max 120).");
+            if ((req.Description?.Length ?? 0) > 2000) return BadRequest("description too long (max 2000).");
 
             var l = await _repo.CreateAsync(
                 userId.Value.ToString("N"),
                 GetCurrentUserName(),
                 req.Name!,
                 req.Description,
-                req.Collaborative ?? true
+                req.Collaborative ?? true,
+                req.IsPrivate ?? false
             ).ConfigureAwait(false);
-            _logger.LogInformation("[StarTrack] {User} created list '{Name}'", GetCurrentUserName(), l.Name);
+            _logger.LogInformation("[StarTrack] {User} created list '{Name}' private={Priv}", GetCurrentUserName(), l.Name, l.IsPrivate);
             return Ok(l);
         }
 
@@ -92,6 +111,9 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
             if (userId == null) return Unauthorized();
             if (string.IsNullOrWhiteSpace(req.ItemId)) return BadRequest("itemId is required");
+            // Reject non-Guid item ids so lists.json can't be polluted with
+            // arbitrary string keys (DoS / disk fill via a malicious authenticated user).
+            if (!Guid.TryParse(req.ItemId, out _)) return BadRequest("Invalid item id.");
             var added = await _repo.AddItemAsync(
                 listId,
                 userId.Value.ToString("N"),

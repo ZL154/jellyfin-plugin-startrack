@@ -7,7 +7,7 @@
 ![Jellyfin](https://img.shields.io/badge/Jellyfin-10.11%2B-CC0000?style=for-the-badge&labelColor=0d0d0d&logo=jellyfin&logoColor=white)
 ![.NET](https://img.shields.io/badge/.NET-9.0-CC0000?style=for-the-badge&labelColor=0d0d0d&logo=dotnet&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-CC0000?style=for-the-badge&labelColor=0d0d0d)
-![Version](https://img.shields.io/badge/Version-1.4.0-CC0000?style=for-the-badge&labelColor=0d0d0d)
+![Version](https://img.shields.io/badge/Version-1.5.0-CC0000?style=for-the-badge&labelColor=0d0d0d)
 
 **Letterboxd-style ratings, watchlist, lists & social layer for Jellyfin**
 
@@ -43,6 +43,20 @@ Designed to integrate cleanly with modern Jellyfin setups. Works on desktop and 
 ---
 
 ## Features
+
+### 🆕 New in 1.5
+
+- **Members tab** — every user on your server gets a profile card with avatar, total ratings, average star, and pinned Top 4 strip. Sort/search the grid.
+- **Profile pages** — open a member to see their Letterboxd-style stats: rating histogram, genres, directors, actors, decades, longest film, hours watched, ratings-per-month timeline, calendar heatmap (last 365 days), on-this-day strip, most-rewatched strip, year-by-year cards.
+- **Follow graph** — follow/unfollow buttons on every member card and profile. Followers / Following lists.
+- **Activity feed** — chronological feed of recent ratings, reviews and diary entries from people you follow (or everyone), with filter chips.
+- **Reviews tab** — per-user reviews list as its own profile tab.
+- **Compare profile UI** — `⇄` button on member cards opens a side-by-side comparison: taste-similarity score (Pearson, mapped to 0–100%), per-side rating histograms, "biggest disagreements" rows with side-by-side stars and a delta chip, and a "films you both loved" strip.
+- **Privacy toggles** — hide-from-members, hide-follower-count, hide-following, hide-stats, hide-recent-activity. Server-side enforced, applies on every browser.
+- **Private lists** — opt-in `isPrivate` flag on lists; private lists are visible only to the owner.
+- **Diary polish** — clearer `↻ Rewatch` pill on rewatched entries and a 3-column row layout that uses the empty space.
+- **Performance** — profile and stats endpoints now serve cached data instantly while rebuilding fresh data in the background (stale-while-revalidate). Member-list pre-warms stats for every visible user, and a server-wide item/people cache means resolving a film's cast and crew is shared across all users instead of per-user.
+- **Security pass** — assorted hardening across endpoints. No data migration required.
 
 ### 🆕 New in 1.4
 - **8-language i18n** — en, fr, es, de, it, pt, zh, ja. Widget pill + panel + My Ratings overlay + admin page all translate.
@@ -320,6 +334,21 @@ All endpoints are under `/Plugins/StarTrack/`. Every endpoint requires Jellyfin 
 | `POST` | `/Letterboxd/Cleanup` | Purge ratings whose library item no longer has a file on disk |
 | `GET` | `/Letterboxd/Diagnose` | Library matcher diagnostic + sample of normalised titles |
 
+### Members & social *(new in 1.5)*
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/Members` | All visible members with avatar, totals, Top 4, follow flag |
+| `GET` | `/MembersSearch?q=` | Same as `/Members`, filtered by name |
+| `GET` | `/Members/{userId}/Profile` | Light profile bundle (recents, top-4, watchlist, likes, diary preview) |
+| `GET` | `/Members/{userId}/Stats` | Heavy stats — histogram, genres, directors, actors, decades, hours, calendar heatmap, on-this-day, most-rewatched, year cards |
+| `GET` | `/Members/{userId}/Reviews` | All of a user's reviews |
+| `GET` | `/Members/{userId}/Followers` / `/Following` | Follow graph |
+| `POST` | `/Members/{userId}/Follow` / `/Unfollow` | Follow / unfollow a member |
+| `GET` | `/Activity?scope=following\|everyone&limit=N` | Chronological feed of recent ratings + diary + reviews |
+| `GET` | `/Compare?a={userIdA}&b={userIdB}` | Pearson similarity, both histograms, biggest disagreements, films-each-loved |
+| `GET` | `/MyPrivacy` | Your privacy flags (hide from members / follower count / following / stats / activity) |
+| `POST` | `/MyPrivacy` | Update your privacy flags |
+
 ### Config & translations *(new in 1.4)*
 | Method | Endpoint | Description |
 |---|---|---|
@@ -348,6 +377,8 @@ All data is stored as plain JSON in `<jellyfin-data>/data/InternalRating/`:
 | `diary.json` | Chronological diary entries with rewatch flag |
 | `lists.json` | All collaborative lists |
 | `letterboxd.json` | Per-user Letterboxd sync settings (username, auto-sync, last-synced state) |
+| `follows.json` *(new in 1.5)* | Per-user follow graph |
+| `privacy.json` *(new in 1.5)* | Per-user privacy flags (hide stats / activity / followers / etc) |
 
 Back them up or migrate them like any other data file — no database required.
 

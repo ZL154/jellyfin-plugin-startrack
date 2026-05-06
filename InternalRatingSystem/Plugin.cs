@@ -40,6 +40,12 @@ namespace Jellyfin.Plugin.InternalRating
         /// <summary>Shared collaborative lists repository.</summary>
         public ListsRepository Lists { get; }
 
+        /// <summary>Per-user privacy settings (hide-from-members, hide-follower-count).</summary>
+        public PrivacyRepository Privacy { get; }
+
+        /// <summary>Follow graph: who follows whom.</summary>
+        public FollowsRepository Follows { get; }
+
         public Plugin(IApplicationPaths applicationPaths, IXmlSerializer xmlSerializer)
             : base(applicationPaths, xmlSerializer)
         {
@@ -49,6 +55,8 @@ namespace Jellyfin.Plugin.InternalRating
             Interactions       = new UserInteractionsRepository(applicationPaths);
             Diary              = new DiaryRepository(applicationPaths);
             Lists              = new ListsRepository(applicationPaths);
+            Privacy            = new PrivacyRepository(applicationPaths);
+            Follows            = new FollowsRepository(applicationPaths);
         }
 
         /// <inheritdoc />

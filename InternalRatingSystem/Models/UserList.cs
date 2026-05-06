@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
 namespace Jellyfin.Plugin.InternalRating.Models
@@ -16,6 +17,10 @@ namespace Jellyfin.Plugin.InternalRating.Models
         [JsonPropertyName("name")]         public string Name         { get; set; } = string.Empty;
         [JsonPropertyName("description")]  public string? Description { get; set; }
         [JsonPropertyName("collaborative")] public bool Collaborative { get; set; } = true;
+        // v1.5.12: opt-in private list. Defaults to false so existing lists
+        // remain publicly visible. Private lists are visible only to the
+        // owner via GetAllLists / GetList.
+        [JsonPropertyName("isPrivate")]    public bool IsPrivate      { get; set; }
         [JsonPropertyName("createdAt")]    public DateTime CreatedAt  { get; set; }
         [JsonPropertyName("items")]        public List<ListItem> Items { get; set; } = new();
     }
@@ -38,9 +43,12 @@ namespace Jellyfin.Plugin.InternalRating.Models
 
     public sealed class CreateListRequest
     {
+        [MaxLength(120)]
         public string? Name          { get; set; }
+        [MaxLength(2000)]
         public string? Description   { get; set; }
         public bool?   Collaborative { get; set; }
+        public bool?   IsPrivate     { get; set; }
     }
 
     public sealed class AddListItemRequest

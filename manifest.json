@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/ZL154/jellyfin-plugin-startrack/main/assets/logo.svg",
     "versions": [
       {
+        "version": "1.5.0.0",
+        "changelog": "Major release. Members tab + profile pages with Letterboxd-style stats (histogram, genres, directors, actors, decades, hours watched, calendar heatmap, on-this-day, most rewatched, year cards). Follow graph with followers/following lists. Activity feed across people you follow or everyone. Compare profile UI: taste-similarity score, side-by-side rating distributions, biggest disagreements, and films you both loved. Dedicated Reviews tab. Privacy toggles (hide from members / follower count / following / stats / recent activity) and optional private lists. Diary now shows a clearer rewatch pill with stars right-aligned. Significant performance work — profile and stats endpoints serve cached data instantly while rebuilding fresh data in the background, plus a server-wide item/people cache so heavy users are no longer slow to load. Includes a security pass across endpoints. No data migration needed; existing files are unchanged.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/ZL154/jellyfin-plugin-startrack/releases/download/v1.5.0/Jellyfin.Plugin.InternalRating_1.5.0.0.zip",
+        "checksum": "9367f4bd6cb3d753aac09e77c555ddfc",
+        "timestamp": "2026-05-06T00:00:00Z"
+      },
+      {
         "version": "1.4.6.0",
         "changelog": "Bug fix: the Rate pill and My Ratings sidebar entry were showing up on Jellyfin's login page and server-picker. New isPreAuthPage() check: hides on any URL matching /login.html, #!/login, #!/addserver, #!/selectserver, #!/wizard, /quickconnect, or when document.body has class 'loginPage', or when no user is logged in yet (no getUserId()). Physically removes the sidebar link + hides the pill so nothing leaks pre-auth.",
         "targetAbi": "10.11.0.0",

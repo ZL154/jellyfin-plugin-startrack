@@ -46,7 +46,10 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                         LastSyncedGuid     = s.LastSyncedGuid,
                         LastSyncedAt       = s.LastSyncedAt,
                         LastImportedCount  = s.LastImportedCount,
-                        LastUnmatchedCount = s.LastUnmatchedCount
+                        LastUnmatchedCount = s.LastUnmatchedCount,
+                        RssETag            = s.RssETag,
+                        RssLastModified    = s.RssLastModified,
+                        LastCheckedAt      = s.LastCheckedAt
                     }
                     : new LetterboxdUserSettings();
             }
@@ -97,6 +100,30 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 if (lastAt  != null)  s.LastSyncedAt   = lastAt;
                 s.LastImportedCount  = imported;
                 s.LastUnmatchedCount = unmatched;
+                await SaveAsync().ConfigureAwait(false);
+            }
+            finally { _lock.Release(); }
+        }
+
+        /// <summary>
+        /// Records the HTTP ETag / Last-Modified headers from the latest RSS
+        /// fetch plus a "checked at" timestamp. Called on every poll regardless
+        /// of whether the feed actually changed, so the next conditional GET
+        /// has fresh validators.
+        /// </summary>
+        public async Task SetRssCacheAsync(string userId, string? etag, string? lastModified, DateTime checkedAt)
+        {
+            await _lock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                if (!_store.Users.TryGetValue(userId, out var s))
+                {
+                    s = new LetterboxdUserSettings();
+                    _store.Users[userId] = s;
+                }
+                if (etag != null)         s.RssETag         = etag;
+                if (lastModified != null) s.RssLastModified = lastModified;
+                s.LastCheckedAt = checkedAt;
                 await SaveAsync().ConfigureAwait(false);
             }
             finally { _lock.Release(); }

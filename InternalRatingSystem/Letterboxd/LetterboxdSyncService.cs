@@ -528,7 +528,45 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             string xml;
             try
             {
-                xml = await _http.GetStringAsync(url).ConfigureAwait(false);
+                // Conditional GET: ask Letterboxd to skip the body if neither
+                // the ETag nor the Last-Modified timestamp has changed since
+                // our last poll. Letterboxd's CDN honors both, so unchanged
+                // feeds come back as 304 Not Modified — a sub-1KB response —
+                // making it cheap to poll every 10 minutes for near-real-time
+                // auto-sync without doing real work each tick.
+                using var req = new HttpRequestMessage(HttpMethod.Get, url);
+                if (!string.IsNullOrWhiteSpace(settings.RssETag))
+                    req.Headers.TryAddWithoutValidation("If-None-Match", settings.RssETag);
+                if (!string.IsNullOrWhiteSpace(settings.RssLastModified))
+                    req.Headers.TryAddWithoutValidation("If-Modified-Since", settings.RssLastModified);
+
+                using var resp = await _http.SendAsync(req).ConfigureAwait(false);
+                var newEtag         = resp.Headers.ETag?.Tag;
+                var newLastModified = resp.Content.Headers.LastModified?.ToString("R");
+
+                if (resp.StatusCode == System.Net.HttpStatusCode.NotModified)
+                {
+                    _logger.LogDebug("[StarTrack] Letterboxd RSS unchanged for {User} (304)", settings.Username);
+                    await _settingsRepo.SetRssCacheAsync(userId,
+                        newEtag ?? settings.RssETag,
+                        newLastModified ?? settings.RssLastModified,
+                        DateTime.UtcNow).ConfigureAwait(false);
+                    result.NotModified = true;
+                    return result;
+                }
+
+                if (!resp.IsSuccessStatusCode)
+                {
+                    var msg = $"HTTP {(int)resp.StatusCode}";
+                    _logger.LogWarning("[StarTrack] Letterboxd RSS fetch failed for {User}: {Msg}", settings.Username, msg);
+                    result.Error = "Could not reach Letterboxd: " + msg;
+                    return result;
+                }
+
+                xml = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+                // Stash the new validators so the next poll can short-circuit.
+                await _settingsRepo.SetRssCacheAsync(userId, newEtag, newLastModified, DateTime.UtcNow).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
