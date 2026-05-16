@@ -666,8 +666,21 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             var ua = _userManager.GetUserById(ag); var ub = _userManager.GetUserById(bg);
             if (ua == null || ub == null) return NotFound();
 
-            var aRatings = await _ratingRepo.GetUserRatingsAsync(ag.ToString("N"), int.MaxValue).ConfigureAwait(false);
-            var bRatings = await _ratingRepo.GetUserRatingsAsync(bg.ToString("N"), int.MaxValue).ConfigureAwait(false);
+            var me = await GetCurrentUserIdAsync().ConfigureAwait(false);
+            if (me == null) return Unauthorized();
+            var meStr = me.Value.ToString("N");
+            var aStr = ag.ToString("N");
+            var bStr = bg.ToString("N");
+            var hidden = await _privacy.GetHiddenUserIdsAsync().ConfigureAwait(false);
+            if ((hidden.Contains(aStr) && !string.Equals(aStr, meStr, StringComparison.OrdinalIgnoreCase)) ||
+                (hidden.Contains(bStr) && !string.Equals(bStr, meStr, StringComparison.OrdinalIgnoreCase)))
+                return NotFound();
+            if ((await _privacy.IsStatsHiddenAsync(aStr).ConfigureAwait(false) && !string.Equals(aStr, meStr, StringComparison.OrdinalIgnoreCase)) ||
+                (await _privacy.IsStatsHiddenAsync(bStr).ConfigureAwait(false) && !string.Equals(bStr, meStr, StringComparison.OrdinalIgnoreCase)))
+                return NotFound();
+
+            var aRatings = await _ratingRepo.GetUserRatingsAsync(aStr, int.MaxValue).ConfigureAwait(false);
+            var bRatings = await _ratingRepo.GetUserRatingsAsync(bStr, int.MaxValue).ConfigureAwait(false);
             var aMap = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
             var bMap = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
             foreach (var r in aRatings) aMap[r.ItemId] = r.Stars;
@@ -802,12 +815,16 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         public async Task<IActionResult> GetFollowers([FromRoute] string userId)
         {
             var me = await GetCurrentUserIdAsync().ConfigureAwait(false);
+            if (!Guid.TryParse(userId, out var target)) return NotFound();
+            var targetStr = target.ToString("N");
             var meStr = me?.ToString("N");
-            var isSelf = string.Equals(userId, meStr, StringComparison.OrdinalIgnoreCase);
-            if (await _privacy.IsFollowerCountHiddenAsync(userId).ConfigureAwait(false) && !isSelf)
+            var isSelf = string.Equals(targetStr, meStr, StringComparison.OrdinalIgnoreCase);
+            var hidden = await _privacy.GetHiddenUserIdsAsync().ConfigureAwait(false);
+            if (hidden.Contains(targetStr) && !isSelf) return NotFound();
+            if (await _privacy.IsFollowerCountHiddenAsync(targetStr).ConfigureAwait(false) && !isSelf)
                 return Ok(new List<MemberCardDto>());
 
-            var ids = await _follows.GetFollowersAsync(userId).ConfigureAwait(false);
+            var ids = await _follows.GetFollowersAsync(targetStr).ConfigureAwait(false);
             return Ok(await BuildMemberCardsAsync(ids).ConfigureAwait(false));
         }
 
@@ -816,12 +833,16 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         public async Task<IActionResult> GetFollowing([FromRoute] string userId)
         {
             var me = await GetCurrentUserIdAsync().ConfigureAwait(false);
+            if (!Guid.TryParse(userId, out var target)) return NotFound();
+            var targetStr = target.ToString("N");
             var meStr = me?.ToString("N");
-            var isSelf = string.Equals(userId, meStr, StringComparison.OrdinalIgnoreCase);
-            if (await _privacy.IsFollowingHiddenAsync(userId).ConfigureAwait(false) && !isSelf)
+            var isSelf = string.Equals(targetStr, meStr, StringComparison.OrdinalIgnoreCase);
+            var hidden = await _privacy.GetHiddenUserIdsAsync().ConfigureAwait(false);
+            if (hidden.Contains(targetStr) && !isSelf) return NotFound();
+            if (await _privacy.IsFollowingHiddenAsync(targetStr).ConfigureAwait(false) && !isSelf)
                 return Ok(new List<MemberCardDto>());
 
-            var ids = await _follows.GetFollowingAsync(userId).ConfigureAwait(false);
+            var ids = await _follows.GetFollowingAsync(targetStr).ConfigureAwait(false);
             return Ok(await BuildMemberCardsAsync(ids).ConfigureAwait(false));
         }
 

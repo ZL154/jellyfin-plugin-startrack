@@ -26,6 +26,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
     public class RatingController : ControllerBase
     {
         private readonly RatingRepository _repository;
+        private readonly PrivacyRepository _privacy;
         private readonly IAuthorizationContext _authContext;
         private readonly ILogger<RatingController> _logger;
 
@@ -37,6 +38,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             ILogger<RatingController> logger)
         {
             _repository  = Plugin.Instance!.Repository;
+            _privacy     = Plugin.Instance!.Privacy;
             _authContext = authContext;
             _logger      = logger;
         }
@@ -138,7 +140,19 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         {
             if (limit < 1) limit = 1;
             if (limit > 100) limit = 100;
-            var result = await _repository.GetRecentAsync(limit).ConfigureAwait(false);
+
+            var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
+            if (userId == null) return Unauthorized();
+            var me = userId.Value.ToString("N");
+            var hiddenActivity = await _privacy.GetActivityHiddenIdsAsync().ConfigureAwait(false);
+            var hiddenMembers = await _privacy.GetHiddenUserIdsAsync().ConfigureAwait(false);
+
+            var result = (await _repository.GetRecentAsync(500).ConfigureAwait(false))
+                .Where(r =>
+                    string.Equals(r.UserId, me, StringComparison.OrdinalIgnoreCase) ||
+                    (!hiddenActivity.Contains(r.UserId) && !hiddenMembers.Contains(r.UserId)))
+                .Take(limit)
+                .ToList();
             return Ok(result);
         }
 

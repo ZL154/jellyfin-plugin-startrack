@@ -94,6 +94,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         /// verify the library is being read correctly.
         /// </summary>
         [HttpGet("Diagnose")]
+        [Authorize(Policy = "RequiresElevation")]
         [ProducesResponseType(typeof(LetterboxdDiagnoseResult), StatusCodes.Status200OK)]
         public async Task<IActionResult> Diagnose()
         {
@@ -199,9 +200,6 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             }
             buffer.Position = 0;
 
-            Stream csvStream;
-            IDisposable? zipGuard = null;
-
             // Two code paths:
             //  A) Raw CSV body → assume it's ratings.csv, import ratings only.
             //  B) ZIP body → extract ratings.csv, watchlist.csv, likes.csv
@@ -220,6 +218,15 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                     // to a flat "likes.csv" for older or alternate exports.
                     var likesEntry   = FindCsvEntry(zip, "likes/films.csv")
                                     ?? FindCsvEntry(zip, "likes.csv");
+
+                    var oversizedEntry = new[] { ratingsEntry, diaryEntry, watchEntry, likesEntry }
+                        .Where(e => e != null)
+                        .FirstOrDefault(e => e!.Length > MaxBytes);
+                    if (oversizedEntry != null)
+                    {
+                        return StatusCode(StatusCodes.Status413PayloadTooLarge,
+                            $"ZIP entry {oversizedEntry.FullName} exceeds the 5 MB CSV limit.");
+                    }
 
                     if (ratingsEntry == null && diaryEntry == null && watchEntry == null && likesEntry == null)
                     {

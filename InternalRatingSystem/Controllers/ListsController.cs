@@ -110,13 +110,19 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         {
             var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
             if (userId == null) return Unauthorized();
+            var userIdStr = userId.Value.ToString("N");
+            var list = await _repo.GetByIdAsync(listId).ConfigureAwait(false);
+            if (list == null) return NotFound();
+            if (list.IsPrivate && !string.Equals(list.OwnerId, userIdStr, StringComparison.OrdinalIgnoreCase))
+                return NotFound();
+
             if (string.IsNullOrWhiteSpace(req.ItemId)) return BadRequest("itemId is required");
             // Reject non-Guid item ids so lists.json can't be polluted with
             // arbitrary string keys (DoS / disk fill via a malicious authenticated user).
             if (!Guid.TryParse(req.ItemId, out _)) return BadRequest("Invalid item id.");
             var added = await _repo.AddItemAsync(
                 listId,
-                userId.Value.ToString("N"),
+                userIdStr,
                 GetCurrentUserName(),
                 req.ItemId!
             ).ConfigureAwait(false);
@@ -129,7 +135,13 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         {
             var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
             if (userId == null) return Unauthorized();
-            var removed = await _repo.RemoveItemAsync(listId, userId.Value.ToString("N"), itemId).ConfigureAwait(false);
+            var userIdStr = userId.Value.ToString("N");
+            var list = await _repo.GetByIdAsync(listId).ConfigureAwait(false);
+            if (list == null) return NotFound();
+            if (list.IsPrivate && !string.Equals(list.OwnerId, userIdStr, StringComparison.OrdinalIgnoreCase))
+                return NotFound();
+
+            var removed = await _repo.RemoveItemAsync(listId, userIdStr, itemId).ConfigureAwait(false);
             return removed ? Ok() : Forbid();
         }
 

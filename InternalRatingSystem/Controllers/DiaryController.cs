@@ -39,6 +39,8 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         {
             var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
             if (userId == null) return Unauthorized();
+            if (limit < 1) limit = 1;
+            if (limit > 10000) limit = 10000;
             return Ok(await _repo.GetEntriesAsync(userId.Value.ToString("N"), limit).ConfigureAwait(false));
         }
 
@@ -49,11 +51,20 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
             if (userId == null) return Unauthorized();
             if (string.IsNullOrWhiteSpace(req.ItemId)) return BadRequest("itemId is required");
+            if (!Guid.TryParse(req.ItemId, out _)) return BadRequest("Invalid item id.");
+            if (req.Stars.HasValue && (req.Stars.Value < 0.5 || req.Stars.Value > 5))
+                return BadRequest("Stars must be between 0.5 and 5.");
+            if ((req.Review?.Length ?? 0) > 1000)
+                return BadRequest("Review too long (max 1000 characters).");
+
+            var watchedAt = req.WatchedAt?.ToUniversalTime() ?? DateTime.UtcNow;
+            if (watchedAt.Year < 1900 || watchedAt > DateTime.UtcNow.AddDays(1))
+                return BadRequest("Watched date is outside the allowed range.");
 
             var entry = new DiaryEntry
             {
                 ItemId    = req.ItemId!,
-                WatchedAt = req.WatchedAt ?? DateTime.UtcNow,
+                WatchedAt = watchedAt,
                 Stars     = req.Stars,
                 Review    = string.IsNullOrWhiteSpace(req.Review) ? null : req.Review.Trim(),
                 Rewatch   = req.Rewatch ?? false
@@ -68,6 +79,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         {
             var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
             if (userId == null) return Unauthorized();
+            if (!Guid.TryParse(entryId, out _)) return BadRequest("Invalid diary entry id.");
             await _repo.DeleteEntryAsync(userId.Value.ToString("N"), entryId).ConfigureAwait(false);
             return Ok();
         }

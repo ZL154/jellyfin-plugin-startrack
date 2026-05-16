@@ -28,6 +28,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
     {
         private readonly UserInteractionsRepository _repo;
         private readonly RatingRepository _ratingRepo;
+        private readonly PrivacyRepository _privacy;
         private readonly ILibraryManager _libraryManager;
         private readonly IAuthorizationContext _authContext;
         private readonly ILogger<InteractionsController> _logger;
@@ -39,6 +40,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         {
             _repo         = Plugin.Instance!.Interactions;
             _ratingRepo   = Plugin.Instance!.Repository;
+            _privacy      = Plugin.Instance!.Privacy;
             _libraryManager = libraryManager;
             _authContext  = authContext;
             _logger       = logger;
@@ -83,6 +85,8 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         {
             var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
             if (userId == null) return Unauthorized();
+            var me = userId.Value.ToString("N");
+            var hiddenMembers = await _privacy.GetHiddenUserIdsAsync().ConfigureAwait(false);
 
             var rows = await _repo.GetEveryonesWatchlistAsync().ConfigureAwait(false);
 
@@ -93,6 +97,11 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             var nameLookup = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (var r in rows)
             {
+                r.UserIds = r.UserIds
+                    .Where(uid => string.Equals(uid, me, StringComparison.OrdinalIgnoreCase) || !hiddenMembers.Contains(uid))
+                    .ToList();
+                if (r.UserIds.Count == 0) continue;
+
                 foreach (var uid in r.UserIds)
                 {
                     if (nameLookup.ContainsKey(uid)) continue;
@@ -111,7 +120,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 r.UserNames = r.UserIds.Select(u => nameLookup.TryGetValue(u, out var n) ? n : u).ToList();
             }
 
-            return Ok(rows);
+            return Ok(rows.Where(r => r.UserIds.Count > 0).ToList());
         }
 
         [HttpPost("Watchlist/{itemId}")]
@@ -219,6 +228,8 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         {
             var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
             if (userId == null) return Unauthorized();
+            if (limit < 1) limit = 1;
+            if (limit > 100) limit = 100;
             var userIdStr = userId.Value.ToString("N");
 
             var myRatings = await _ratingRepo.GetUserRatingsAsync(userIdStr, 10000).ConfigureAwait(false);
