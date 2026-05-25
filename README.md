@@ -7,7 +7,7 @@
 ![Jellyfin](https://img.shields.io/badge/Jellyfin-10.11%2B-CC0000?style=for-the-badge&labelColor=0d0d0d&logo=jellyfin&logoColor=white)
 ![.NET](https://img.shields.io/badge/.NET-9.0-CC0000?style=for-the-badge&labelColor=0d0d0d&logo=dotnet&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-CC0000?style=for-the-badge&labelColor=0d0d0d)
-![Version](https://img.shields.io/badge/Version-1.5.1-CC0000?style=for-the-badge&labelColor=0d0d0d)
+![Version](https://img.shields.io/badge/Version-1.5.2-CC0000?style=for-the-badge&labelColor=0d0d0d)
 
 **Letterboxd-style ratings, watchlist, lists & social layer for Jellyfin**
 
@@ -43,6 +43,10 @@ Designed to integrate cleanly with modern Jellyfin setups. Works on desktop and 
 ---
 
 ## Features
+
+### 🆕 New in 1.5.2
+
+- **Standalone page endpoint** — new `GET /Plugins/StarTrack/StandalonePage` returns a self-contained HTML page that hosts the StarTrack overlay with no surrounding Jellyfin web shell. Useful for embedding the full StarTrack UI inside a WebView (mobile app, smart-TV launcher, third-party clients, kiosk displays, etc.) without re-implementing every screen. Auth is passed in via `?token=...&userId=...` query params (so the embedded view never has to show a login screen), the page seeds Jellyfin's normal credential storage, loads the existing widget script, and auto-opens the My Ratings overlay. Same UI, same data, same REST API — just rendered without the rest of Jellyfin Web in the way. Anonymous endpoint so embedded viewers can fetch the shell before they plant credentials. No behavior change for normal Jellyfin Web users.
 
 ### 🆕 New in 1.5
 
