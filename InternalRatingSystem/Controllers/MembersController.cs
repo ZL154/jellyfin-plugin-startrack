@@ -138,7 +138,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             var myFollowingSet = new HashSet<string>(myFollowing, StringComparer.OrdinalIgnoreCase);
 
             var list = new List<MemberCardDto>();
-            var users = _userManager.Users;
+            var users = _userManager.EnumerateAll();
             if (users == null) return Ok(list);
 
             foreach (var u in users)
@@ -168,7 +168,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 {
                     Id             = idStr,
                     Name           = u.Username ?? string.Empty,
-                    HasImage       = u.ProfileImage?.Path != null,
+                    HasImage       = u.HasProfileImage,
                     RatingsCount   = ratingsList.Count,
                     WatchlistCount = watchlistN,
                     LikesCount     = likesN,
@@ -559,8 +559,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             if (string.Equals(scope, "everyone", StringComparison.OrdinalIgnoreCase))
             {
                 userIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                if (_userManager.Users != null)
-                    foreach (var u in _userManager.Users) if (u != null) userIds.Add(u.Id.ToString("N"));
+                foreach (var u in _userManager.EnumerateAll()) if (u != null) userIds.Add(u.Id.ToString("N"));
             }
             else
             {
@@ -590,27 +589,62 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 if (idStr != meStr && hiddenMembers.Contains(idStr)) continue;
                 var (uname, uimg) = nameMap.TryGetValue(idStr, out var nm) ? nm : (string.Empty, false);
 
+                // v1.5.3 — Dedup rating+diary pairs for the same item+day.
+                // Letterboxd RSS sync writes BOTH a rating AND a diary entry
+                // for every rated film, so the unified activity feed used to
+                // surface each rating twice (once as "rating", once as
+                // "diary"). Group by (itemId, day) and emit one event per
+                // group, preferring the richest variant. Priority order:
+                //   review (diary with text) > rewatch-diary > rating > plain diary
+                // Per-user grouping lives inside the userIds loop so two
+                // different users rating the same film on the same day still
+                // show up as two separate events.
+                var perUserBest = new Dictionary<string, ActivityEntry>(StringComparer.OrdinalIgnoreCase);
+
                 var ratings = await _ratingRepo.GetUserRatingsAsync(idStr, 50).ConfigureAwait(false);
                 foreach (var r in ratings)
                 {
-                    entries.Add(new ActivityEntry
+                    var key = r.ItemId + "|" + r.RatedAt.ToString("yyyy-MM-dd");
+                    var candidate = new ActivityEntry
                     {
                         Kind = "rating",
                         UserId = idStr, UserName = uname, HasImage = uimg,
                         ItemId = r.ItemId, When = r.RatedAt, Stars = r.Stars
-                    });
+                    };
+                    if (!perUserBest.ContainsKey(key))
+                    {
+                        perUserBest[key] = candidate;
+                    }
                 }
+
                 var diary = await _diaryRepo.GetEntriesAsync(idStr, 100).ConfigureAwait(false);
                 foreach (var d in diary)
                 {
-                    entries.Add(new ActivityEntry
+                    var key = d.ItemId + "|" + d.WatchedAt.ToString("yyyy-MM-dd");
+                    var hasReview = !string.IsNullOrWhiteSpace(d.Review);
+                    var diaryEntry = new ActivityEntry
                     {
-                        Kind = string.IsNullOrWhiteSpace(d.Review) ? "diary" : "review",
+                        Kind = hasReview ? "review" : "diary",
                         UserId = idStr, UserName = uname, HasImage = uimg,
                         ItemId = d.ItemId, When = d.WatchedAt, Stars = d.Stars,
                         Rewatch = d.Rewatch, Review = d.Review
-                    });
+                    };
+                    if (!perUserBest.TryGetValue(key, out var existing))
+                    {
+                        perUserBest[key] = diaryEntry;
+                        continue;
+                    }
+                    // Replace existing entry only when the new one is richer.
+                    // review > rewatch-diary > rating > plain diary
+                    var existingRank = RankActivityKind(existing.Kind, existing.Rewatch);
+                    var newRank = RankActivityKind(diaryEntry.Kind, diaryEntry.Rewatch);
+                    if (newRank > existingRank)
+                    {
+                        perUserBest[key] = diaryEntry;
+                    }
                 }
+
+                entries.AddRange(perUserBest.Values);
             }
 
             entries = entries
@@ -618,6 +652,16 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 .Take(Math.Clamp(limit, 1, 500))
                 .ToList();
             return Ok(entries);
+        }
+
+        // Higher rank = richer event, used to pick a representative when a
+        // rating + diary pair both reference the same (user, item, day).
+        private static int RankActivityKind(string? kind, bool rewatch)
+        {
+            if (string.Equals(kind, "review", StringComparison.OrdinalIgnoreCase)) return 3;
+            if (string.Equals(kind, "diary", StringComparison.OrdinalIgnoreCase) && rewatch) return 2;
+            if (string.Equals(kind, "rating", StringComparison.OrdinalIgnoreCase)) return 1;
+            return 0; // plain diary, no rewatch, no review
         }
 
         // ============================ Compare profiles ======================== //
