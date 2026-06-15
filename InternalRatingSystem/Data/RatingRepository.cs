@@ -166,9 +166,9 @@ namespace Jellyfin.Plugin.InternalRating.Data
         }
 
         /// <summary>Returns distinct user IDs that have at least one rating stored.</summary>
-        public IReadOnlyCollection<string> GetUserIdsWithRatings()
+        public async Task<IReadOnlyCollection<string>> GetUserIdsWithRatingsAsync()
         {
-            _lock.Wait();
+            await _lock.WaitAsync().ConfigureAwait(false);
             try
             {
                 return _store.Ratings.Values

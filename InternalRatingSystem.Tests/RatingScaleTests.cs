@@ -19,4 +19,11 @@ public class RatingScaleTests
 
     [Fact]
     public void ToService10_Clamps() => Assert.Equal(10, RatingScale.ToService10(7.0));
+
+    [Fact]
+    public void FromService10_Clamps()
+    {
+        Assert.Equal(0.5, RatingScale.FromService10(0));
+        Assert.Equal(5.0, RatingScale.FromService10(99));
+    }
 }

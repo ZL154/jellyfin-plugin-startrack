@@ -81,6 +81,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         /// POST /Plugins/StarTrack/ExternalSync/Import?format=csv|json
         /// </summary>
         [HttpPost("Import")]
+        [RequestSizeLimit(5 * 1024 * 1024)]
         [Consumes("text/csv", "text/plain", "application/json", "application/octet-stream")]
         [ProducesResponseType(typeof(SyncResult), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -98,8 +99,10 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
 
             // Cap uploads at 5 MB to prevent OOM via unbounded MemoryStream.
             const long MaxBytes = 5L * 1024 * 1024;
-            if (Request.ContentLength is null || Request.ContentLength > MaxBytes)
-                return StatusCode(StatusCodes.Status413PayloadTooLarge, "Upload missing Content-Length or exceeds 5 MB.");
+            // Fast-reject when Content-Length header is present and already over limit.
+            // Chunked-transfer (no Content-Length) is valid and handled by the mid-stream cap below.
+            if (Request.ContentLength > MaxBytes)
+                return StatusCode(StatusCodes.Status413PayloadTooLarge, "Upload exceeds 5 MB.");
 
             // Buffer the body
             using var ms = new System.IO.MemoryStream();
@@ -132,17 +135,29 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 return Ok(new SyncResult { Error = ex.Message });
             }
 
+            if (Plugin.Instance?.Repository is not { } repository)
+            {
+                _logger.LogWarning("[StarTrack] ExternalSync Import: plugin/repository not initialised");
+                return StatusCode(StatusCodes.Status503ServiceUnavailable, "Plugin not ready.");
+            }
+
             var result = new SyncResult();
-            var repository = Plugin.Instance!.Repository;
 
             foreach (var r in parsed)
             {
                 // Try to find the item in the Jellyfin library
                 string? itemId;
                 try { itemId = _resolver.FindItemId(r); }
-                catch { itemId = null; }
+                catch (Exception ex) { _logger.LogWarning(ex, "[StarTrack] FindItemId failed for title={Title}", r.Title); itemId = null; }
 
                 if (itemId == null)
+                {
+                    result.Skipped++;
+                    continue;
+                }
+
+                // Validate star range (matches RatingController which enforces 0.5–5)
+                if (r.Stars < 0.5 || r.Stars > 5)
                 {
                     result.Skipped++;
                     continue;
@@ -180,7 +195,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 if (info?.UserId != null && info.UserId != Guid.Empty)
                     return info.UserId;
             }
-            catch { /* fall through */ }
+            catch (Exception ex) { _logger.LogWarning(ex, "[StarTrack] GetAuthorizationInfo failed; falling back to claims"); }
 
             // Fallback: parse claims (Jellyfin 10.9–10.11 uses "Jellyfin-UserId")
             var value = User.FindFirst("Jellyfin-UserId")?.Value

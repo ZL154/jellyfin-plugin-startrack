@@ -8,10 +8,16 @@ using Xunit;
 namespace Jellyfin.Plugin.InternalRating.Tests
 {
     /// <summary>Minimal IApplicationPaths stub that returns a unique temp directory.</summary>
-    internal sealed class TestPaths : IApplicationPaths
+    internal sealed class TestPaths : IApplicationPaths, IDisposable
     {
         public string DataPath { get; } =
             Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+
+        public void Dispose()
+        {
+            if (Directory.Exists(DataPath))
+                Directory.Delete(DataPath, recursive: true);
+        }
 
         // All other members unused by ExternalSyncSettingsRepository
         public string ProgramDataPath  => throw new NotImplementedException();
@@ -42,7 +48,8 @@ namespace Jellyfin.Plugin.InternalRating.Tests
         [Fact]
         public async Task SaveThenGet_RoundTrips()
         {
-            var repo = new ExternalSyncSettingsRepository(new TestPaths());
+            using var paths = new TestPaths();
+            var repo = new ExternalSyncSettingsRepository(paths);
             await repo.SetConnectionAsync("user1", "Trakt", new ProviderConnection { Direction = SyncDirection.TwoWay, AccessToken = "tok" });
             var got = await repo.GetConnectionAsync("user1", "Trakt");
             Assert.NotNull(got);
@@ -53,7 +60,8 @@ namespace Jellyfin.Plugin.InternalRating.Tests
         [Fact]
         public async Task RemoveThenGet_ReturnsNull()
         {
-            var repo = new ExternalSyncSettingsRepository(new TestPaths());
+            using var paths = new TestPaths();
+            var repo = new ExternalSyncSettingsRepository(paths);
             await repo.SetConnectionAsync("user2", "Simkl", new ProviderConnection { Direction = SyncDirection.ImportOnly, AccessToken = "abc" });
             await repo.RemoveConnectionAsync("user2", "Simkl");
             var got = await repo.GetConnectionAsync("user2", "Simkl");
@@ -63,7 +71,8 @@ namespace Jellyfin.Plugin.InternalRating.Tests
         [Fact]
         public async Task GetAllAsync_ReturnsSavedUser()
         {
-            var repo = new ExternalSyncSettingsRepository(new TestPaths());
+            using var paths = new TestPaths();
+            var repo = new ExternalSyncSettingsRepository(paths);
             await repo.SetConnectionAsync("user3", "Trakt", new ProviderConnection { Direction = SyncDirection.ExportOnly });
             var all = await repo.GetAllAsync();
             Assert.True(all.Users.ContainsKey("user3"));

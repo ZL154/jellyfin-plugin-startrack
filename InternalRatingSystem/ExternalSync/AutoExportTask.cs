@@ -66,7 +66,13 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync
             var exportDir = Path.Combine(_appPaths.DataPath, "InternalRating", "exports");
             Directory.CreateDirectory(exportDir);
 
-            var userIds = Plugin.Instance!.Repository.GetUserIdsWithRatings();
+            if (Plugin.Instance?.Repository is not { } repository)
+            {
+                _logger.LogWarning("[StarTrack] AutoExport: plugin/repository not initialised; skipping");
+                return;
+            }
+
+            var userIds = await repository.GetUserIdsWithRatingsAsync().ConfigureAwait(false);
             if (userIds.Count == 0)
             {
                 _logger.LogInformation("[StarTrack] AutoExportTask: no users with ratings — nothing to export.");

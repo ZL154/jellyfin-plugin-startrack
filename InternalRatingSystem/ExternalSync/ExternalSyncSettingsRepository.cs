@@ -35,7 +35,14 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync
             Load();
         }
 
-        /// <summary>Returns a snapshot of the full store (all users, all providers).</summary>
+        /// <summary>
+        /// Returns a snapshot of the full store (all users, all providers).
+        /// <para>
+        /// REMARK: The returned <see cref="ProviderConnection"/> objects must be treated as
+        /// read-only. To persist changes, call <see cref="SetConnectionAsync"/> — mutating
+        /// objects from this snapshot will NOT be saved and may be overwritten by the next read.
+        /// </para>
+        /// </summary>
         public async Task<ExternalSyncStore> GetAllAsync()
         {
             await _lock.WaitAsync().ConfigureAwait(false);

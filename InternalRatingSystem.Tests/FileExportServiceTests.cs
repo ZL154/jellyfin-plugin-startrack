@@ -144,6 +144,20 @@ namespace Jellyfin.Plugin.InternalRating.Tests
             Assert.Equal(2, parsed.Count);
         }
 
+        [Fact]
+        public void BuildLetterboxdCsv_FormulaInjectionTitle_IsPrefixedWithSingleQuote()
+        {
+            var ratings = new[]
+            {
+                new ExternalRating(null, null, null, "=cmd()", 2020, "movie", 3.0, new DateTime(2024, 1, 1))
+            };
+            var svc = new FileExportService();
+            var csv = svc.BuildLetterboxdCsv(ratings);
+            var lines = csv.Replace("\r\n", "\n").Trim().Split('\n');
+            // The title field must start with a single quote to neutralise formula injection
+            Assert.Contains("'=cmd()", lines[1]);
+        }
+
         // ------------------------------------------------------------------ //
         // ParseJson
         // ------------------------------------------------------------------ //

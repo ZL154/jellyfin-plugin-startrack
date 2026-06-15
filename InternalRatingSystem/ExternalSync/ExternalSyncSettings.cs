@@ -9,6 +9,7 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync
     public sealed class ProviderConnection
     {
         [JsonPropertyName("direction")]     public SyncDirection Direction { get; set; } = SyncDirection.Off;
+        /// SECURITY TODO (Phase 2): AccessToken/RefreshToken/ApiToken must be encrypted at rest (e.g. IDataProtectionProvider) before any live OAuth provider is wired — currently plaintext in external-sync.json.
         [JsonPropertyName("accessToken")]   public string? AccessToken { get; set; }
         [JsonPropertyName("refreshToken")]  public string? RefreshToken { get; set; }
         [JsonPropertyName("tokenExpiresAt")]public DateTime? TokenExpiresAt { get; set; }

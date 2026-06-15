@@ -120,9 +120,19 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync
         /// RFC 4180 CSV escaping: if the value contains a comma, double-quote, or
         /// newline it is wrapped in double-quotes and any internal double-quotes are
         /// doubled.
+        /// Additionally, values starting with <c>=</c>, <c>+</c>, <c>-</c>, <c>@</c>,
+        /// or a tab are prefixed with a single quote to neutralise spreadsheet
+        /// formula injection (CSV injection / formula injection guard).
         /// </summary>
         private static string CsvEscape(string value)
         {
+            // Formula-injection guard: prefix dangerous leading characters with a single quote
+            // so spreadsheet applications treat the cell as literal text.
+            if (value.Length > 0 && (value[0] == '=' || value[0] == '+' || value[0] == '-' || value[0] == '@' || value[0] == '\t'))
+            {
+                value = "'" + value;
+            }
+
             if (value.Contains(',') || value.Contains('"') || value.Contains('\n') || value.Contains('\r'))
             {
                 return "\"" + value.Replace("\"", "\"\"") + "\"";

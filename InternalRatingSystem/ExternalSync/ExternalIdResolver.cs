@@ -146,9 +146,9 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync
                     if (hit != null)
                         return hit.Id.ToString("N");
                 }
-                catch
+                catch (Exception)
                 {
-                    // GetItemList can throw on unsupported query shapes in some
+                    // best-effort: GetItemList can throw on unsupported query shapes in some
                     // Jellyfin builds — fall through to the title scan.
                 }
             }
@@ -186,8 +186,9 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync
 
                 return bestMatch?.Id.ToString("N");
             }
-            catch
+            catch (Exception)
             {
+                // best-effort
                 return null;
             }
         }
