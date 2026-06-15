@@ -1665,9 +1665,9 @@
                             '<div class="ir-ov-es-meta"></div>' +
                             '<div class="ir-ov-es-error" style="display:none"></div>' +
                             '<div class="ir-ov-es-yamtrack-form" style="display:none">' +
-                                '<input type="url" class="ir-ov-es-yamtrack-input ir-ov-es-yamtrack-url" placeholder="Base URL (e.g. https://yamtrack.example.com)" />' +
-                                '<input type="text" class="ir-ov-es-yamtrack-input ir-ov-es-yamtrack-token" placeholder="API token" autocomplete="off" />' +
-                                '<button class="ir-ov-es-btn ir-ov-es-btn-conn ir-ov-es-ym-form-conn">Connect</button>' +
+                                '<input type="url" class="ir-ov-es-yamtrack-input ir-ov-es-yamtrack-url" placeholder="' + esc(tr('external_sync.yamtrack_url_placeholder', null, 'Base URL (e.g. https://yamtrack.example.com)')) + '" />' +
+                                '<input type="text" class="ir-ov-es-yamtrack-input ir-ov-es-yamtrack-token" placeholder="' + esc(tr('external_sync.yamtrack_token_placeholder', null, 'API token')) + '" autocomplete="off" />' +
+                                '<button class="ir-ov-es-btn ir-ov-es-btn-conn ir-ov-es-ym-form-conn">' + esc(tr('external_sync.btn_connect_form', null, 'Connect')) + '</button>' +
                             '</div>' +
                             '<div class="ir-ov-es-controls">' +
                                 '<select class="ir-ov-es-dir" title="Sync direction" style="display:none">' +
@@ -6807,41 +6807,41 @@
                 '</label>' +
                 // Server-side privacy toggles. Persist across browsers and gate
                 // server-side responses (Members list and profile fetches).
-                '<label class="ir-prefs-row" style="display:flex;gap:12px;align-items:center;padding:14px 0;border-top:1px solid rgba(255,255,255,.08);cursor:pointer">' +
-                    '<div style="flex:1;min-width:0">' +
-                        '<div style="color:#fff;font-size:.95em">Hide me from Members</div>' +
-                        '<div style="color:rgba(255,255,255,.5);font-size:.78em;margin-top:3px">Other users won’t see your card or be able to open your profile.</div>' +
-                    '</div>' +
-                    '<span class="ir-toggle"><input type="checkbox" id="ir-prefs-hidemember" /><span class="ir-toggle-track"><span class="ir-toggle-thumb"></span></span></span>' +
-                '</label>' +
-                '<label class="ir-prefs-row" style="display:flex;gap:12px;align-items:center;padding:14px 0;border-top:1px solid rgba(255,255,255,.08);cursor:pointer">' +
-                    '<div style="flex:1;min-width:0">' +
-                        '<div style="color:#fff;font-size:.95em">Hide my followers</div>' +
-                        '<div style="color:rgba(255,255,255,.5);font-size:.78em;margin-top:3px">Your follower count and follower list will be hidden from others. You’ll still see them yourself.</div>' +
-                    '</div>' +
-                    '<span class="ir-toggle"><input type="checkbox" id="ir-prefs-hidefollow" /><span class="ir-toggle-track"><span class="ir-toggle-thumb"></span></span></span>' +
-                '</label>' +
-                '<label class="ir-prefs-row" style="display:flex;gap:12px;align-items:center;padding:14px 0;border-top:1px solid rgba(255,255,255,.08);cursor:pointer">' +
-                    '<div style="flex:1;min-width:0">' +
-                        '<div style="color:#fff;font-size:.95em">Hide who I follow</div>' +
-                        '<div style="color:rgba(255,255,255,.5);font-size:.78em;margin-top:3px">Your following count and list will be hidden from others. You’ll still see them yourself.</div>' +
-                    '</div>' +
-                    '<span class="ir-toggle"><input type="checkbox" id="ir-prefs-hidefollowing" /><span class="ir-toggle-track"><span class="ir-toggle-thumb"></span></span></span>' +
-                '</label>' +
-                '<label class="ir-prefs-row" style="display:flex;gap:12px;align-items:center;padding:14px 0;border-top:1px solid rgba(255,255,255,.08);cursor:pointer">' +
-                    '<div style="flex:1;min-width:0">' +
-                        '<div style="color:#fff;font-size:.95em">Hide my stats</div>' +
-                        '<div style="color:rgba(255,255,255,.5);font-size:.78em;margin-top:3px">Activity timeline, top genres / directors / actors, year breakdown and decade chart will be hidden from others. You still see your own.</div>' +
-                    '</div>' +
-                    '<span class="ir-toggle"><input type="checkbox" id="ir-prefs-hidestats" /><span class="ir-toggle-track"><span class="ir-toggle-thumb"></span></span></span>' +
-                '</label>' +
-                '<label class="ir-prefs-row" style="display:flex;gap:12px;align-items:center;padding:14px 0;border-top:1px solid rgba(255,255,255,.08);cursor:pointer">' +
-                    '<div style="flex:1;min-width:0">' +
-                        '<div style="color:#fff;font-size:.95em">Hide my recent activity</div>' +
-                        '<div style="color:rgba(255,255,255,.5);font-size:.78em;margin-top:3px">Your ratings, diary entries and reviews won’t appear in the Activity feed for other users. You still see your own activity.</div>' +
-                    '</div>' +
-                    '<span class="ir-toggle"><input type="checkbox" id="ir-prefs-hideactivity" /><span class="ir-toggle-track"><span class="ir-toggle-thumb"></span></span></span>' +
-                '</label>' +
+                ‘<label class="ir-prefs-row" style="display:flex;gap:12px;align-items:center;padding:14px 0;border-top:1px solid rgba(255,255,255,.08);cursor:pointer">’ +
+                    ‘<div style="flex:1;min-width:0">’ +
+                        ‘<div style="color:#fff;font-size:.95em">’ + esc(tr(‘prefs.hide_from_members’, null, ‘Hide me from Members’)) + ‘</div>’ +
+                        ‘<div style="color:rgba(255,255,255,.5);font-size:.78em;margin-top:3px">’ + esc(tr(‘prefs.hide_from_members_sub’, null, ‘Other users won’t see your card or be able to open your profile.’)) + ‘</div>’ +
+                    ‘</div>’ +
+                    ‘<span class="ir-toggle"><input type="checkbox" id="ir-prefs-hidemember" /><span class="ir-toggle-track"><span class="ir-toggle-thumb"></span></span></span>’ +
+                ‘</label>’ +
+                ‘<label class="ir-prefs-row" style="display:flex;gap:12px;align-items:center;padding:14px 0;border-top:1px solid rgba(255,255,255,.08);cursor:pointer">’ +
+                    ‘<div style="flex:1;min-width:0">’ +
+                        ‘<div style="color:#fff;font-size:.95em">’ + esc(tr(‘prefs.hide_followers’, null, ‘Hide my followers’)) + ‘</div>’ +
+                        ‘<div style="color:rgba(255,255,255,.5);font-size:.78em;margin-top:3px">’ + esc(tr(‘prefs.hide_followers_sub’, null, ‘Your follower count and follower list will be hidden from others. You’ll still see them yourself.’)) + ‘</div>’ +
+                    ‘</div>’ +
+                    ‘<span class="ir-toggle"><input type="checkbox" id="ir-prefs-hidefollow" /><span class="ir-toggle-track"><span class="ir-toggle-thumb"></span></span></span>’ +
+                ‘</label>’ +
+                ‘<label class="ir-prefs-row" style="display:flex;gap:12px;align-items:center;padding:14px 0;border-top:1px solid rgba(255,255,255,.08);cursor:pointer">’ +
+                    ‘<div style="flex:1;min-width:0">’ +
+                        ‘<div style="color:#fff;font-size:.95em">’ + esc(tr(‘prefs.hide_following’, null, ‘Hide who I follow’)) + ‘</div>’ +
+                        ‘<div style="color:rgba(255,255,255,.5);font-size:.78em;margin-top:3px">’ + esc(tr(‘prefs.hide_following_sub’, null, ‘Your following count and list will be hidden from others. You’ll still see them yourself.’)) + ‘</div>’ +
+                    ‘</div>’ +
+                    ‘<span class="ir-toggle"><input type="checkbox" id="ir-prefs-hidefollowing" /><span class="ir-toggle-track"><span class="ir-toggle-thumb"></span></span></span>’ +
+                ‘</label>’ +
+                ‘<label class="ir-prefs-row" style="display:flex;gap:12px;align-items:center;padding:14px 0;border-top:1px solid rgba(255,255,255,.08);cursor:pointer">’ +
+                    ‘<div style="flex:1;min-width:0">’ +
+                        ‘<div style="color:#fff;font-size:.95em">’ + esc(tr(‘prefs.hide_stats’, null, ‘Hide my stats’)) + ‘</div>’ +
+                        ‘<div style="color:rgba(255,255,255,.5);font-size:.78em;margin-top:3px">’ + esc(tr(‘prefs.hide_stats_sub’, null, ‘Activity timeline, top genres / directors / actors, year breakdown and decade chart will be hidden from others. You still see your own.’)) + ‘</div>’ +
+                    ‘</div>’ +
+                    ‘<span class="ir-toggle"><input type="checkbox" id="ir-prefs-hidestats" /><span class="ir-toggle-track"><span class="ir-toggle-thumb"></span></span></span>’ +
+                ‘</label>’ +
+                ‘<label class="ir-prefs-row" style="display:flex;gap:12px;align-items:center;padding:14px 0;border-top:1px solid rgba(255,255,255,.08);cursor:pointer">’ +
+                    ‘<div style="flex:1;min-width:0">’ +
+                        ‘<div style="color:#fff;font-size:.95em">’ + esc(tr(‘prefs.hide_activity’, null, ‘Hide my recent activity’)) + ‘</div>’ +
+                        ‘<div style="color:rgba(255,255,255,.5);font-size:.78em;margin-top:3px">’ + esc(tr(‘prefs.hide_activity_sub’, null, ‘Your ratings, diary entries and reviews won’t appear in the Activity feed for other users. You still see your own activity.’)) + ‘</div>’ +
+                    ‘</div>’ +
+                    ‘<span class="ir-toggle"><input type="checkbox" id="ir-prefs-hideactivity" /><span class="ir-toggle-track"><span class="ir-toggle-thumb"></span></span></span>’ +
+                ‘</label>’ +
                 '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:22px;padding-top:16px;border-top:1px solid rgba(255,255,255,.08)">' +
                     '<button id="ir-prefs-cancel" style="background:transparent;color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:8px 18px;cursor:pointer;font-size:.88em">' + esc(tr('btn.cancel', null, 'Cancel')) + '</button>' +
                     '<button id="ir-prefs-save" style="background:#f4c430;color:#111;border:none;border-radius:8px;padding:8px 20px;cursor:pointer;font-weight:700;font-size:.88em">' + esc(tr('admin.save', null, 'Save')) + '</button>' +
