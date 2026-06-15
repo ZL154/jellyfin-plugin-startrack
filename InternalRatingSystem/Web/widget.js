@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
     'use strict';
 
     console.log('[StarTrack] widget.js loaded — v1.4.6');
@@ -493,6 +493,50 @@
             '.ir-ov-sort option{background:#141414!important;color:#fff!important}',
             '.ir-ov-close{background:none!important;border:1px solid rgba(200,30,30,.4)!important;color:rgba(220,100,100,.8)!important;border-radius:8px!important;padding:8px 18px!important;font-size:.8em!important;font-weight:600!important;cursor:pointer!important;transition:all .15s!important;white-space:nowrap!important;letter-spacing:.02em!important}',
             '.ir-ov-close:hover{background:rgba(180,20,20,.15)!important;border-color:#cc2020!important;color:#ff8080!important}',
+            // Overlay External Sync button + panel (ir-es-*)
+            '.ir-ov-es{background:none!important;border:1px solid rgba(100,180,255,.35)!important;color:rgba(100,180,255,.85)!important;border-radius:8px!important;padding:8px 16px!important;font-size:.8em!important;font-weight:600!important;cursor:pointer!important;transition:all .15s!important;white-space:nowrap!important;letter-spacing:.02em!important}',
+            '.ir-ov-es:hover{background:rgba(100,180,255,.1)!important;border-color:#64b4ff!important;color:#fff!important}',
+            '.ir-ov-es.ir-ov-es-active{background:rgba(100,180,255,.16)!important;border-color:#64b4ff!important;color:#fff!important}',
+            '.ir-ov-es-panel{background:#111620!important;border:1px solid rgba(100,180,255,.2)!important;border-radius:10px!important;padding:14px 18px!important;margin:0 0 14px!important}',
+            '.ir-ov-es-providers{display:flex!important;flex-direction:column!important;gap:12px!important}',
+            '.ir-ov-es-provider{background:#161c2a!important;border:1px solid rgba(255,255,255,.1)!important;border-radius:8px!important;padding:12px 14px!important;display:flex!important;flex-direction:column!important;gap:8px!important}',
+            '.ir-ov-es-provider-head{display:flex!important;align-items:center!important;gap:10px!important;flex-wrap:wrap!important}',
+            '.ir-ov-es-provider-name{font-size:.85em!important;font-weight:700!important;color:#fff!important;flex:1!important;min-width:80px!important}',
+            '.ir-ov-es-badge{font-size:.7em!important;font-weight:700!important;padding:2px 8px!important;border-radius:12px!important;white-space:nowrap!important}',
+            '.ir-ov-es-badge-connected{background:rgba(82,181,75,.2)!important;color:#7fd97a!important;border:1px solid rgba(82,181,75,.4)!important}',
+            '.ir-ov-es-badge-disconnected{background:rgba(255,255,255,.06)!important;color:rgba(255,255,255,.45)!important;border:1px solid rgba(255,255,255,.12)!important}',
+            '.ir-ov-es-meta{font-size:.72em!important;color:rgba(255,255,255,.45)!important;line-height:1.5!important}',
+            '.ir-ov-es-meta span{color:rgba(255,255,255,.65)!important}',
+            '.ir-ov-es-error{font-size:.72em!important;color:#ff8080!important;line-height:1.4!important;margin-top:2px!important}',
+            '.ir-ov-es-controls{display:flex!important;align-items:center!important;gap:8px!important;flex-wrap:wrap!important}',
+            '.ir-ov-es-dir{background:rgba(255,255,255,.05)!important;border:1px solid rgba(255,255,255,.14)!important;border-radius:6px!important;color:#fff!important;font-size:.78em!important;padding:6px 10px!important;outline:none!important;cursor:pointer!important;transition:border-color .15s!important}',
+            '.ir-ov-es-dir:focus{border-color:rgba(100,180,255,.5)!important}',
+            '.ir-ov-es-dir option{background:#141414!important;color:#fff!important}',
+            '.ir-ov-es-btn{background:rgba(255,255,255,.08)!important;color:rgba(255,255,255,.85)!important;border:1px solid rgba(255,255,255,.18)!important;border-radius:6px!important;padding:6px 12px!important;font-size:.78em!important;font-weight:600!important;cursor:pointer!important;transition:all .15s!important;white-space:nowrap!important}',
+            '.ir-ov-es-btn:hover{background:rgba(255,255,255,.15)!important;border-color:rgba(255,255,255,.35)!important;color:#fff!important}',
+            '.ir-ov-es-btn:disabled{opacity:.45!important;cursor:not-allowed!important}',
+            '.ir-ov-es-btn-sync{background:rgba(100,180,255,.12)!important;color:#64b4ff!important;border-color:rgba(100,180,255,.35)!important}',
+            '.ir-ov-es-btn-sync:hover{background:rgba(100,180,255,.22)!important;border-color:#64b4ff!important;color:#fff!important}',
+            '.ir-ov-es-btn-disc{background:rgba(200,30,30,.1)!important;color:rgba(255,140,140,.85)!important;border-color:rgba(200,30,30,.3)!important}',
+            '.ir-ov-es-btn-disc:hover{background:rgba(200,30,30,.2)!important;border-color:#cc2020!important;color:#ff8080!important}',
+            '.ir-ov-es-btn-conn{background:rgba(82,181,75,.14)!important;color:#7fd97a!important;border-color:rgba(82,181,75,.4)!important}',
+            '.ir-ov-es-btn-conn:hover{background:rgba(82,181,75,.24)!important;border-color:#52b54b!important;color:#fff!important}',
+            '.ir-ov-es-status{font-size:.75em!important;color:rgba(255,255,255,.6)!important;margin-top:4px!important;line-height:1.5!important;min-height:1em!important;padding:6px 10px!important;background:rgba(0,0,0,.3)!important;border-radius:5px!important;display:none!important}',
+            '.ir-ov-es-status.ir-ov-es-vis{display:block!important}',
+            '.ir-ov-es-status.ir-ov-es-ok{color:#7fd97a!important}',
+            '.ir-ov-es-status.ir-ov-es-err{color:#ff8080!important}',
+            '.ir-ov-es-auth-box{padding:8px 10px!important;background:rgba(100,180,255,.06)!important;border:1px solid rgba(100,180,255,.2)!important;border-radius:6px!important;font-size:.78em!important;line-height:1.6!important}',
+            '.ir-ov-es-auth-code{font-size:1.4em!important;font-weight:800!important;letter-spacing:.15em!important;color:#f4c430!important;font-family:ui-monospace,Menlo,Consolas,monospace!important}',
+            '.ir-ov-es-auth-link{color:#64b4ff!important;text-decoration:underline!important;word-break:break-all!important}',
+            '.ir-ov-es-yamtrack-form{display:flex!important;align-items:center!important;gap:8px!important;flex-wrap:wrap!important}',
+            '.ir-ov-es-yamtrack-input{background:rgba(255,255,255,.05)!important;border:1px solid rgba(255,255,255,.14)!important;border-radius:6px!important;color:#fff!important;font-size:.78em!important;padding:6px 10px!important;outline:none!important;transition:border-color .15s!important;min-width:120px!important;flex:1!important}',
+            '.ir-ov-es-yamtrack-input:focus{border-color:rgba(100,180,255,.5)!important}',
+            '.ir-ov-es-yamtrack-input::placeholder{color:rgba(255,255,255,.25)!important}',
+            '.ir-ov-es-io-row{display:flex!important;align-items:center!important;gap:8px!important;flex-wrap:wrap!important;margin-top:6px!important;padding-top:8px!important;border-top:1px solid rgba(255,255,255,.06)!important}',
+            '.ir-ov-es-io-label{font-size:.72em!important;color:rgba(255,255,255,.5)!important;font-weight:700!important;text-transform:uppercase!important;letter-spacing:.05em!important;white-space:nowrap!important}',
+            '.ir-ov-es-import-label{display:inline-flex!important;align-items:center!important;cursor:pointer!important;background:rgba(255,255,255,.06)!important;border:1px dashed rgba(255,255,255,.22)!important;border-radius:6px!important;padding:6px 12px!important;font-size:.78em!important;color:rgba(255,255,255,.75)!important;font-weight:600!important;transition:all .15s!important}',
+            '.ir-ov-es-import-label:hover{background:rgba(100,180,255,.1)!important;border-color:#64b4ff!important;color:#fff!important}',
+            '.ir-ov-es-import-label input{display:none!important}',
             // Overlay Letterboxd button + dropdown panel
             '.ir-ov-lb{background:none!important;border:1px solid rgba(244,196,48,.35)!important;color:rgba(244,196,48,.85)!important;border-radius:8px!important;padding:8px 16px!important;font-size:.8em!important;font-weight:600!important;cursor:pointer!important;transition:all .15s!important;white-space:nowrap!important;letter-spacing:.02em!important}',
             '.ir-ov-lb:hover{background:rgba(244,196,48,.12)!important;border-color:#f4c430!important;color:#fff!important}',
@@ -754,7 +798,7 @@
                 '.ir-ov-count{order:2!important;flex:0 0 auto!important;font-size:.65em!important;padding:3px 8px!important}' +
                 '.ir-ov-sort,.ir-ov-starfilter{flex:1 1 calc(50% - 4px)!important;font-size:.72em!important;padding:7px 10px!important;min-width:0!important}' +
                 '.ir-ov-search{flex:1 1 100%!important;font-size:.78em!important;min-width:0!important}' +
-                '.ir-ov-export,.ir-ov-lb,.ir-ov-close{font-size:.7em!important;padding:7px 10px!important}' +
+                '.ir-ov-export,.ir-ov-lb,.ir-ov-es,.ir-ov-close{font-size:.7em!important;padding:7px 10px!important}' +
                 '.ir-ov-views{padding:8px 0 4px!important;gap:4px!important;overflow-x:auto!important;flex-wrap:nowrap!important;scrollbar-width:none!important;-webkit-overflow-scrolling:touch!important}' +
                 '.ir-ov-views::-webkit-scrollbar{display:none!important}' +
                 '.ir-ov-view{font-size:.7em!important;padding:7px 10px!important;flex:0 0 auto!important;white-space:nowrap!important}' +
@@ -790,6 +834,12 @@
                 '.ir-ov-review-meta{font-size:.7em!important;gap:6px!important}' +
                 '.ir-ov-review-text{font-size:.78em!important;padding-left:10px!important}' +
                 '.ir-ov-lists-grid{grid-template-columns:1fr!important}' +
+                '.ir-ov-es-panel{padding:12px 14px!important;margin:0 0 12px!important;box-sizing:border-box!important;max-width:100%!important;overflow:hidden!important}' +
+                '.ir-ov-es-provider{padding:10px 12px!important}' +
+                '.ir-ov-es-controls{gap:6px!important}' +
+                '.ir-ov-es-btn{font-size:.72em!important;padding:7px 10px!important}' +
+                '.ir-ov-es-yamtrack-form{flex-direction:column!important;align-items:stretch!important}' +
+                '.ir-ov-es-yamtrack-input{max-width:100%!important;width:100%!important}' +
                 '.ir-modal{max-width:calc(100vw - 24px)!important;max-height:90vh!important;margin:12px!important}' +
                 '.ir-modal-head{padding:14px 16px!important}' +
                 '.ir-modal-body{padding:14px 16px!important;gap:10px!important}' +
@@ -1551,8 +1601,97 @@
                     '<input type="text" class="ir-ov-search" placeholder="Search titles\u2026" />' +
                     '<button class="ir-ov-export" title="Export ratings as Letterboxd-compatible CSV">\u21E9 Export</button>' +
                     '<button class="ir-ov-lb">\u2699 Letterboxd</button>' +
+                    '<button class="ir-ov-es">⇄ External Sync</button>' +
                     '<button class="ir-ov-prefs" title="User preferences">\u2699 Preferences</button>' +
                     '<button class="ir-ov-close">\u2715 Close</button>' +
+                '</div>' +
+                // External Sync panel (collapsible, mirrors Letterboxd panel pattern)
+                '<div class="ir-ov-es-panel" style="display:none">' +
+                    '<div class="ir-ov-es-providers">' +
+                        '<div class="ir-ov-es-provider" data-es-provider="Trakt">' +
+                            '<div class="ir-ov-es-provider-head">' +
+                                '<span class="ir-ov-es-provider-name">Trakt</span>' +
+                                '<span class="ir-ov-es-badge ir-ov-es-badge-disconnected">Not connected</span>' +
+                            '</div>' +
+                            '<div class="ir-ov-es-meta"></div>' +
+                            '<div class="ir-ov-es-error" style="display:none"></div>' +
+                            '<div class="ir-ov-es-auth-box" style="display:none">' +
+                                'Go to <a class="ir-ov-es-auth-link" href="#" target="_blank" rel="noopener"></a> and enter:<br>' +
+                                '<span class="ir-ov-es-auth-code"></span>' +
+                            '</div>' +
+                            '<div class="ir-ov-es-controls">' +
+                                '<select class="ir-ov-es-dir" title="Sync direction" style="display:none">' +
+                                    '<option value="Off">Off</option>' +
+                                    '<option value="ExportOnly">Export only</option>' +
+                                    '<option value="ImportOnly">Import only</option>' +
+                                    '<option value="TwoWay">Two-way</option>' +
+                                '</select>' +
+                                '<button class="ir-ov-es-btn ir-ov-es-btn-sync" style="display:none">⇄ Sync now</button>' +
+                                '<button class="ir-ov-es-btn ir-ov-es-btn-disc" style="display:none">Disconnect</button>' +
+                                '<button class="ir-ov-es-btn ir-ov-es-btn-conn">Connect Trakt</button>' +
+                            '</div>' +
+                            '<div class="ir-ov-es-status"></div>' +
+                        '</div>' +
+                        '<div class="ir-ov-es-provider" data-es-provider="Simkl">' +
+                            '<div class="ir-ov-es-provider-head">' +
+                                '<span class="ir-ov-es-provider-name">Simkl</span>' +
+                                '<span class="ir-ov-es-badge ir-ov-es-badge-disconnected">Not connected</span>' +
+                            '</div>' +
+                            '<div class="ir-ov-es-meta"></div>' +
+                            '<div class="ir-ov-es-error" style="display:none"></div>' +
+                            '<div class="ir-ov-es-auth-box" style="display:none">' +
+                                'Go to <a class="ir-ov-es-auth-link" href="#" target="_blank" rel="noopener"></a> and enter:<br>' +
+                                '<span class="ir-ov-es-auth-code"></span>' +
+                            '</div>' +
+                            '<div class="ir-ov-es-controls">' +
+                                '<select class="ir-ov-es-dir" title="Sync direction" style="display:none">' +
+                                    '<option value="Off">Off</option>' +
+                                    '<option value="ExportOnly">Export only</option>' +
+                                    '<option value="ImportOnly">Import only</option>' +
+                                    '<option value="TwoWay">Two-way</option>' +
+                                '</select>' +
+                                '<button class="ir-ov-es-btn ir-ov-es-btn-sync" style="display:none">⇄ Sync now</button>' +
+                                '<button class="ir-ov-es-btn ir-ov-es-btn-disc" style="display:none">Disconnect</button>' +
+                                '<button class="ir-ov-es-btn ir-ov-es-btn-conn">Connect Simkl</button>' +
+                            '</div>' +
+                            '<div class="ir-ov-es-status"></div>' +
+                        '</div>' +
+                        '<div class="ir-ov-es-provider" data-es-provider="Yamtrack">' +
+                            '<div class="ir-ov-es-provider-head">' +
+                                '<span class="ir-ov-es-provider-name">Yamtrack</span>' +
+                                '<span class="ir-ov-es-badge ir-ov-es-badge-disconnected">Not connected</span>' +
+                            '</div>' +
+                            '<div class="ir-ov-es-meta"></div>' +
+                            '<div class="ir-ov-es-error" style="display:none"></div>' +
+                            '<div class="ir-ov-es-yamtrack-form" style="display:none">' +
+                                '<input type="url" class="ir-ov-es-yamtrack-input ir-ov-es-yamtrack-url" placeholder="Base URL (e.g. https://yamtrack.example.com)" />' +
+                                '<input type="text" class="ir-ov-es-yamtrack-input ir-ov-es-yamtrack-token" placeholder="API token" autocomplete="off" />' +
+                                '<button class="ir-ov-es-btn ir-ov-es-btn-conn ir-ov-es-ym-form-conn">Connect</button>' +
+                            '</div>' +
+                            '<div class="ir-ov-es-controls">' +
+                                '<select class="ir-ov-es-dir" title="Sync direction" style="display:none">' +
+                                    '<option value="Off">Off</option>' +
+                                    '<option value="ExportOnly">Export only</option>' +
+                                    '<option value="ImportOnly">Import only</option>' +
+                                    '<option value="TwoWay">Two-way</option>' +
+                                '</select>' +
+                                '<button class="ir-ov-es-btn ir-ov-es-btn-sync" style="display:none">⇄ Sync now</button>' +
+                                '<button class="ir-ov-es-btn ir-ov-es-btn-disc" style="display:none">Disconnect</button>' +
+                                '<button class="ir-ov-es-btn ir-ov-es-btn-conn ir-ov-es-ym-main-conn" style="display:none">Connect Yamtrack</button>' +
+                            '</div>' +
+                            '<div class="ir-ov-es-status"></div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="ir-ov-es-io-row">' +
+                        '<span class="ir-ov-es-io-label">Export / Import</span>' +
+                        '<button class="ir-ov-es-btn ir-ov-es-btn-export-csv">⇩ CSV</button>' +
+                        '<button class="ir-ov-es-btn ir-ov-es-btn-export-json">⇩ JSON</button>' +
+                        '<label class="ir-ov-es-import-label">' +
+                            '<input type="file" accept=".csv,.json,text/csv,application/json" class="ir-ov-es-import-file" />' +
+                            '⇧ Import file' +
+                        '</label>' +
+                        '<span class="ir-ov-es-status ir-ov-es-io-status"></span>' +
+                    '</div>' +
                 '</div>' +
                 // v1.2.0 — view selector (what kind of data to show)
                 '<div class="ir-ov-views">' +
@@ -1934,6 +2073,343 @@
             reader.onerror = function () { ovLbShowStatus('Could not read file.', 'err', null); };
             reader.readAsArrayBuffer(file);
         });
+        // ── Overlay External Sync panel wiring ──────────────────────────
+        (function () {
+            var esBtn   = _overlay.querySelector('.ir-ov-es');
+            var esPanel = _overlay.querySelector('.ir-ov-es-panel');
+            if (!esBtn || !esPanel) return;
+
+            // Provider cards — keyed by data-es-provider
+            var _esStatus = {};       // { provider: { connected, direction, lastSyncedAt, lastError, ... } }
+            var _esPollTimers = {};   // device-auth polling timers
+
+            function esPick(o, cc, pc) {
+                if (!o) return undefined;
+                if (o[cc] !== undefined) return o[cc];
+                if (o[pc] !== undefined) return o[pc];
+                return undefined;
+            }
+
+            function esFormatMeta(s) {
+                var parts = [];
+                var dir = esPick(s, 'direction', 'Direction') || 'Off';
+                if (dir && dir !== 'Off') parts.push('Direction: ' + dir.replace(/([A-Z])/g, ' $1').trim());
+                var last = esPick(s, 'lastSyncedAt', 'LastSyncedAt');
+                if (last) parts.push('Last sync: ' + timeAgo(last));
+                var pushed = esPick(s, 'lastPushed', 'LastPushed');
+                var pulled = esPick(s, 'lastPulled', 'LastPulled');
+                if (pushed != null || pulled != null) {
+                    var io = [];
+                    if (pushed != null) io.push('pushed ' + pushed);
+                    if (pulled != null) io.push('pulled ' + pulled);
+                    parts.push(io.join(', '));
+                }
+                return parts.join(' · ');
+            }
+
+            function esRenderCard(card, s) {
+                var provider  = card.getAttribute('data-es-provider');
+                var connected = esPick(s, 'connected', 'Connected') || false;
+                var dir       = esPick(s, 'direction', 'Direction') || 'Off';
+                var lastErr   = esPick(s, 'lastError', 'LastError') || '';
+
+                var badge    = card.querySelector('.ir-ov-es-badge');
+                var metaEl   = card.querySelector('.ir-ov-es-meta');
+                var errEl    = card.querySelector('.ir-ov-es-error');
+                var authBox  = card.querySelector('.ir-ov-es-auth-box');
+                var dirSel   = card.querySelector('.ir-ov-es-dir');
+                var syncBtn  = card.querySelector('.ir-ov-es-btn-sync');
+                var discBtn  = card.querySelector('.ir-ov-es-btn-disc');
+                var connBtn  = card.querySelector('.ir-ov-es-btn-conn:not(.ir-ov-es-ym-form-conn):not(.ir-ov-es-ym-main-conn),.ir-ov-es-btn-conn.ir-ov-es-ym-main-conn');
+                var ymForm   = card.querySelector('.ir-ov-es-yamtrack-form');
+                var statusEl = card.querySelector('.ir-ov-es-status');
+
+                // Badge
+                if (badge) {
+                    badge.textContent = connected ? 'Connected' : 'Not connected';
+                    badge.className = 'ir-ov-es-badge ' + (connected ? 'ir-ov-es-badge-connected' : 'ir-ov-es-badge-disconnected');
+                }
+
+                // Meta info
+                if (metaEl) metaEl.innerHTML = connected ? esc(esFormatMeta(s)) : '';
+
+                // Error
+                if (errEl) {
+                    errEl.textContent = lastErr || '';
+                    errEl.style.display = lastErr ? '' : 'none';
+                }
+
+                // Auth box — hide when rendering status (only shown during active auth flow)
+                if (authBox) authBox.style.display = 'none';
+
+                // Direction dropdown — only when connected
+                if (dirSel) {
+                    dirSel.style.display = connected ? '' : 'none';
+                    if (connected) {
+                        for (var i = 0; i < dirSel.options.length; i++) {
+                            dirSel.options[i].selected = (dirSel.options[i].value === dir);
+                        }
+                    }
+                }
+
+                // Sync / Disconnect — only when connected
+                if (syncBtn) syncBtn.style.display = connected ? '' : 'none';
+                if (discBtn) discBtn.style.display = connected ? '' : 'none';
+
+                // Connect button / Yamtrack form — only when NOT connected
+                if (provider === 'Yamtrack') {
+                    if (ymForm) ymForm.style.display = connected ? 'none' : '';
+                    var ymMainConn = card.querySelector('.ir-ov-es-ym-main-conn');
+                    if (ymMainConn) ymMainConn.style.display = 'none'; // form-conn is the entry point
+                    var ymFormConn = card.querySelector('.ir-ov-es-ym-form-conn');
+                    if (ymFormConn) ymFormConn.style.display = connected ? 'none' : '';
+                } else {
+                    var mainConn = card.querySelector('.ir-ov-es-btn-conn:not(.ir-ov-es-ym-form-conn):not(.ir-ov-es-ym-main-conn)');
+                    if (mainConn) mainConn.style.display = connected ? 'none' : '';
+                }
+
+                // Clear status
+                if (statusEl) {
+                    statusEl.className = 'ir-ov-es-status';
+                    statusEl.textContent = '';
+                }
+            }
+
+            function esShowStatus(card, text, kind) {
+                var el = card.querySelector('.ir-ov-es-status');
+                if (!el) return;
+                el.className = 'ir-ov-es-status ir-ov-es-vis' + (kind === 'ok' ? ' ir-ov-es-ok' : kind === 'err' ? ' ir-ov-es-err' : '');
+                el.textContent = text;
+            }
+
+            function esLoadStatus() {
+                apiEsGetStatus().then(function (arr) {
+                    if (!arr) return;
+                    arr.forEach(function (s) {
+                        var p = esPick(s, 'provider', 'Provider') || '';
+                        _esStatus[p] = s;
+                        var card = esPanel.querySelector('[data-es-provider="' + p + '"]');
+                        if (card) esRenderCard(card, s);
+                    });
+                });
+            }
+
+            // Toggle panel open/close
+            esBtn.addEventListener('click', function () {
+                var opening = esPanel.style.display === 'none';
+                esPanel.style.display = opening ? 'block' : 'none';
+                esBtn.classList.toggle('ir-ov-es-active', opening);
+                if (opening) esLoadStatus();
+            });
+
+            // Wire up each provider card
+            esPanel.querySelectorAll('.ir-ov-es-provider').forEach(function (card) {
+                var provider = card.getAttribute('data-es-provider');
+                var authBox  = card.querySelector('.ir-ov-es-auth-box');
+                var authLink = card.querySelector('.ir-ov-es-auth-link');
+                var authCode = card.querySelector('.ir-ov-es-auth-code');
+                var dirSel   = card.querySelector('.ir-ov-es-dir');
+                var syncBtn  = card.querySelector('.ir-ov-es-btn-sync');
+                var discBtn  = card.querySelector('.ir-ov-es-btn-disc');
+
+                // Direction change
+                if (dirSel) {
+                    dirSel.addEventListener('change', function () {
+                        var dir = dirSel.value;
+                        apiEsSetDirection(provider, dir).then(function (ok) {
+                            esShowStatus(card, ok ? 'Direction saved.' : 'Failed to save direction.', ok ? 'ok' : 'err');
+                        });
+                    });
+                }
+
+                // Sync now
+                if (syncBtn) {
+                    syncBtn.addEventListener('click', function () {
+                        syncBtn.disabled = true;
+                        esShowStatus(card, 'Syncing…', '');
+                        apiEsSync(provider).then(function (r) {
+                            syncBtn.disabled = false;
+                            if (!r) { esShowStatus(card, 'Sync failed.', 'err'); return; }
+                            var err = esPick(r, 'error', 'Error');
+                            if (err) { esShowStatus(card, err, 'err'); return; }
+                            var pushed  = esPick(r, 'pushed', 'Pushed') || 0;
+                            var pulled  = esPick(r, 'pulled', 'Pulled') || 0;
+                            var skipped = esPick(r, 'skipped', 'Skipped') || 0;
+                            esShowStatus(card, 'Done: pushed ' + pushed + ', pulled ' + pulled + ', skipped ' + skipped + '.', 'ok');
+                            esLoadStatus();
+                        });
+                    });
+                }
+
+                // Disconnect
+                if (discBtn) {
+                    discBtn.addEventListener('click', function () {
+                        if (!window.confirm('Disconnect ' + provider + '?')) return;
+                        discBtn.disabled = true;
+                        apiEsDisconnect(provider).then(function (ok) {
+                            discBtn.disabled = false;
+                            if (ok) {
+                                esLoadStatus();
+                            } else {
+                                esShowStatus(card, 'Disconnect failed.', 'err');
+                            }
+                        });
+                    });
+                }
+
+                // Provider-specific connect flows
+                if (provider === 'Trakt' || provider === 'Simkl') {
+                    var connBtn = card.querySelector('.ir-ov-es-btn-conn:not(.ir-ov-es-ym-form-conn):not(.ir-ov-es-ym-main-conn)');
+                    if (connBtn) {
+                        connBtn.addEventListener('click', function () {
+                            connBtn.disabled = true;
+                            esShowStatus(card, 'Starting auth…', '');
+                            apiEsStartAuth(provider).then(function (data) {
+                                if (!data) {
+                                    connBtn.disabled = false;
+                                    esShowStatus(card, 'Could not start auth.', 'err');
+                                    return;
+                                }
+                                var userCode  = esPick(data, 'userCode', 'UserCode') || '';
+                                var verifyUrl = esPick(data, 'verificationUrl', 'VerificationUrl') || '';
+                                var devCode   = esPick(data, 'deviceCode', 'DeviceCode') || '';
+                                var interval  = esPick(data, 'interval', 'Interval') || 5;
+
+                                // Show auth box
+                                if (authCode) authCode.textContent = userCode;
+                                if (authLink) { authLink.href = verifyUrl; authLink.textContent = verifyUrl; }
+                                if (authBox) authBox.style.display = 'block';
+                                esShowStatus(card, 'Enter the code above at the link, then wait…', '');
+
+                                // Poll until connected
+                                var attempts = 0;
+                                var maxAttempts = Math.floor(300 / Math.max(interval, 1));
+                                var tid = setInterval(function () {
+                                    attempts++;
+                                    if (attempts > maxAttempts) {
+                                        clearInterval(tid);
+                                        delete _esPollTimers[provider];
+                                        connBtn.disabled = false;
+                                        if (authBox) authBox.style.display = 'none';
+                                        esShowStatus(card, 'Auth timed out. Try again.', 'err');
+                                        return;
+                                    }
+                                    apiEsPollAuth(provider).then(function (res) {
+                                        if (!res) return;
+                                        var status = esPick(res, 'status', 'Status') || '';
+                                        if (status === 'connected') {
+                                            clearInterval(tid);
+                                            delete _esPollTimers[provider];
+                                            connBtn.disabled = false;
+                                            if (authBox) authBox.style.display = 'none';
+                                            esShowStatus(card, 'Connected!', 'ok');
+                                            esLoadStatus();
+                                        }
+                                    });
+                                }, interval * 1000);
+                                _esPollTimers[provider] = tid;
+                            });
+                        });
+                    }
+                }
+
+                if (provider === 'Yamtrack') {
+                    var ymFormConn = card.querySelector('.ir-ov-es-ym-form-conn');
+                    if (ymFormConn) {
+                        ymFormConn.addEventListener('click', function () {
+                            var urlEl   = card.querySelector('.ir-ov-es-yamtrack-url');
+                            var tokenEl = card.querySelector('.ir-ov-es-yamtrack-token');
+                            var baseUrl = (urlEl ? urlEl.value : '').trim();
+                            var apiToken = (tokenEl ? tokenEl.value : '').trim();
+                            if (!baseUrl || !apiToken) {
+                                esShowStatus(card, 'Enter both a base URL and an API token.', 'err');
+                                return;
+                            }
+                            ymFormConn.disabled = true;
+                            esShowStatus(card, 'Connecting…', '');
+                            apiEsYamtrackConnect(baseUrl, apiToken).then(function (ok) {
+                                ymFormConn.disabled = false;
+                                if (ok) {
+                                    esShowStatus(card, 'Connected!', 'ok');
+                                    esLoadStatus();
+                                } else {
+                                    esShowStatus(card, 'Connection failed. Check URL and token.', 'err');
+                                }
+                            });
+                        });
+                    }
+                }
+            });
+
+            // Export buttons
+            var exportCsvBtn  = esPanel.querySelector('.ir-ov-es-btn-export-csv');
+            var exportJsonBtn = esPanel.querySelector('.ir-ov-es-btn-export-json');
+            var importFile    = esPanel.querySelector('.ir-ov-es-import-file');
+            var ioStatus      = esPanel.querySelector('.ir-ov-es-io-status');
+
+            function esIoStatus(text, kind) {
+                if (!ioStatus) return;
+                ioStatus.className = 'ir-ov-es-status ir-ov-es-io-status ir-ov-es-vis' + (kind === 'ok' ? ' ir-ov-es-ok' : kind === 'err' ? ' ir-ov-es-err' : '');
+                ioStatus.textContent = text;
+            }
+
+            function triggerEsDownload(format) {
+                var auth = getAuth(); if (!auth) return;
+                fetch('/Plugins/StarTrack/ExternalSync/Export?format=' + format, { headers: { Authorization: auth } })
+                    .then(function (r) {
+                        if (!r.ok) { esIoStatus('Export failed.', 'err'); return null; }
+                        return r.blob();
+                    })
+                    .then(function (blob) {
+                        if (!blob) return;
+                        var a = document.createElement('a');
+                        var url = URL.createObjectURL(blob);
+                        a.href = url;
+                        a.download = 'startrack-export.' + format;
+                        document.body.appendChild(a);
+                        a.click();
+                        setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 0);
+                        esIoStatus('Export downloaded.', 'ok');
+                    })
+                    .catch(function () { esIoStatus('Export failed.', 'err'); });
+            }
+
+            if (exportCsvBtn)  exportCsvBtn.addEventListener('click',  function () { triggerEsDownload('csv'); });
+            if (exportJsonBtn) exportJsonBtn.addEventListener('click', function () { triggerEsDownload('json'); });
+
+            if (importFile) {
+                importFile.addEventListener('change', function () {
+                    var file = importFile.files && importFile.files[0];
+                    if (!file) return;
+                    if (file.size > 10 * 1024 * 1024) {
+                        esIoStatus('File too large (max 10 MB).', 'err');
+                        importFile.value = '';
+                        return;
+                    }
+                    esIoStatus('Importing ' + file.name + '…', '');
+                    var auth = getAuth(); if (!auth) return;
+                    var formData = new FormData();
+                    formData.append('file', file);
+                    fetch('/Plugins/StarTrack/ExternalSync/Import', {
+                        method: 'POST',
+                        headers: { Authorization: auth },
+                        body: formData
+                    }).then(function (r) { return r.ok ? r.json() : null; })
+                      .then(function (res) {
+                          importFile.value = '';
+                          if (!res) { esIoStatus('Import failed.', 'err'); return; }
+                          var err = esPick(res, 'error', 'Error');
+                          if (err) { esIoStatus(err, 'err'); return; }
+                          var pushed  = esPick(res, 'pushed', 'Pushed') || 0;
+                          var pulled  = esPick(res, 'pulled', 'Pulled') || 0;
+                          var skipped = esPick(res, 'skipped', 'Skipped') || 0;
+                          esIoStatus('Imported: pushed ' + pushed + ', pulled ' + pulled + ', skipped ' + skipped + '.', 'ok');
+                      })
+                      .catch(function () { importFile.value = ''; esIoStatus('Import failed.', 'err'); });
+                });
+            }
+        })();
+
         _overlay.querySelectorAll('.ir-ov-tab').forEach(function (tab) {
             tab.addEventListener('click', function () {
                 _activeTab = tab.dataset.tab;
@@ -5365,6 +5841,71 @@
             headers: { Authorization: auth }
         }).then(function (r) { return r.ok ? r.json() : null; })
           .catch(function () { return null; });
+    }
+
+    // ── External Sync API helpers ─────────────────────────────────────────
+
+    function apiEsGetStatus() {
+        var auth = getAuth(); if (!auth) return Promise.resolve(null);
+        return fetch('/Plugins/StarTrack/ExternalSync/Status', { headers: { Authorization: auth } })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .catch(function () { return null; });
+    }
+
+    function apiEsStartAuth(provider) {
+        var auth = getAuth(); if (!auth) return Promise.resolve(null);
+        return fetch('/Plugins/StarTrack/ExternalSync/' + encodeURIComponent(provider) + '/StartAuth', {
+            method: 'POST',
+            headers: { Authorization: auth }
+        }).then(function (r) { return r.ok ? r.json() : null; })
+          .catch(function () { return null; });
+    }
+
+    function apiEsPollAuth(provider) {
+        var auth = getAuth(); if (!auth) return Promise.resolve(null);
+        return fetch('/Plugins/StarTrack/ExternalSync/' + encodeURIComponent(provider) + '/PollAuth', {
+            method: 'POST',
+            headers: { Authorization: auth }
+        }).then(function (r) { return r.ok ? r.json() : null; })
+          .catch(function () { return null; });
+    }
+
+    function apiEsYamtrackConnect(baseUrl, apiToken) {
+        var auth = getAuth(); if (!auth) return Promise.resolve(false);
+        return fetch('/Plugins/StarTrack/ExternalSync/Yamtrack/Connect', {
+            method: 'POST',
+            headers: { Authorization: auth, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ baseUrl: baseUrl, apiToken: apiToken })
+        }).then(function (r) { return r.ok; })
+          .catch(function () { return false; });
+    }
+
+    function apiEsSetDirection(provider, direction) {
+        var auth = getAuth(); if (!auth) return Promise.resolve(false);
+        return fetch('/Plugins/StarTrack/ExternalSync/' + encodeURIComponent(provider) + '/SetDirection', {
+            method: 'POST',
+            headers: { Authorization: auth, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ direction: direction })
+        }).then(function (r) { return r.ok; })
+          .catch(function () { return false; });
+    }
+
+    function apiEsSync(provider) {
+        var auth = getAuth(); if (!auth) return Promise.resolve(null);
+        return fetch('/Plugins/StarTrack/ExternalSync/' + encodeURIComponent(provider) + '/Sync', {
+            method: 'POST',
+            headers: { Authorization: auth }
+        }).then(function (r) { return r.ok ? r.json() : null; })
+          .catch(function () { return null; });
+    }
+
+    function apiEsDisconnect(provider) {
+        var auth = getAuth(); if (!auth) return Promise.resolve(false);
+        return fetch('/Plugins/StarTrack/ExternalSync/' + encodeURIComponent(provider) + '/Disconnect', {
+            method: 'POST',
+            headers: { Authorization: auth }
+        }).then(function (r) { return r.ok; })
+          .catch(function () { return false; });
     }
 
     // ── Interactions API (watchlist / likes / favorites / recommendations) ─
