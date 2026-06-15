@@ -87,14 +87,16 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync.Providers
 
         /// <summary>
         /// Ctor used by both production code and unit tests.
-        /// Production code should resolve clientId/Secret from
-        /// <c>Plugin.Instance!.Configuration.TraktClientId</c> etc. and pass them in.
+        /// When <paramref name="clientId"/> or <paramref name="clientSecret"/> are
+        /// omitted (null), the live plugin configuration is consulted at call time
+        /// so that tests can still inject explicit values while production code
+        /// picks up the admin-configured credentials automatically.
         /// </summary>
-        public TraktProvider(HttpClient http, string clientId, string clientSecret)
+        public TraktProvider(HttpClient http, string? clientId = null, string? clientSecret = null)
         {
-            _http         = http         ?? throw new ArgumentNullException(nameof(http));
-            _clientId     = clientId     ?? throw new ArgumentNullException(nameof(clientId));
-            _clientSecret = clientSecret ?? throw new ArgumentNullException(nameof(clientSecret));
+            _http         = http ?? throw new ArgumentNullException(nameof(http));
+            _clientId     = clientId     ?? Plugin.Instance?.Configuration.TraktClientId     ?? string.Empty;
+            _clientSecret = clientSecret ?? Plugin.Instance?.Configuration.TraktClientSecret ?? string.Empty;
             _oauth        = new DeviceCodeOAuth(http);
         }
 

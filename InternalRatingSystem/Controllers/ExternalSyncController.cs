@@ -1,8 +1,14 @@
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net.Mime;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.InternalRating.ExternalSync;
+using Jellyfin.Plugin.InternalRating.ExternalSync.Providers;
+using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -12,7 +18,7 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.InternalRating.Controllers
 {
     /// <summary>
-    /// Export / import endpoints for StarTrack ratings.
+    /// Export / import + OAuth / external-sync endpoints for StarTrack ratings.
     /// All routes require a valid Jellyfin session token.
     /// Route prefix: /Plugins/StarTrack/ExternalSync
     /// </summary>
@@ -22,25 +28,57 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
     [Produces(MediaTypeNames.Application.Json)]
     public class ExternalSyncController : ControllerBase
     {
+        // ------------------------------------------------------------------ //
+        // Server-side cache for in-flight device-code flows.
+        // Key = "{userId}:{providerKey}" (lowercase), Value = (DeviceCode, ExpiresAt)
+        // ------------------------------------------------------------------ //
+        private static readonly ConcurrentDictionary<string, (string DeviceCode, DateTime ExpiresAt)>
+            _pendingCodes = new(StringComparer.OrdinalIgnoreCase);
+
+        // Trakt API constants
+        private const string TraktCodeEndpoint  = "https://api.trakt.tv/oauth/device/code";
+        private const string TraktTokenEndpoint = "https://api.trakt.tv/oauth/device/token";
+
         private readonly RatingGatherer _gatherer;
         private readonly ExternalIdResolver _resolver;
         private readonly FileExportService _exportService;
         private readonly IAuthorizationContext _authContext;
         private readonly ILogger<ExternalSyncController> _logger;
 
+        // New dependencies for OAuth / sync endpoints
+        private readonly DeviceCodeOAuth _deviceCodeOAuth;
+        private readonly SyncOrchestrator _orchestrator;
+        private readonly ExternalSyncSettingsRepository _settingsRepo;
+        private readonly IEnumerable<IExternalRatingProvider> _providers;
+        private readonly IUserManager _userManager;
+
         public ExternalSyncController(
             RatingGatherer gatherer,
             ExternalIdResolver resolver,
             FileExportService exportService,
             IAuthorizationContext authContext,
-            ILogger<ExternalSyncController> logger)
+            ILogger<ExternalSyncController> logger,
+            DeviceCodeOAuth deviceCodeOAuth,
+            SyncOrchestrator orchestrator,
+            ExternalSyncSettingsRepository settingsRepo,
+            IEnumerable<IExternalRatingProvider> providers,
+            IUserManager userManager)
         {
-            _gatherer      = gatherer;
-            _resolver      = resolver;
-            _exportService = exportService;
-            _authContext   = authContext;
-            _logger        = logger;
+            _gatherer        = gatherer;
+            _resolver        = resolver;
+            _exportService   = exportService;
+            _authContext     = authContext;
+            _logger          = logger;
+            _deviceCodeOAuth = deviceCodeOAuth;
+            _orchestrator    = orchestrator;
+            _settingsRepo    = settingsRepo;
+            _providers       = providers;
+            _userManager     = userManager;
         }
+
+        // ================================================================== //
+        // File export / import (existing)
+        // ================================================================== //
 
         /// <summary>
         /// Exports the current user's StarTrack ratings as a downloadable CSV or JSON file.
@@ -99,8 +137,6 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
 
             // Cap uploads at 5 MB to prevent OOM via unbounded MemoryStream.
             const long MaxBytes = 5L * 1024 * 1024;
-            // Fast-reject when Content-Length header is present and already over limit.
-            // Chunked-transfer (no Content-Length) is valid and handled by the mid-stream cap below.
             if (Request.ContentLength > MaxBytes)
                 return StatusCode(StatusCodes.Status413PayloadTooLarge, "Upload exceeds 5 MB.");
 
@@ -182,6 +218,367 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             return Ok(result);
         }
 
+        // ================================================================== //
+        // OAuth device-code flow (Task 15)
+        // ================================================================== //
+
+        /// <summary>
+        /// Starts a device-code OAuth flow for the specified provider.
+        /// POST /Plugins/StarTrack/ExternalSync/{provider}/StartAuth
+        /// Currently supports: trakt
+        /// </summary>
+        [HttpPost("{provider}/StartAuth")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> StartAuth(string provider, CancellationToken ct)
+        {
+            var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
+            if (userId == null) return Unauthorized();
+
+            var pid = ParseProvider(provider);
+            if (pid == null)
+                return BadRequest(new { error = $"Unknown provider '{provider}'" });
+
+            if (pid == ProviderId.Trakt)
+            {
+                var clientId = Plugin.Instance?.Configuration.TraktClientId ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(clientId))
+                    return BadRequest(new { error = "Trakt app not configured" });
+
+                var clientSecret = Plugin.Instance?.Configuration.TraktClientSecret ?? string.Empty;
+
+                var bodyForm = new Dictionary<string, string>
+                {
+                    ["client_id"]     = clientId,
+                    ["client_secret"] = clientSecret
+                };
+                var headers = new Dictionary<string, string>
+                {
+                    ["trakt-api-version"] = "2",
+                    ["trakt-api-key"]     = clientId
+                };
+
+                DeviceCodeInfo info;
+                try
+                {
+                    info = await _deviceCodeOAuth.RequestCodeAsync(TraktCodeEndpoint, bodyForm, headers, ct)
+                        .ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[StarTrack] StartAuth Trakt device-code request failed");
+                    return StatusCode(StatusCodes.Status502BadGateway, new { error = ex.Message });
+                }
+
+                // Cache the device_code server-side so PollAuth can use it.
+                var cacheKey = $"{userId.Value:N}:{provider.ToLowerInvariant()}";
+                var expiresAt = DateTime.UtcNow.AddSeconds(info.ExpiresInSeconds);
+                _pendingCodes[cacheKey] = (info.DeviceCode, expiresAt);
+
+                _logger.LogInformation("[StarTrack] StartAuth Trakt: userCode={Code} expiresAt={Exp}",
+                    info.UserCode, expiresAt);
+
+                return Ok(new
+                {
+                    userCode        = info.UserCode,
+                    verificationUrl = info.VerificationUrl,
+                    deviceCode      = info.DeviceCode,
+                    interval        = info.IntervalSeconds
+                });
+            }
+
+            // Simkl: not yet wired (will mirror Trakt pattern in a follow-up)
+            // Yamtrack: uses API token, not device-code — use /Yamtrack/Connect instead
+            return BadRequest(new { error = $"Provider '{provider}' does not support device-code auth. Use /Connect for token-based providers." });
+        }
+
+        /// <summary>
+        /// Polls the token endpoint once for the in-flight device-code flow.
+        /// POST /Plugins/StarTrack/ExternalSync/{provider}/PollAuth
+        /// Returns {status:"pending"} while the user hasn't approved yet,
+        /// or {status:"connected"} on success.
+        /// </summary>
+        [HttpPost("{provider}/PollAuth")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> PollAuth(string provider, CancellationToken ct)
+        {
+            var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
+            if (userId == null) return Unauthorized();
+
+            var pid = ParseProvider(provider);
+            if (pid == null)
+                return BadRequest(new { error = $"Unknown provider '{provider}'" });
+
+            var cacheKey = $"{userId.Value:N}:{provider.ToLowerInvariant()}";
+            if (!_pendingCodes.TryGetValue(cacheKey, out var cached))
+                return BadRequest(new { error = "No active device-code flow. Call StartAuth first." });
+
+            if (DateTime.UtcNow > cached.ExpiresAt)
+            {
+                _pendingCodes.TryRemove(cacheKey, out _);
+                return BadRequest(new { error = "Device code expired. Call StartAuth to restart." });
+            }
+
+            if (pid == ProviderId.Trakt)
+            {
+                var clientId     = Plugin.Instance?.Configuration.TraktClientId     ?? string.Empty;
+                var clientSecret = Plugin.Instance?.Configuration.TraktClientSecret ?? string.Empty;
+
+                var bodyForm = new Dictionary<string, string>
+                {
+                    ["code"]          = cached.DeviceCode,
+                    ["client_id"]     = clientId,
+                    ["client_secret"] = clientSecret
+                };
+                var headers = new Dictionary<string, string>
+                {
+                    ["trakt-api-version"] = "2",
+                    ["trakt-api-key"]     = clientId
+                };
+
+                TokenResult? token;
+                try
+                {
+                    token = await _deviceCodeOAuth.PollOnceAsync(TraktTokenEndpoint, bodyForm, headers, ct)
+                        .ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[StarTrack] PollAuth Trakt failed");
+                    return StatusCode(StatusCodes.Status502BadGateway, new { error = ex.Message });
+                }
+
+                if (token == null)
+                    return Ok(new { status = "pending" });
+
+                // Token obtained — persist the connection.
+                var userIdStr    = userId.Value.ToString("N");
+                var providerKey  = pid.Value.ToString();  // "Trakt"
+                var conn = await _settingsRepo.GetConnectionAsync(userIdStr, providerKey).ConfigureAwait(false)
+                           ?? new ProviderConnection();
+
+                conn.AccessToken    = token.AccessToken;
+                conn.RefreshToken   = token.RefreshToken;
+                conn.TokenExpiresAt = token.ExpiresAt;
+                if (conn.Direction == SyncDirection.Off)
+                    conn.Direction = SyncDirection.TwoWay;
+
+                await _settingsRepo.SetConnectionAsync(userIdStr, providerKey, conn).ConfigureAwait(false);
+
+                // Clear the cached device-code now that auth is complete.
+                _pendingCodes.TryRemove(cacheKey, out _);
+
+                _logger.LogInformation("[StarTrack] PollAuth Trakt: connected for user={User}", userIdStr);
+                return Ok(new { status = "connected" });
+            }
+
+            return BadRequest(new { error = $"Provider '{provider}' does not support device-code polling." });
+        }
+
+        // ================================================================== //
+        // Status, direction, sync, disconnect (Task 15 cont.)
+        // ================================================================== //
+
+        /// <summary>
+        /// Returns connection status for all providers for the current user.
+        /// GET /Plugins/StarTrack/ExternalSync/Status
+        /// Never returns tokens.
+        /// </summary>
+        [HttpGet("Status")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> GetStatus()
+        {
+            var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
+            if (userId == null) return Unauthorized();
+
+            var userIdStr = userId.Value.ToString("N");
+            var statuses  = new List<object>();
+
+            foreach (ProviderId pid in Enum.GetValues<ProviderId>())
+            {
+                var key  = pid.ToString();
+                var conn = await _settingsRepo.GetConnectionAsync(userIdStr, key).ConfigureAwait(false);
+
+                statuses.Add(new
+                {
+                    provider     = key.ToLowerInvariant(),
+                    connected    = conn != null && (!string.IsNullOrEmpty(conn.AccessToken) || !string.IsNullOrEmpty(conn.ApiToken)),
+                    direction    = conn?.Direction.ToString() ?? SyncDirection.Off.ToString(),
+                    lastSyncedAt = conn?.LastSyncedAt,
+                    lastPushed   = conn?.LastPushed ?? 0,
+                    lastPulled   = conn?.LastPulled ?? 0,
+                    lastError    = conn?.LastError
+                });
+            }
+
+            return Ok(statuses);
+        }
+
+        /// <summary>
+        /// Updates the sync direction for a provider connection.
+        /// POST /Plugins/StarTrack/ExternalSync/{provider}/SetDirection
+        /// Body: { "direction": "Off|ExportOnly|ImportOnly|TwoWay" }
+        /// </summary>
+        [HttpPost("{provider}/SetDirection")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> SetDirection(string provider, [FromBody] SetDirectionRequest req)
+        {
+            var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
+            if (userId == null) return Unauthorized();
+
+            var pid = ParseProvider(provider);
+            if (pid == null)
+                return BadRequest(new { error = $"Unknown provider '{provider}'" });
+
+            if (!Enum.TryParse<SyncDirection>(req.Direction, ignoreCase: true, out var direction))
+                return BadRequest(new { error = $"Unknown direction '{req.Direction}'" });
+
+            var userIdStr   = userId.Value.ToString("N");
+            var providerKey = pid.Value.ToString();
+            var conn = await _settingsRepo.GetConnectionAsync(userIdStr, providerKey).ConfigureAwait(false)
+                       ?? new ProviderConnection();
+
+            conn.Direction = direction;
+            await _settingsRepo.SetConnectionAsync(userIdStr, providerKey, conn).ConfigureAwait(false);
+
+            _logger.LogInformation("[StarTrack] SetDirection {User}/{Key} → {Dir}", userIdStr, providerKey, direction);
+            return Ok(new { direction = direction.ToString() });
+        }
+
+        /// <summary>
+        /// Triggers an immediate sync for the specified provider.
+        /// POST /Plugins/StarTrack/ExternalSync/{provider}/Sync
+        /// </summary>
+        [HttpPost("{provider}/Sync")]
+        [ProducesResponseType(typeof(SyncResult), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> SyncNow(string provider, CancellationToken ct)
+        {
+            var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
+            if (userId == null) return Unauthorized();
+
+            var pid = ParseProvider(provider);
+            if (pid == null)
+                return BadRequest(new { error = $"Unknown provider '{provider}'" });
+
+            var userIdStr   = userId.Value.ToString("N");
+            var providerKey = pid.Value.ToString();
+
+            var conn = await _settingsRepo.GetConnectionAsync(userIdStr, providerKey).ConfigureAwait(false);
+            if (conn == null || conn.Direction == SyncDirection.Off)
+                return BadRequest(new { error = "Provider not connected or direction is Off." });
+
+            var prov = GetProvider(pid.Value);
+            if (prov == null)
+                return BadRequest(new { error = $"Provider '{provider}' is not registered in DI." });
+
+            // Resolve username via IUserManager (same pattern as LetterboxdSyncTask).
+            string userName = GetCurrentUserName();
+            try
+            {
+                var user = _userManager.GetUserById(userId.Value);
+                if (user != null) userName = user.Username;
+            }
+            catch { }
+
+            _logger.LogInformation("[StarTrack] SyncNow {User}/{Key} direction={Dir}", userIdStr, providerKey, conn.Direction);
+
+            var result = await _orchestrator.SyncOneAsync(userIdStr, userName, prov, conn, ct).ConfigureAwait(false);
+
+            // Persist mutated connection state (LastSyncedAt, LastPushed, etc.).
+            await _settingsRepo.SetConnectionAsync(userIdStr, providerKey, conn).ConfigureAwait(false);
+
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Disconnects the specified provider, removing all stored credentials.
+        /// POST /Plugins/StarTrack/ExternalSync/{provider}/Disconnect
+        /// </summary>
+        [HttpPost("{provider}/Disconnect")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> Disconnect(string provider)
+        {
+            var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
+            if (userId == null) return Unauthorized();
+
+            var pid = ParseProvider(provider);
+            if (pid == null)
+                return BadRequest(new { error = $"Unknown provider '{provider}'" });
+
+            var userIdStr   = userId.Value.ToString("N");
+            var providerKey = pid.Value.ToString();
+
+            await _settingsRepo.RemoveConnectionAsync(userIdStr, providerKey).ConfigureAwait(false);
+
+            // Also evict any pending device-code cache entry.
+            _pendingCodes.TryRemove($"{userId.Value:N}:{provider.ToLowerInvariant()}", out _);
+
+            _logger.LogInformation("[StarTrack] Disconnect {User}/{Key}", userIdStr, providerKey);
+            return Ok(new { disconnected = true });
+        }
+
+        /// <summary>
+        /// Stores Yamtrack API credentials (baseUrl + apiToken).
+        /// POST /Plugins/StarTrack/ExternalSync/Yamtrack/Connect
+        /// Body: { "baseUrl": "...", "apiToken": "..." }
+        /// </summary>
+        [HttpPost("Yamtrack/Connect")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> YamtrackConnect([FromBody] YamtrackConnectRequest req)
+        {
+            var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
+            if (userId == null) return Unauthorized();
+
+            if (string.IsNullOrWhiteSpace(req.BaseUrl) || string.IsNullOrWhiteSpace(req.ApiToken))
+                return BadRequest(new { error = "baseUrl and apiToken are required." });
+
+            var userIdStr   = userId.Value.ToString("N");
+            var providerKey = ProviderId.Yamtrack.ToString();
+
+            var conn = await _settingsRepo.GetConnectionAsync(userIdStr, providerKey).ConfigureAwait(false)
+                       ?? new ProviderConnection();
+
+            conn.BaseUrl  = req.BaseUrl.TrimEnd('/');
+            conn.ApiToken = req.ApiToken;
+            if (conn.Direction == SyncDirection.Off)
+                conn.Direction = SyncDirection.TwoWay;
+
+            await _settingsRepo.SetConnectionAsync(userIdStr, providerKey, conn).ConfigureAwait(false);
+
+            _logger.LogInformation("[StarTrack] YamtrackConnect {User}: baseUrl={Url}", userIdStr, conn.BaseUrl);
+            return Ok(new { connected = true });
+        }
+
+        // ================================================================== //
+        // Helpers
+        // ================================================================== //
+
+        /// <summary>Parses a provider route segment to a <see cref="ProviderId"/>, case-insensitive.</summary>
+        private static ProviderId? ParseProvider(string key) =>
+            key.ToLowerInvariant() switch
+            {
+                "trakt"    => ProviderId.Trakt,
+                "simkl"    => ProviderId.Simkl,
+                "yamtrack" => ProviderId.Yamtrack,
+                _          => null
+            };
+
+        /// <summary>Looks up a registered <see cref="IExternalRatingProvider"/> by its <see cref="ProviderId"/>.</summary>
+        private IExternalRatingProvider? GetProvider(ProviderId id) =>
+            _providers.FirstOrDefault(p => p.Id == id);
+
         // ------------------------------------------------------------------
         // Auth helpers (same approach as RatingController and LetterboxdController)
         // ------------------------------------------------------------------
@@ -212,6 +609,21 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 ?? User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value
                 ?? User.Identity?.Name
                 ?? "Unknown";
+        }
+
+        // ================================================================== //
+        // Request DTOs
+        // ================================================================== //
+
+        public sealed class SetDirectionRequest
+        {
+            public string Direction { get; set; } = "Off";
+        }
+
+        public sealed class YamtrackConnectRequest
+        {
+            public string? BaseUrl  { get; set; }
+            public string? ApiToken { get; set; }
         }
     }
 }
