@@ -81,6 +81,14 @@ namespace Jellyfin.Plugin.InternalRating
             services.AddSingleton<IExternalRatingProvider>(sp =>
                 new TraktProvider(sp.GetRequiredService<IHttpClientFactory>().CreateClient()));
 
+            // SimklProvider: creds default to live PluginConfiguration at call time.
+            services.AddSingleton<IExternalRatingProvider>(sp =>
+                new SimklProvider(sp.GetRequiredService<IHttpClientFactory>().CreateClient()));
+
+            // YamtrackProvider: uses conn.BaseUrl + conn.ApiToken (no plugin-level config).
+            services.AddSingleton<IExternalRatingProvider>(sp =>
+                new YamtrackProvider(sp.GetRequiredService<IHttpClientFactory>().CreateClient()));
+
             // DeviceCodeOAuth: stateless helper, one instance per plugin lifetime.
             services.AddSingleton<DeviceCodeOAuth>(sp =>
                 new DeviceCodeOAuth(sp.GetRequiredService<IHttpClientFactory>().CreateClient()));
