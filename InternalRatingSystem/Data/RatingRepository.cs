@@ -12,11 +12,22 @@ using MediaBrowser.Common.Configuration;
 namespace Jellyfin.Plugin.InternalRating.Data
 {
     /// <summary>
+    /// Read-only contract for retrieving a user's star-rating rows.
+    /// Abstracted so that <c>RatingGatherer</c> (and tests) can swap in a fake
+    /// without needing a real file system.
+    /// </summary>
+    public interface IRatingReader
+    {
+        /// <summary>Returns all ratings submitted by a specific user, newest first.</summary>
+        Task<List<UserRatingEntry>> GetUserRatingsAsync(string userId, int limit = 10000);
+    }
+
+    /// <summary>
     /// Stores ratings as a JSON file in Jellyfin's data directory.
     /// No external dependencies required — uses only System.Text.Json (built into .NET 8).
     /// File location: &lt;jellyfin-data&gt;/data/InternalRating/ratings.json
     /// </summary>
-    public sealed class RatingRepository : IDisposable
+    public sealed class RatingRepository : IDisposable, IRatingReader
     {
         private readonly string _filePath;
         private readonly SemaphoreSlim _lock = new SemaphoreSlim(1, 1);

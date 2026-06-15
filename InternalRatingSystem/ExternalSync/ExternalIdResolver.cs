@@ -12,6 +12,27 @@ using MediaBrowser.Controller.Library;
 namespace Jellyfin.Plugin.InternalRating.ExternalSync
 {
     /// <summary>
+    /// Abstraction over the ILibraryManager-dependent resolver methods so that
+    /// <c>RatingGatherer</c> (and tests) can substitute a fake without needing
+    /// a real Jellyfin library.
+    /// </summary>
+    public interface IExternalIdResolver
+    {
+        /// <summary>
+        /// Given a StarTrack item-id GUID string, looks up the library item and
+        /// builds an <see cref="ExternalRating"/> populated with provider IDs.
+        /// Returns <c>null</c> if the item is not found.
+        /// </summary>
+        ExternalRating? ResolveExternalIds(string itemId, double stars, DateTime ratedAt);
+
+        /// <summary>
+        /// Tries to locate a library item that matches the external rating.
+        /// Returns the Jellyfin item GUID as a "N"-format string, or <c>null</c>.
+        /// </summary>
+        string? FindItemId(ExternalRating r);
+    }
+
+    /// <summary>
     /// Resolves Jellyfin item IDs to external provider IDs (IMDb, TMDb, TVDb)
     /// and vice-versa, bridging the gap between StarTrack's internal GUIDs and
     /// the identifiers used by external rating services (Trakt, Simkl, etc.).
@@ -22,7 +43,7 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync
     /// (<see cref="ResolveExternalIds"/> and <see cref="FindItemId"/>) is thin
     /// and intentionally left uncovered by unit tests.
     /// </summary>
-    public sealed class ExternalIdResolver
+    public sealed class ExternalIdResolver : IExternalIdResolver
     {
         private readonly ILibraryManager _libraryManager;
 
