@@ -232,6 +232,65 @@
             </div>
 
             <div class="verticalSection">
+                <h3 class="sectionTitle"><span style="color:#f4c430;">⇄</span> <span data-tr="External Sync – App Credentials">External Sync – App Credentials</span></h3>
+                <p style="color:rgba(255,255,255,.7);font-size:.9em;line-height:1.55;max-width:720px;" data-tr="To let users connect Trakt or Simkl from the StarTrack rating panel, register a free OAuth app on each service and paste the Client ID and Secret below. Users will authenticate themselves — these credentials are never shared with them.">
+                    To let users connect Trakt or Simkl from the StarTrack rating panel, register a free OAuth app on each service and paste the Client ID and Secret below.
+                    Users authenticate themselves — these credentials are never shared with them.
+                </p>
+
+                <form id="starTrackExternalSyncForm" style="max-width:720px;margin-top:16px;">
+
+                    <!-- Trakt credentials -->
+                    <div class="st-group">
+                        <div class="st-group-title" data-tr="Trakt">Trakt</div>
+                        <div class="st-row" style="cursor:default">
+                            <span class="st-row-body">
+                                <label class="st-row-title" for="stTraktClientId" data-tr="Trakt Client ID">Trakt Client ID</label>
+                                <input type="text" id="stTraktClientId" autocomplete="off" spellcheck="false"
+                                    style="margin-top:6px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:6px;padding:8px 12px;font-size:.9em;outline:none;width:100%;max-width:480px;display:block" />
+                                <span class="st-row-sub" data-tr="From https://trakt.tv/oauth/applications — create a new app and copy the Client ID.">From <a href="https://trakt.tv/oauth/applications" target="_blank" rel="noopener" style="color:#f4c430">trakt.tv/oauth/applications</a> — create a new app and copy the Client ID.</span>
+                            </span>
+                        </div>
+                        <div class="st-row" style="cursor:default;border-bottom:none">
+                            <span class="st-row-body">
+                                <label class="st-row-title" for="stTraktClientSecret" data-tr="Trakt Client Secret">Trakt Client Secret</label>
+                                <input type="password" id="stTraktClientSecret" autocomplete="new-password" spellcheck="false"
+                                    style="margin-top:6px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:6px;padding:8px 12px;font-size:.9em;outline:none;width:100%;max-width:480px;display:block" />
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Simkl credentials -->
+                    <div class="st-group">
+                        <div class="st-group-title" data-tr="Simkl">Simkl</div>
+                        <div class="st-row" style="cursor:default">
+                            <span class="st-row-body">
+                                <label class="st-row-title" for="stSimklClientId" data-tr="Simkl Client ID">Simkl Client ID</label>
+                                <input type="text" id="stSimklClientId" autocomplete="off" spellcheck="false"
+                                    style="margin-top:6px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:6px;padding:8px 12px;font-size:.9em;outline:none;width:100%;max-width:480px;display:block" />
+                                <span class="st-row-sub" data-tr="From https://simkl.com/settings/developer/ — create a new app and copy the Client ID.">From <a href="https://simkl.com/settings/developer/" target="_blank" rel="noopener" style="color:#f4c430">simkl.com/settings/developer/</a> — create a new app and copy the Client ID.</span>
+                            </span>
+                        </div>
+                        <div class="st-row" style="cursor:default;border-bottom:none">
+                            <span class="st-row-body">
+                                <label class="st-row-title" for="stSimklClientSecret" data-tr="Simkl Client Secret">Simkl Client Secret</label>
+                                <input type="password" id="stSimklClientSecret" autocomplete="new-password" spellcheck="false"
+                                    style="margin-top:6px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:6px;padding:8px 12px;font-size:.9em;outline:none;width:100%;max-width:480px;display:block" />
+                            </span>
+                        </div>
+                    </div>
+
+                    <br />
+                    <div>
+                        <button is="emby-button" type="submit" class="raised button-submit block">
+                            <span data-tr="Save">Save</span>
+                        </button>
+                        <span id="stEsSaveStatus" data-tr="Saved" style="margin-left:10px;color:#52b54b;opacity:0;transition:opacity .25s;font-weight:600;">✓ Saved</span>
+                    </div>
+                </form>
+            </div>
+
+            <div class="verticalSection">
                 <h3 class="sectionTitle">🎞 <span data-tr="Letterboxd Sync">Letterboxd Sync</span> <span data-tr="NEW in 1.1" style="font-size:.6em;background:#f4c430;color:#000;padding:2px 8px;border-radius:12px;margin-left:8px;vertical-align:middle;font-weight:700;">NEW in 1.1</span></h3>
                 <p style="color:rgba(255,255,255,.8);line-height:1.55;" data-tr="Every user on this server can now sync their Letterboxd ratings into StarTrack. Click the gear icon inside the StarTrack rating panel on any movie page to open the Letterboxd settings for that user. Each user can:">
                     Every user on this server can now sync their Letterboxd ratings into StarTrack.

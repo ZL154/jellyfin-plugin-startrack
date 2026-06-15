@@ -252,7 +252,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             {
                 var clientId = Plugin.Instance?.Configuration.TraktClientId ?? string.Empty;
                 if (string.IsNullOrWhiteSpace(clientId))
-                    return BadRequest(new { error = "Trakt app not configured" });
+                    return BadRequest(new { error = "Trakt isn't set up yet. Ask the server admin to add a Trakt Client ID in the StarTrack plugin settings." });
 
                 var clientSecret = Plugin.Instance?.Configuration.TraktClientSecret ?? string.Empty;
 
@@ -300,7 +300,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             {
                 var simklClientId = Plugin.Instance?.Configuration.SimklClientId ?? string.Empty;
                 if (string.IsNullOrWhiteSpace(simklClientId))
-                    return BadRequest(new { error = "Simkl app not configured (SimklClientId is empty)" });
+                    return BadRequest(new { error = "Simkl isn't set up yet. Ask the server admin to add a Simkl Client ID in the StarTrack plugin settings." });
 
                 // Simkl PIN flow: GET https://api.simkl.com/oauth/pin?client_id=<id>
                 // Returns: { "user_code":"ABC123", "verification_url":"https://simkl.com/pin",
