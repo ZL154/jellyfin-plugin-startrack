@@ -81,24 +81,33 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync.Providers
         private const string BaseUrl = "https://api.trakt.tv";
 
         private readonly HttpClient _http;
-        private readonly string _clientId;
-        private readonly string _clientSecret;
+
+        // Nullable overrides: when non-null the explicit value is used (tests).
+        // When null the live PluginConfiguration is read at each call site so that
+        // a DI singleton built before the admin saves credentials still works correctly.
+        private readonly string? _clientIdOverride;
+        private readonly string? _clientSecretOverride;
+
         private readonly DeviceCodeOAuth _oauth;
 
         /// <summary>
         /// Ctor used by both production code and unit tests.
         /// When <paramref name="clientId"/> or <paramref name="clientSecret"/> are
-        /// omitted (null), the live plugin configuration is consulted at call time
-        /// so that tests can still inject explicit values while production code
+        /// omitted (null), the live plugin configuration is consulted at each call
+        /// site so that tests can still inject explicit values while production code
         /// picks up the admin-configured credentials automatically.
         /// </summary>
         public TraktProvider(HttpClient http, string? clientId = null, string? clientSecret = null)
         {
-            _http         = http ?? throw new ArgumentNullException(nameof(http));
-            _clientId     = clientId     ?? Plugin.Instance?.Configuration.TraktClientId     ?? string.Empty;
-            _clientSecret = clientSecret ?? Plugin.Instance?.Configuration.TraktClientSecret ?? string.Empty;
-            _oauth        = new DeviceCodeOAuth(http);
+            _http                 = http ?? throw new ArgumentNullException(nameof(http));
+            _clientIdOverride     = clientId;
+            _clientSecretOverride = clientSecret;
+            _oauth                = new DeviceCodeOAuth(http);
         }
+
+        // Resolved per-call so a singleton sees config changes without restart.
+        private string ClientId     => _clientIdOverride     ?? Plugin.Instance?.Configuration.TraktClientId     ?? string.Empty;
+        private string ClientSecret => _clientSecretOverride ?? Plugin.Instance?.Configuration.TraktClientSecret ?? string.Empty;
 
         /// <inheritdoc />
         public ProviderId Id => ProviderId.Trakt;
@@ -250,8 +259,8 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync.Providers
             {
                 ["grant_type"]    = "refresh_token",
                 ["refresh_token"] = conn.RefreshToken!,
-                ["client_id"]     = _clientId,
-                ["client_secret"] = _clientSecret,
+                ["client_id"]     = ClientId,
+                ["client_secret"] = ClientSecret,
                 ["redirect_uri"]  = "urn:ietf:wg:oauth:2.0:oob"   // Trakt device-code flow
             };
 
@@ -259,7 +268,7 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync.Providers
             var headers = new Dictionary<string, string>
             {
                 ["trakt-api-version"] = "2",
-                ["trakt-api-key"]     = _clientId
+                ["trakt-api-key"]     = ClientId
             };
 
             var token = await _oauth.RefreshAsync(
@@ -288,9 +297,9 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync.Providers
         {
             var req = new HttpRequestMessage(method, url);
 
-            // Standard Trakt headers on every call
+            // Standard Trakt headers on every call — ClientId resolved per-call (lazy config)
             req.Headers.TryAddWithoutValidation("trakt-api-version", "2");
-            req.Headers.TryAddWithoutValidation("trakt-api-key", _clientId);
+            req.Headers.TryAddWithoutValidation("trakt-api-key", ClientId);
 
             if (!string.IsNullOrEmpty(conn.AccessToken))
                 req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", conn.AccessToken);
