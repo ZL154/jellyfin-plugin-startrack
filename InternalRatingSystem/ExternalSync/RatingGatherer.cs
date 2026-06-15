@@ -6,11 +6,25 @@ using Jellyfin.Plugin.InternalRating.Data;
 namespace Jellyfin.Plugin.InternalRating.ExternalSync
 {
     /// <summary>
+    /// Seam that lets <c>SyncOrchestrator</c> gather a user's local StarTrack
+    /// ratings without depending on the concrete <see cref="RatingGatherer"/>
+    /// (which needs a real <c>ILibraryManager</c>).
+    /// </summary>
+    public interface IRatingGatherer
+    {
+        /// <summary>
+        /// Returns all <see cref="ExternalRating"/> records for the given user.
+        /// Items that cannot be resolved in the Jellyfin library are silently skipped.
+        /// </summary>
+        Task<IReadOnlyList<ExternalRating>> GatherAsync(string userId);
+    }
+
+    /// <summary>
     /// Gathers all of a user's StarTrack ratings and maps them to
     /// <see cref="ExternalRating"/> records suitable for export or sync.
     /// Items whose Jellyfin library entry cannot be resolved are silently skipped.
     /// </summary>
-    public sealed class RatingGatherer
+    public sealed class RatingGatherer : IRatingGatherer
     {
         private readonly IRatingReader _reader;
         private readonly IExternalIdResolver _resolver;

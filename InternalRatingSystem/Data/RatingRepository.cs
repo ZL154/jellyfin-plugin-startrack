@@ -23,11 +23,28 @@ namespace Jellyfin.Plugin.InternalRating.Data
     }
 
     /// <summary>
+    /// Write contract for persisting ratings and reading the current star value
+    /// for a single user+item pair. Used by <c>SyncOrchestrator</c> so that the
+    /// orchestrator can be tested against a fake sink without a real file system.
+    /// </summary>
+    public interface IRatingSink
+    {
+        /// <summary>Inserts or replaces a user's rating for an item.</summary>
+        Task SaveRatingAsync(string itemId, string userId, string userName, double stars, string? review, DateTime? ratedAt);
+
+        /// <summary>
+        /// Returns the current star value for the given user+item, or <c>null</c>
+        /// if the user has not yet rated that item.
+        /// </summary>
+        Task<double?> GetUserStarsAsync(string userId, string itemId);
+    }
+
+    /// <summary>
     /// Stores ratings as a JSON file in Jellyfin's data directory.
     /// No external dependencies required — uses only System.Text.Json (built into .NET 8).
     /// File location: &lt;jellyfin-data&gt;/data/InternalRating/ratings.json
     /// </summary>
-    public sealed class RatingRepository : IDisposable, IRatingReader
+    public sealed class RatingRepository : IDisposable, IRatingReader, IRatingSink
     {
         private readonly string _filePath;
         private readonly SemaphoreSlim _lock = new SemaphoreSlim(1, 1);
@@ -83,6 +100,22 @@ namespace Jellyfin.Plugin.InternalRating.Data
                     .OrderByDescending(x => x.RatedAt)
                     .Take(limit)
                     .ToList();
+            }
+            finally { _lock.Release(); }
+        }
+
+        /// <summary>
+        /// Returns the current star value that <paramref name="userId"/> gave to
+        /// <paramref name="itemId"/>, or <c>null</c> if the user has not rated that item.
+        /// </summary>
+        public async Task<double?> GetUserStarsAsync(string userId, string itemId)
+        {
+            await _lock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                var ratings = GetItemRatings(itemId);
+                var entry   = ratings.FirstOrDefault(r => r.UserId == userId);
+                return entry?.Stars;
             }
             finally { _lock.Release(); }
         }
