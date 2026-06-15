@@ -3,6 +3,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.InternalRating.Data;
+using Jellyfin.Plugin.InternalRating.ExternalSync;
 using Jellyfin.Plugin.InternalRating.Letterboxd;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
@@ -47,6 +48,27 @@ namespace Jellyfin.Plugin.InternalRating
             // Scheduled task: register as IScheduledTask so Jellyfin's task
             // scheduler picks it up and runs it hourly by default.
             services.AddSingleton<IScheduledTask, LetterboxdSyncTask>();
+
+            // ---- ExternalSync services ----
+            // FileExportService has no dependencies (pure serialisation helper).
+            services.AddSingleton<FileExportService>();
+
+            // ExternalIdResolver needs ILibraryManager from the host DI.
+            services.AddSingleton<ExternalIdResolver>();
+            // Expose as the interface so RatingGatherer (and tests) can consume it.
+            services.AddSingleton<IExternalIdResolver>(sp => sp.GetRequiredService<ExternalIdResolver>());
+
+            // IRatingReader backed by the existing RatingRepository singleton.
+            services.AddSingleton<IRatingReader>(_ => Plugin.Instance!.Repository);
+
+            // RatingGatherer depends on IRatingReader + IExternalIdResolver — both above.
+            services.AddSingleton<RatingGatherer>();
+
+            // ExternalSyncSettingsRepository — constructed by Plugin.cs, forwarded here.
+            services.AddSingleton<ExternalSyncSettingsRepository>(_ => Plugin.Instance!.ExternalSyncSettings);
+
+            // Scheduled task: daily auto-export.
+            services.AddSingleton<IScheduledTask, AutoExportTask>();
         }
     }
 

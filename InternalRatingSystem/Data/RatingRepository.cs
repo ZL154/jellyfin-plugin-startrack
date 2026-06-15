@@ -165,6 +165,20 @@ namespace Jellyfin.Plugin.InternalRating.Data
             finally { _lock.Release(); }
         }
 
+        /// <summary>Returns distinct user IDs that have at least one rating stored.</summary>
+        public IReadOnlyCollection<string> GetUserIdsWithRatings()
+        {
+            _lock.Wait();
+            try
+            {
+                return _store.Ratings.Values
+                    .SelectMany(list => list.Select(r => r.UserId))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+            finally { _lock.Release(); }
+        }
+
         /// <summary>Server-wide statistics.</summary>
         public (int TotalItems, int TotalRatings) GetStats()
         {

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Jellyfin.Plugin.InternalRating.Data;
+using Jellyfin.Plugin.InternalRating.ExternalSync;
 using Jellyfin.Plugin.InternalRating.Letterboxd;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Plugins;
@@ -46,17 +47,21 @@ namespace Jellyfin.Plugin.InternalRating
         /// <summary>Follow graph: who follows whom.</summary>
         public FollowsRepository Follows { get; }
 
+        /// <summary>Per-user, per-provider external sync settings (Trakt, Simkl, etc.).</summary>
+        public ExternalSyncSettingsRepository ExternalSyncSettings { get; }
+
         public Plugin(IApplicationPaths applicationPaths, IXmlSerializer xmlSerializer)
             : base(applicationPaths, xmlSerializer)
         {
-            Instance           = this;
-            Repository         = new RatingRepository(applicationPaths);
-            LetterboxdSettings = new LetterboxdSettingsRepository(applicationPaths);
-            Interactions       = new UserInteractionsRepository(applicationPaths);
-            Diary              = new DiaryRepository(applicationPaths);
-            Lists              = new ListsRepository(applicationPaths);
-            Privacy            = new PrivacyRepository(applicationPaths);
-            Follows            = new FollowsRepository(applicationPaths);
+            Instance              = this;
+            Repository            = new RatingRepository(applicationPaths);
+            LetterboxdSettings    = new LetterboxdSettingsRepository(applicationPaths);
+            Interactions          = new UserInteractionsRepository(applicationPaths);
+            Diary                 = new DiaryRepository(applicationPaths);
+            Lists                 = new ListsRepository(applicationPaths);
+            Privacy               = new PrivacyRepository(applicationPaths);
+            Follows               = new FollowsRepository(applicationPaths);
+            ExternalSyncSettings  = new ExternalSyncSettingsRepository(applicationPaths);
         }
 
         /// <inheritdoc />

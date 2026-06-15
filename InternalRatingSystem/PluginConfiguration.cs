@@ -50,5 +50,13 @@ namespace Jellyfin.Plugin.InternalRating
         /// recs, lists. (The 'films' / Media view is always available.)
         /// </summary>
         public string HiddenOverlayViews { get; set; } = string.Empty;
+
+        // ---- Daily auto-export ------------------------------------------- //
+
+        /// <summary>When true, a daily scheduled task exports all users' ratings to disk.</summary>
+        public bool AutoExportDaily { get; set; } = false;
+
+        /// <summary>File format for the daily auto-export: "csv" (default) or "json".</summary>
+        public string AutoExportFormat { get; set; } = "csv";
     }
 }
