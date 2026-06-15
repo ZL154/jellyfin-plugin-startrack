@@ -73,5 +73,20 @@ namespace Jellyfin.Plugin.InternalRating
         /// SECURITY NOTE: stored in Jellyfin XML config; encrypt at rest in Phase 2.
         /// </summary>
         public string TraktClientSecret { get; set; } = string.Empty;
+
+        // ---- Simkl OAuth app credentials -------------------------------- //
+
+        /// <summary>
+        /// Client ID from the admin's registered Simkl app (https://simkl.com/settings/developer/).
+        /// Leave empty until the admin pastes their app's value.
+        /// </summary>
+        public string SimklClientId { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Client Secret from the admin's registered Simkl app.
+        /// Leave empty until the admin pastes their app's value.
+        /// SECURITY NOTE: stored in Jellyfin XML config; encrypt at rest in Phase 2.
+        /// </summary>
+        public string SimklClientSecret { get; set; } = string.Empty;
     }
 }

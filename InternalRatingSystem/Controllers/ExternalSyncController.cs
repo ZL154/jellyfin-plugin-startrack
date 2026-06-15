@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Net.Mime;
 using System.Text;
 using System.Threading;
@@ -52,6 +53,9 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         private readonly IEnumerable<IExternalRatingProvider> _providers;
         private readonly IUserManager _userManager;
 
+        // HttpClient for Simkl PIN flow (GET-based, not using DeviceCodeOAuth helper)
+        private readonly HttpClient _simklHttp;
+
         public ExternalSyncController(
             RatingGatherer gatherer,
             ExternalIdResolver resolver,
@@ -62,7 +66,8 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             SyncOrchestrator orchestrator,
             ExternalSyncSettingsRepository settingsRepo,
             IEnumerable<IExternalRatingProvider> providers,
-            IUserManager userManager)
+            IUserManager userManager,
+            IHttpClientFactory httpClientFactory)
         {
             _gatherer        = gatherer;
             _resolver        = resolver;
@@ -74,6 +79,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             _settingsRepo    = settingsRepo;
             _providers       = providers;
             _userManager     = userManager;
+            _simklHttp       = httpClientFactory.CreateClient();
         }
 
         // ================================================================== //
@@ -288,7 +294,59 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 });
             }
 
-            // Simkl: not yet wired (will mirror Trakt pattern in a follow-up)
+                if (pid == ProviderId.Simkl)
+            {
+                var simklClientId = Plugin.Instance?.Configuration.SimklClientId ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(simklClientId))
+                    return BadRequest(new { error = "Simkl app not configured (SimklClientId is empty)" });
+
+                // Simkl PIN flow: GET https://api.simkl.com/oauth/pin?client_id=<id>
+                // Returns: { "user_code":"ABC123", "verification_url":"https://simkl.com/pin",
+                //            "device_code":"...", "interval":5, "expires_in":900 }
+                string simklPinUrl  = $"https://api.simkl.com/oauth/pin?client_id={Uri.EscapeDataString(simklClientId)}";
+                string userCode, deviceCode, verificationUrl;
+                int    interval, expiresIn;
+
+                try
+                {
+                    using var pinReq  = new HttpRequestMessage(HttpMethod.Get, simklPinUrl);
+                    using var pinResp = await _simklHttp.SendAsync(pinReq, ct).ConfigureAwait(false);
+                    pinResp.EnsureSuccessStatusCode();
+
+                    var pinJson = await pinResp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                    using var pinDoc = System.Text.Json.JsonDocument.Parse(pinJson);
+                    var root = pinDoc.RootElement;
+
+                    // VERIFY at smoke-test: field names per Simkl PIN docs
+                    userCode        = root.TryGetProperty("user_code",        out var uc)  ? uc.GetString()  ?? string.Empty : string.Empty;
+                    deviceCode      = root.TryGetProperty("device_code",      out var dc)  ? dc.GetString()  ?? string.Empty : string.Empty;
+                    verificationUrl = root.TryGetProperty("verification_url", out var vu)  ? vu.GetString()  ?? string.Empty : string.Empty;
+                    interval        = root.TryGetProperty("interval",         out var iv)  ? iv.GetInt32()   : 5;
+                    expiresIn       = root.TryGetProperty("expires_in",       out var ei)  ? ei.GetInt32()   : 900;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[StarTrack] StartAuth Simkl PIN request failed");
+                    return StatusCode(StatusCodes.Status502BadGateway, new { error = ex.Message });
+                }
+
+                // Cache the user_code (used as the polling key for Simkl PIN flow)
+                var cacheKey  = $"{userId.Value:N}:{provider.ToLowerInvariant()}";
+                var expiresAt = DateTime.UtcNow.AddSeconds(expiresIn);
+                // Store user_code as DeviceCode so PollAuth can use it without extra fields
+                _pendingCodes[cacheKey] = (userCode, expiresAt);
+
+                _logger.LogInformation("[StarTrack] StartAuth Simkl: userCode={Code} expiresAt={Exp}", userCode, expiresAt);
+
+                return Ok(new
+                {
+                    userCode,
+                    verificationUrl,
+                    deviceCode,
+                    interval
+                });
+            }
+
             // Yamtrack: uses API token, not device-code — use /Yamtrack/Connect instead
             return BadRequest(new { error = $"Provider '{provider}' does not support device-code auth. Use /Connect for token-based providers." });
         }
@@ -372,6 +430,64 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 _pendingCodes.TryRemove(cacheKey, out _);
 
                 _logger.LogInformation("[StarTrack] PollAuth Trakt: connected for user={User}", userIdStr);
+                return Ok(new { status = "connected" });
+            }
+
+            if (pid == ProviderId.Simkl)
+            {
+                var simklClientId = Plugin.Instance?.Configuration.SimklClientId ?? string.Empty;
+
+                // Simkl PIN poll: GET https://api.simkl.com/oauth/pin/{user_code}?client_id=<id>
+                // Returns: { "result":"OK", "access_token":"..." } when authorized
+                //          { "result":"KO" }                       when still pending
+                // VERIFY at smoke-test: field names per Simkl PIN docs
+                var userCode = cached.DeviceCode;  // stored as DeviceCode in StartAuth
+                string pollUrl = $"https://api.simkl.com/oauth/pin/{Uri.EscapeDataString(userCode)}?client_id={Uri.EscapeDataString(simklClientId)}";
+
+                string? accessToken = null;
+                try
+                {
+                    using var pollReq  = new HttpRequestMessage(HttpMethod.Get, pollUrl);
+                    using var pollResp = await _simklHttp.SendAsync(pollReq, ct).ConfigureAwait(false);
+                    pollResp.EnsureSuccessStatusCode();
+
+                    var pollJson = await pollResp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                    using var pollDoc = System.Text.Json.JsonDocument.Parse(pollJson);
+                    var root = pollDoc.RootElement;
+
+                    var result = root.TryGetProperty("result", out var res) ? res.GetString() : null;
+                    if (!string.Equals(result, "OK", StringComparison.OrdinalIgnoreCase))
+                        return Ok(new { status = "pending" });
+
+                    accessToken = root.TryGetProperty("access_token", out var at) ? at.GetString() : null;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[StarTrack] PollAuth Simkl failed");
+                    return StatusCode(StatusCodes.Status502BadGateway, new { error = ex.Message });
+                }
+
+                if (string.IsNullOrEmpty(accessToken))
+                    return Ok(new { status = "pending" });
+
+                // Token obtained — persist the connection.
+                // Simkl tokens do not expire; no refresh token or expiry stored.
+                var userIdStr   = userId.Value.ToString("N");
+                var providerKey = pid.Value.ToString();  // "Simkl"
+                var conn = await _settingsRepo.GetConnectionAsync(userIdStr, providerKey).ConfigureAwait(false)
+                           ?? new ProviderConnection();
+
+                conn.AccessToken    = accessToken;
+                conn.RefreshToken   = null;           // Simkl: no refresh token
+                conn.TokenExpiresAt = null;           // Simkl: tokens do not expire
+                if (conn.Direction == SyncDirection.Off)
+                    conn.Direction = SyncDirection.TwoWay;
+
+                await _settingsRepo.SetConnectionAsync(userIdStr, providerKey, conn).ConfigureAwait(false);
+
+                _pendingCodes.TryRemove(cacheKey, out _);
+
+                _logger.LogInformation("[StarTrack] PollAuth Simkl: connected for user={User}", userIdStr);
                 return Ok(new { status = "connected" });
             }
 
