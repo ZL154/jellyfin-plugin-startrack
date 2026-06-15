@@ -1,9 +1,11 @@
 using System;
 using System.IO;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.InternalRating.Data;
 using Jellyfin.Plugin.InternalRating.ExternalSync;
+using Jellyfin.Plugin.InternalRating.ExternalSync.Providers;
 using Jellyfin.Plugin.InternalRating.Letterboxd;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
@@ -69,6 +71,32 @@ namespace Jellyfin.Plugin.InternalRating
 
             // Scheduled task: daily auto-export.
             services.AddSingleton<IScheduledTask, AutoExportTask>();
+
+            // ---- OAuth + external-provider sync (Tasks 15–16 + DI) ----
+
+            // Ensure IHttpClientFactory is available (no-op if Jellyfin already registers it).
+            services.AddHttpClient();
+
+            // TraktProvider: creds default to live PluginConfiguration at call time.
+            services.AddSingleton<IExternalRatingProvider>(sp =>
+                new TraktProvider(sp.GetRequiredService<IHttpClientFactory>().CreateClient()));
+
+            // DeviceCodeOAuth: stateless helper, one instance per plugin lifetime.
+            services.AddSingleton<DeviceCodeOAuth>(sp =>
+                new DeviceCodeOAuth(sp.GetRequiredService<IHttpClientFactory>().CreateClient()));
+
+            // IRatingGatherer → RatingGatherer (already registered as concrete above).
+            services.AddSingleton<IRatingGatherer>(sp => sp.GetRequiredService<RatingGatherer>());
+
+            // IRatingSink → Plugin.Instance.Repository (the concrete RatingRepository
+            // implements both IRatingReader and IRatingSink).
+            services.AddSingleton<IRatingSink>(_ => Plugin.Instance!.Repository);
+
+            // SyncOrchestrator: depends on IRatingGatherer, IRatingSink, IExternalIdResolver, ILogger.
+            services.AddSingleton<SyncOrchestrator>();
+
+            // Scheduled task: hourly external-rating sync.
+            services.AddSingleton<IScheduledTask, ExternalSyncTask>();
         }
     }
 
