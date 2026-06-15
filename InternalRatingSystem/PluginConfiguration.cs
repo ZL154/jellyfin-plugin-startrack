@@ -58,5 +58,20 @@ namespace Jellyfin.Plugin.InternalRating
 
         /// <summary>File format for the daily auto-export: "csv" (default) or "json".</summary>
         public string AutoExportFormat { get; set; } = "csv";
+
+        // ---- Trakt OAuth app credentials -------------------------------- //
+
+        /// <summary>
+        /// Client ID from the admin's registered Trakt app (https://trakt.tv/oauth/applications).
+        /// Leave empty until the admin pastes their app's value.
+        /// </summary>
+        public string TraktClientId { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Client Secret from the admin's registered Trakt app.
+        /// Leave empty until the admin pastes their app's value.
+        /// SECURITY NOTE: stored in Jellyfin XML config; encrypt at rest in Phase 2.
+        /// </summary>
+        public string TraktClientSecret { get; set; } = string.Empty;
     }
 }
