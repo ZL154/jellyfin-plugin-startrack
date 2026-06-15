@@ -27,7 +27,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
     [Authorize]
     [Route("Plugins/StarTrack/ExternalSync")]
     [Produces(MediaTypeNames.Application.Json)]
-    public class ExternalSyncController : ControllerBase
+    public sealed class ExternalSyncController : ControllerBase
     {
         // ------------------------------------------------------------------ //
         // Server-side cache for in-flight device-code flows.
@@ -246,6 +246,8 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             if (pid == null)
                 return BadRequest(new { error = $"Unknown provider '{provider}'" });
 
+            EvictExpiredCodes();
+
             if (pid == ProviderId.Trakt)
             {
                 var clientId = Plugin.Instance?.Configuration.TraktClientId ?? string.Empty;
@@ -289,12 +291,12 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 {
                     userCode        = info.UserCode,
                     verificationUrl = info.VerificationUrl,
-                    deviceCode      = info.DeviceCode,
-                    interval        = info.IntervalSeconds
+                    interval        = info.IntervalSeconds,
+                    expiresIn       = info.ExpiresInSeconds
                 });
             }
 
-                if (pid == ProviderId.Simkl)
+            if (pid == ProviderId.Simkl)
             {
                 var simklClientId = Plugin.Instance?.Configuration.SimklClientId ?? string.Empty;
                 if (string.IsNullOrWhiteSpace(simklClientId))
@@ -342,8 +344,8 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 {
                     userCode,
                     verificationUrl,
-                    deviceCode,
-                    interval
+                    interval,
+                    expiresIn
                 });
             }
 
@@ -369,6 +371,8 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             var pid = ParseProvider(provider);
             if (pid == null)
                 return BadRequest(new { error = $"Unknown provider '{provider}'" });
+
+            EvictExpiredCodes();
 
             var cacheKey = $"{userId.Value:N}:{provider.ToLowerInvariant()}";
             if (!_pendingCodes.TryGetValue(cacheKey, out var cached))
@@ -449,7 +453,16 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 {
                     using var pollReq  = new HttpRequestMessage(HttpMethod.Get, pollUrl);
                     using var pollResp = await _simklHttp.SendAsync(pollReq, ct).ConfigureAwait(false);
-                    pollResp.EnsureSuccessStatusCode();
+
+                    // 404/410 = PIN expired or revoked on Simkl's side
+                    if (pollResp.StatusCode == System.Net.HttpStatusCode.NotFound ||
+                        pollResp.StatusCode == System.Net.HttpStatusCode.Gone)
+                    {
+                        _pendingCodes.TryRemove(cacheKey, out _);
+                        return Ok(new { status = "expired", error = "Simkl PIN expired. Start auth again." });
+                    }
+                    if (!pollResp.IsSuccessStatusCode)
+                        return Ok(new { status = "pending", error = $"Simkl poll returned {(int)pollResp.StatusCode}" });
 
                     var pollJson = await pollResp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
                     using var pollDoc = System.Text.Json.JsonDocument.Parse(pollJson);
@@ -602,7 +615,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 var user = _userManager.GetUserById(userId.Value);
                 if (user != null) userName = user.Username;
             }
-            catch { }
+            catch (Exception ex) { _logger.LogDebug(ex, "[StarTrack] username lookup failed; using fallback"); }
 
             _logger.LogInformation("[StarTrack] SyncNow {User}/{Key} direction={Dir}", userIdStr, providerKey, conn.Direction);
 
@@ -660,6 +673,20 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             if (string.IsNullOrWhiteSpace(req.BaseUrl) || string.IsNullOrWhiteSpace(req.ApiToken))
                 return BadRequest(new { error = "baseUrl and apiToken are required." });
 
+            // Validate the URL is a well-formed absolute http/https URL.
+            // We block only the most dangerous SSRF targets (cloud metadata + loopback)
+            // while allowing all RFC-1918 private ranges — Yamtrack is normally
+            // self-hosted on the LAN, so 192.168.x / 10.x / 172.16-31.x are legitimate.
+            if (!Uri.TryCreate(req.BaseUrl, UriKind.Absolute, out var parsedUrl)
+                || (parsedUrl.Scheme != Uri.UriSchemeHttp && parsedUrl.Scheme != Uri.UriSchemeHttps))
+                return BadRequest(new { error = "baseUrl must be an absolute http/https URL." });
+
+            var host = parsedUrl.Host.ToLowerInvariant();
+            if (host == "localhost" || host == "127.0.0.1" || host == "::1"
+                || host == "169.254.169.254"
+                || host.StartsWith("169.254.", StringComparison.Ordinal))
+                return BadRequest(new { error = "baseUrl must not point to loopback or cloud-metadata addresses." });
+
             var userIdStr   = userId.Value.ToString("N");
             var providerKey = ProviderId.Yamtrack.ToString();
 
@@ -680,6 +707,21 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         // ================================================================== //
         // Helpers
         // ================================================================== //
+
+        /// <summary>
+        /// Removes all entries from <see cref="_pendingCodes"/> whose TTL has passed.
+        /// Called at the start of every StartAuth / PollAuth so the static dictionary
+        /// stays bounded without needing a hosted background service.
+        /// </summary>
+        private static void EvictExpiredCodes()
+        {
+            var now = DateTime.UtcNow;
+            foreach (var key in _pendingCodes.Keys.ToArray())
+            {
+                if (_pendingCodes.TryGetValue(key, out var entry) && entry.ExpiresAt < now)
+                    _pendingCodes.TryRemove(key, out _);
+            }
+        }
 
         /// <summary>Parses a provider route segment to a <see cref="ProviderId"/>, case-insensitive.</summary>
         private static ProviderId? ParseProvider(string key) =>

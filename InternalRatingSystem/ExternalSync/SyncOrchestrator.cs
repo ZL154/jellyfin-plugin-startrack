@@ -42,17 +42,20 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync
 
         /// <summary>
         /// Composite key used to identify a rating across systems.
-        /// Format: <c>&lt;imdb&gt;|&lt;tmdb&gt;|&lt;mediaType&gt;</c>
-        /// Empty string is used when a field is absent so the key is always
-        /// well-defined and two ratings with the same IDs + media type are
-        /// treated as the same content.
+        /// Format: <c>&lt;imdb&gt;|&lt;tmdb&gt;|&lt;mediaType&gt;|&lt;title&gt;|&lt;year&gt;</c>
+        /// Title (lowercased) and year are appended so that id-less items from
+        /// Yamtrack (no TMDB/IMDB) don't all collapse to the same key.
         /// </summary>
         private static string Key(ExternalRating r)
             => (r.Imdb ?? string.Empty)
                + "|"
                + (r.Tmdb?.ToString() ?? string.Empty)
                + "|"
-               + r.MediaType;
+               + r.MediaType
+               + "|"
+               + (r.Title?.ToLowerInvariant() ?? string.Empty)
+               + "|"
+               + r.Year;
 
         // ------------------------------------------------------------------
         // Main entry point
@@ -107,6 +110,13 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync
 
                         var itemId = _resolver.FindItemId(r);
                         if (itemId == null)
+                        {
+                            result.Skipped++;
+                            continue;
+                        }
+
+                        // Clamp: skip ratings outside the valid 0.5–5 star range.
+                        if (r.Stars < 0.5 || r.Stars > 5)
                         {
                             result.Skipped++;
                             continue;

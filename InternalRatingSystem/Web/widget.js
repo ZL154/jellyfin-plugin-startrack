@@ -2273,7 +2273,6 @@
                                 }
                                 var userCode  = esPick(data, 'userCode', 'UserCode') || '';
                                 var verifyUrl = esPick(data, 'verificationUrl', 'VerificationUrl') || '';
-                                var devCode   = esPick(data, 'deviceCode', 'DeviceCode') || '';
                                 var interval  = esPick(data, 'interval', 'Interval') || 5;
 
                                 // Show auth box
@@ -2283,8 +2282,9 @@
                                 esShowStatus(card, 'Enter the code above at the link, then wait…', '');
 
                                 // Poll until connected
+                                var ttl = esPick(data, 'expiresIn', 'ExpiresIn') || 600;
                                 var attempts = 0;
-                                var maxAttempts = Math.floor(300 / Math.max(interval, 1));
+                                var maxAttempts = Math.floor(ttl / Math.max(interval, 1));
                                 var tid = setInterval(function () {
                                     attempts++;
                                     if (attempts > maxAttempts) {
@@ -2389,13 +2389,14 @@
                     }
                     esIoStatus('Importing ' + file.name + '…', '');
                     var auth = getAuth(); if (!auth) return;
-                    var formData = new FormData();
-                    formData.append('file', file);
-                    fetch('/Plugins/StarTrack/ExternalSync/Import', {
+                    var isJson = /\.json$/i.test(file.name);
+                    var ct = isJson ? 'application/json' : 'text/csv';
+                    file.text().then(function (text) {
+                    return fetch('/Plugins/StarTrack/ExternalSync/Import?format=' + (isJson ? 'json' : 'csv'), {
                         method: 'POST',
-                        headers: { Authorization: auth },
-                        body: formData
-                    }).then(function (r) { return r.ok ? r.json() : null; })
+                        headers: { Authorization: auth, 'Content-Type': ct },
+                        body: text
+                    }); }).then(function (r) { return r && r.ok ? r.json() : null; })
                       .then(function (res) {
                           importFile.value = '';
                           if (!res) { esIoStatus('Import failed.', 'err'); return; }

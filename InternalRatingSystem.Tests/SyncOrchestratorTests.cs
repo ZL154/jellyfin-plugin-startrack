@@ -377,5 +377,33 @@ namespace Jellyfin.Plugin.InternalRating.Tests
             Assert.Single(sink.Saves);
             Assert.Equal(4.5, sink.Saves[0].stars);
         }
+
+        // ------------------------------------------------------------------
+        // Test 9: Import clamp — a rating of 0 stars is skipped, not saved
+        // ------------------------------------------------------------------
+
+        [Fact]
+        public async Task ImportOnly_ZeroStars_IsSkipped_NotSaved()
+        {
+            // A remote rating with 0 stars (invalid — below the 0.5 floor)
+            var zeroRating = new ExternalRating("tt-zero", null, null, "Zero Stars Film", 2020, "movie", 0.0, T0);
+            var provider   = new FakeProvider(new[] { zeroRating });
+
+            var resolver = new FakeResolver(new Dictionary<string, string>
+            {
+                ["tt-zero"] = "item-zero"
+            });
+
+            var sink = new FakeSink();
+            var conn = new ProviderConnection { Direction = SyncDirection.ImportOnly };
+            var orch = BuildOrchestrator(sink: sink, resolver: resolver);
+
+            var result = await orch.SyncOneAsync("user1", "Alice", provider, conn, CancellationToken.None);
+
+            // 0 stars is below the 0.5 floor -> must be skipped, not saved
+            Assert.Equal(1, result.Skipped);
+            Assert.Equal(0, result.Pulled);
+            Assert.Empty(sink.Saves);
+        }
     }
 }
