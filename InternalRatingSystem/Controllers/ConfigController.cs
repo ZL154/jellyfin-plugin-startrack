@@ -43,6 +43,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 language                     = cfg.Language ?? "en",
                 hideRecentButton             = cfg.HideRecentButton,
                 hideLetterboxdButton         = cfg.HideLetterboxdButton,
+                hideExternalSyncButton       = cfg.HideExternalSyncButton,
                 rateButtonOnlyInMediaItem    = cfg.RateButtonOnlyInMediaItem,
                 replaceMediaDetailsRating    = cfg.ReplaceMediaDetailsRating,
                 replaceMediaBarRating        = cfg.ReplaceMediaBarRating,

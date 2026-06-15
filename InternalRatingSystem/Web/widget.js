@@ -18,6 +18,7 @@
         language:                  'en',
         hideRecentButton:          false,
         hideLetterboxdButton:      false,
+        hideExternalSyncButton:    false,
         rateButtonOnlyInMediaItem: false,
         replaceMediaDetailsRating: true,
         replaceMediaBarRating:     true,
@@ -6457,6 +6458,11 @@
         } else {
             el.querySelectorAll('.ir-lb-open-btn').forEach(function (b) { b.style.display = ''; });
         }
+        // Hide the overlay External Sync button system-wide
+        var ov = document.getElementById('ir-overlay');
+        if (ov) {
+            ov.querySelectorAll('.ir-ov-es').forEach(function (b) { b.style.display = _STARTRACK_CONFIG.hideExternalSyncButton ? 'none' : ''; });
+        }
     }
 
     // ── StarTrack rating swap into Media Details page ────────────────────
@@ -6947,8 +6953,9 @@
             try { override = localStorage.getItem('startrack_lang'); } catch (e) {}
             lang.value = override || _adminPickKey(c, 'Language') || 'en';
         }
-        _adminSetCheckbox(root.querySelector('#stHideRecentButton'),     _adminPickKey(c, 'HideRecentButton'));
-        _adminSetCheckbox(root.querySelector('#stHideLetterboxdButton'), _adminPickKey(c, 'HideLetterboxdButton'));
+        _adminSetCheckbox(root.querySelector('#stHideRecentButton'),        _adminPickKey(c, 'HideRecentButton'));
+        _adminSetCheckbox(root.querySelector('#stHideLetterboxdButton'),    _adminPickKey(c, 'HideLetterboxdButton'));
+        _adminSetCheckbox(root.querySelector('#stHideExternalSyncButton'), _adminPickKey(c, 'HideExternalSyncButton'));
         _adminSetCheckbox(root.querySelector('#stRateOnlyInMedia'),      _adminPickKey(c, 'RateButtonOnlyInMediaItem'));
         _adminSetCheckbox(root.querySelector('#stReplaceMediaDetails'),  _adminPickKey(c, 'ReplaceMediaDetailsRating'));
         _adminSetCheckbox(root.querySelector('#stReplaceMediaBar'),      _adminPickKey(c, 'ReplaceMediaBarRating'));
@@ -6975,8 +6982,9 @@
         var c = Object.assign({}, existing || {});
         if (!root) return c;
         c.Language                  = root.querySelector('#stLanguage') ? root.querySelector('#stLanguage').value : 'en';
-        c.HideRecentButton          = !!(root.querySelector('#stHideRecentButton')     && root.querySelector('#stHideRecentButton').checked);
-        c.HideLetterboxdButton      = !!(root.querySelector('#stHideLetterboxdButton') && root.querySelector('#stHideLetterboxdButton').checked);
+        c.HideRecentButton          = !!(root.querySelector('#stHideRecentButton')         && root.querySelector('#stHideRecentButton').checked);
+        c.HideLetterboxdButton      = !!(root.querySelector('#stHideLetterboxdButton')     && root.querySelector('#stHideLetterboxdButton').checked);
+        c.HideExternalSyncButton    = !!(root.querySelector('#stHideExternalSyncButton')   && root.querySelector('#stHideExternalSyncButton').checked);
         c.RateButtonOnlyInMediaItem = !!(root.querySelector('#stRateOnlyInMedia')      && root.querySelector('#stRateOnlyInMedia').checked);
         c.ReplaceMediaDetailsRating = !!(root.querySelector('#stReplaceMediaDetails')  && root.querySelector('#stReplaceMediaDetails').checked);
         c.ReplaceMediaBarRating     = !!(root.querySelector('#stReplaceMediaBar')      && root.querySelector('#stReplaceMediaBar').checked);

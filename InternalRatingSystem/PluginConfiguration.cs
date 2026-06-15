@@ -20,6 +20,9 @@ namespace Jellyfin.Plugin.InternalRating
         /// <summary>Hide the floating 'Letterboxd Sync' button system-wide.</summary>
         public bool HideLetterboxdButton { get; set; } = false;
 
+        /// <summary>Hide the External Sync button (⇄ External Sync) in the My Ratings overlay system-wide.</summary>
+        public bool HideExternalSyncButton { get; set; } = false;
+
         /// <summary>When true, the 'Rate' floating button only appears on media detail pages.</summary>
         public bool RateButtonOnlyInMediaItem { get; set; } = false;
 
