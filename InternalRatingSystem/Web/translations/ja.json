@@ -466,5 +466,8 @@
   "config.simkl_client_secret": "Simkl クライアントシークレット",
   "config.simkl_client_id_desc": "https://simkl.com/settings/developer/ から新しいアプリを作成し、クライアントIDをコピーしてください。",
   "external_sync.go_to": "アクセスして",
-  "external_sync.and_enter": "以下のコードを入力:"
+  "external_sync.and_enter": "以下のコードを入力:",
+  "overlay.by": "by",
+  "overlay.lists_on_server_one": "このサーバーに{n}件のリスト",
+  "overlay.lists_on_server_many": "このサーバーに{n}件のリスト"
 }

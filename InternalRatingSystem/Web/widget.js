@@ -2127,7 +2127,7 @@
 
                 // Badge
                 if (badge) {
-                    badge.textContent = connected ? 'Connected' : 'Not connected';
+                    badge.textContent = connected ? tr('external_sync.badge_connected', null, 'Connected') : tr('external_sync.badge_disconnected', null, 'Not connected');
                     badge.className = 'ir-ov-es-badge ' + (connected ? 'ir-ov-es-badge-connected' : 'ir-ov-es-badge-disconnected');
                 }
 
@@ -2946,12 +2946,12 @@
         }
 
         if (countEl) {
-            var labelWord = _overlayView === 'watchlist' ? 'on watchlist'
-                           : _overlayView === 'liked'     ? 'liked'
-                           : _overlayView === 'recs'      ? 'suggested'
-                           : _overlayView === 'diary'     ? 'diary entries'
-                           : 'rated';
-            countEl.textContent = filtered.length + ' ' + (filtered.length !== 1 ? labelWord : labelWord.replace(/s$/, ''));
+            var labelWord = _overlayView === 'watchlist' ? tr('count.on_watchlist', null, 'on watchlist')
+                           : _overlayView === 'liked'     ? tr('count.liked', null, 'liked')
+                           : _overlayView === 'recs'      ? tr('count.suggested', null, 'suggested')
+                           : _overlayView === 'diary'     ? tr('count.diary_entries', null, 'diary entries')
+                           : tr('count.rated', null, 'rated');
+            countEl.textContent = filtered.length + ' ' + labelWord;
         }
 
         // 5. Sort. Diary view forces watchedAt desc. Recs view forces community rating desc.
@@ -3230,7 +3230,7 @@
                             communityRating: m.communityRating || 0,
                             imageTag: m.imageTag || null,
                             type: m.type || 'Unknown'
-                        }, { badge: 'by ' + li.addedByName }));
+                        }, { badge: tr('overlay.by', null, 'by') + ' ' + li.addedByName }));
                     });
                     gridWrap.appendChild(grid);
                 });
@@ -3245,8 +3245,8 @@
             header.className = 'ir-ov-lists-header';
             header.innerHTML = '<button class="ir-ov-lists-new">+ New list</button>' +
                                '<span style="color:rgba(255,255,255,.5);font-size:.85em">' +
-                               ((lists || []).length) + ' list' + (((lists || []).length) !== 1 ? 's' : '') +
-                               ' on this server</span>';
+                               (((lists||[]).length) !== 1 ? tr('overlay.lists_on_server_many', {n:(lists||[]).length}, '{n} lists on this server') : tr('overlay.lists_on_server_one', {n:(lists||[]).length}, '{n} list on this server')) +
+                               '</span>';
             gridWrap.appendChild(header);
             header.querySelector('.ir-ov-lists-new').addEventListener('click', function () {
                 openCreateListModal(function (created) {
@@ -3275,10 +3275,10 @@
                         ? '<div class="ir-ov-list-card-actions"><button class="ir-ov-list-card-del" title="Delete list">\u2715</button></div>'
                         : '') +
                     '<div class="ir-ov-list-name">' + esc(l.name) + '</div>' +
-                    '<div class="ir-ov-list-owner">by ' + esc(l.ownerName) + '</div>' +
+                    '<div class="ir-ov-list-owner">' + tr('overlay.by', null, 'by') + ' ' + esc(l.ownerName) + '</div>' +
                     (l.description ? '<div class="ir-ov-list-desc">' + esc(l.description) + '</div>' : '') +
                     '<div class="ir-ov-list-stats">' +
-                        '<span>' + l.items.length + ' film' + (l.items.length !== 1 ? 's' : '') + '</span>' +
+                        '<span>' + (l.items.length !== 1 ? tr('lists.film_count_many', {n:l.items.length}, '{n} films') : tr('lists.film_count_one', {n:l.items.length}, '{n} film')) + '</span>' +
                         (l.collaborative ? '<span class="ir-ov-list-collab">\u2731 collaborative</span>' : '<span>private</span>') +
                     '</div>';
                 card.addEventListener('click', function () {
@@ -3535,7 +3535,7 @@
                                     (m.isSelf ? '<span class="ir-mem-you-pill">YOU</span>' : '') +
                                 '</div>' +
                                 '<div class="ir-mem-card-statgrid">' +
-                                    '<span><b>' + (m.ratingsCount|0) + '</b> rated</span>' +
+                                    '<span><b>' + (m.ratingsCount|0) + '</b> ' + tr('count.rated', null, 'rated') + '</span>' +
                                     '<span><b>' + esc(avgStr) + '</b> avg</span>' +
                                     '<span><b>' + (m.watchlistCount|0) + '</b> watchlist</span>' +
                                     '<span><b>' + (m.likesCount|0) + '</b> liked</span>' +

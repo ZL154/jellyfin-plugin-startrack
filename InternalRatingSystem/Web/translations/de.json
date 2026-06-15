@@ -466,5 +466,8 @@
   "prefs.hide_activity_sub": "Deine Bewertungen, Tagebucheinträge und Rezensionen erscheinen nicht im Aktivitätsfeed für andere Benutzer. Du siehst deine eigene Aktivität weiterhin.",
   "external_sync.yamtrack_url_placeholder": "Base URL (e.g. https://yamtrack.example.com)",
   "external_sync.yamtrack_token_placeholder": "API token",
-  "external_sync.btn_connect_form": "Verbinden"
+  "external_sync.btn_connect_form": "Verbinden",
+  "overlay.by": "von",
+  "overlay.lists_on_server_one": "{n} Liste auf diesem Server",
+  "overlay.lists_on_server_many": "{n} Listen auf diesem Server"
 }

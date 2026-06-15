@@ -466,5 +466,8 @@
   "prefs.hide_activity_sub": "Tus valoraciones, entradas de diario y reseñas no aparecerán en el feed de actividad para otros usuarios. Tú seguirás viendo tu propia actividad.",
   "external_sync.yamtrack_url_placeholder": "Base URL (e.g. https://yamtrack.example.com)",
   "external_sync.yamtrack_token_placeholder": "API token",
-  "external_sync.btn_connect_form": "Conectar"
+  "external_sync.btn_connect_form": "Conectar",
+  "overlay.by": "por",
+  "overlay.lists_on_server_one": "{n} lista en este servidor",
+  "overlay.lists_on_server_many": "{n} listas en este servidor"
 }

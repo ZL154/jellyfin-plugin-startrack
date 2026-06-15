@@ -466,5 +466,8 @@
   "config.simkl_client_secret": "Simkl Client Secret",
   "config.simkl_client_id_desc": "Da https://simkl.com/settings/developer/ — crea una nuova app e copia il Client ID.",
   "external_sync.go_to": "Vai a",
-  "external_sync.and_enter": "e inserisci:"
+  "external_sync.and_enter": "e inserisci:",
+  "overlay.by": "di",
+  "overlay.lists_on_server_one": "{n} lista su questo server",
+  "overlay.lists_on_server_many": "{n} liste su questo server"
 }

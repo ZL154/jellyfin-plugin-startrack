@@ -466,5 +466,8 @@
   "prefs.hide_activity_sub": "Vos notes, entrées de journal et critiques n'apparaîtront pas dans le fil d'activité pour les autres utilisateurs. Vous voyez toujours votre propre activité.",
   "external_sync.yamtrack_url_placeholder": "Base URL (e.g. https://yamtrack.example.com)",
   "external_sync.yamtrack_token_placeholder": "API token",
-  "external_sync.btn_connect_form": "Connecter"
+  "external_sync.btn_connect_form": "Connecter",
+  "overlay.by": "par",
+  "overlay.lists_on_server_one": "{n} liste sur ce serveur",
+  "overlay.lists_on_server_many": "{n} listes sur ce serveur"
 }
