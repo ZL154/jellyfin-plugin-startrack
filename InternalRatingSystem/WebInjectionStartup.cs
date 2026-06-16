@@ -79,22 +79,30 @@ namespace Jellyfin.Plugin.InternalRating
 
             // TraktProvider: creds default to live PluginConfiguration at call time.
             services.AddSingleton<IExternalRatingProvider>(sp =>
-                new TraktProvider(sp.GetRequiredService<IHttpClientFactory>().CreateClient()));
+                new TraktProvider(MakeApiClient(sp)));
 
             // SimklProvider: creds default to live PluginConfiguration at call time.
             services.AddSingleton<IExternalRatingProvider>(sp =>
-                new SimklProvider(sp.GetRequiredService<IHttpClientFactory>().CreateClient()));
+                new SimklProvider(MakeApiClient(sp)));
 
             // YamtrackProvider: uses conn.BaseUrl + conn.ApiToken (no plugin-level config).
             services.AddSingleton<IExternalRatingProvider>(sp =>
-                new YamtrackProvider(sp.GetRequiredService<IHttpClientFactory>().CreateClient()));
+                new YamtrackProvider(MakeApiClient(sp)));
 
             // DeviceCodeOAuth: stateless helper, one instance per plugin lifetime.
             services.AddSingleton<DeviceCodeOAuth>(sp =>
-                new DeviceCodeOAuth(sp.GetRequiredService<IHttpClientFactory>().CreateClient()));
+                new DeviceCodeOAuth(MakeApiClient(sp)));
 
             // IRatingGatherer → RatingGatherer (already registered as concrete above).
             services.AddSingleton<IRatingGatherer>(sp => sp.GetRequiredService<RatingGatherer>());
+
+            // ILikedGatherer → LikedGatherer (liked items for watched/liked library sync).
+            services.AddSingleton<ILikedGatherer>(sp =>
+                new LikedGatherer(Plugin.Instance!.Interactions, sp.GetRequiredService<IExternalIdResolver>()));
+
+            // IWatchedGatherer → WatchedGatherer (reads Jellyfin played-state for the
+            // one-shot watched-history backfill).
+            services.AddSingleton<IWatchedGatherer, WatchedGatherer>();
 
             // IRatingSink → Plugin.Instance.Repository (the concrete RatingRepository
             // implements both IRatingReader and IRatingSink).
@@ -106,6 +114,20 @@ namespace Jellyfin.Plugin.InternalRating
             // Scheduled task: hourly external-rating sync.
             services.AddSingleton<IScheduledTask, ExternalSyncTask>();
         }
+
+        /// <summary>
+        /// Creates an HttpClient for external rating APIs with a non-empty
+        /// User-Agent. REQUIRED: Trakt (and others) sit behind Cloudflare, which
+        /// returns HTTP 403 Forbidden for requests with no User-Agent — .NET's
+        /// HttpClient sends none by default, which is what broke "Connect Trakt".
+        /// </summary>
+        private static HttpClient MakeApiClient(IServiceProvider sp)
+        {
+            var client = sp.GetRequiredService<IHttpClientFactory>().CreateClient();
+            if (!client.DefaultRequestHeaders.UserAgent.TryParseAdd("StarTrack-Jellyfin/1.5 (+https://github.com/ZL154/jellyfin-plugin-startrack)"))
+                client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "StarTrack-Jellyfin/1.5");
+            return client;
+        }
     }
 
     /// <summary>
@@ -115,7 +137,7 @@ namespace Jellyfin.Plugin.InternalRating
     public class WebInjectionService : IHostedService
     {
         private const string Marker    = "<!-- startrack-widget -->";
-        private const string ScriptTag = "<script src=\"/Plugins/StarTrack/Widget\"></script>";
+        private static string ScriptTag => WidgetAsset.ScriptTag;
 
         // Diagnostics for the debug endpoint
         public static string DiagWebPath     = "not set";

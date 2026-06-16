@@ -405,5 +405,78 @@ namespace Jellyfin.Plugin.InternalRating.Tests
             Assert.Equal(0, result.Pulled);
             Assert.Empty(sink.Saves);
         }
+
+        // ------------------------------------------------------------------
+        // Test 10 (REGRESSION): TwoWay, same item on both sides with DIFFERENT
+        // stars, and the LOCAL rating is newer -> local must be PUSHED to the
+        // service and must NOT be clobbered by the import step.
+        //
+        // This is the bug that made "StarTrack never writes to Trakt": import
+        // used to overwrite local with the remote value before export ran, so a
+        // locally-edited rating could never propagate outward.
+        // ------------------------------------------------------------------
+
+        [Fact]
+        public async Task TwoWay_LocalNewerThanRemote_PushesLocal_DoesNotClobber()
+        {
+            var newer = T0.AddDays(1);
+
+            // Same key (tt-x / movie / "X" / 2020) on both sides, different stars.
+            var remoteRating = new ExternalRating("tt-x", null, null, "X", 2020, "movie", 3.0, T0);    // older
+            var localRating  = new ExternalRating("tt-x", null, null, "X", 2020, "movie", 2.0, newer); // newer
+
+            var provider = new FakeProvider(new[] { remoteRating });
+            var gatherer = new FakeGatherer(new[] { localRating });
+            var resolver = new FakeResolver(new Dictionary<string, string> { ["tt-x"] = "item-x" });
+            var sink     = new FakeSink();
+            var conn     = new ProviderConnection { Direction = SyncDirection.TwoWay };
+
+            var orch   = BuildOrchestrator(gatherer, sink, resolver);
+            var result = await orch.SyncOneAsync("user1", "Alice", provider, conn, CancellationToken.None);
+
+            // Import must NOT have clobbered the newer local rating.
+            Assert.Equal(0, result.Pulled);
+            Assert.Empty(sink.Saves);
+
+            // Export must have pushed the local rating outward.
+            Assert.Equal(1, result.Pushed);
+            Assert.Single(provider.PushCalls);
+            Assert.Single(provider.PushCalls[0]);
+            Assert.Equal(2.0, provider.PushCalls[0][0].Stars);
+        }
+
+        // ------------------------------------------------------------------
+        // Test 11 (REGRESSION): TwoWay, same item on both sides with DIFFERENT
+        // stars, and the REMOTE rating is newer -> remote must be IMPORTED and
+        // the local rating must NOT be pushed (newer-wins, the other direction).
+        // ------------------------------------------------------------------
+
+        [Fact]
+        public async Task TwoWay_RemoteNewerThanLocal_ImportsRemote_DoesNotPush()
+        {
+            var newer = T0.AddDays(1);
+
+            var remoteRating = new ExternalRating("tt-x", null, null, "X", 2020, "movie", 3.0, newer); // newer
+            var localRating  = new ExternalRating("tt-x", null, null, "X", 2020, "movie", 2.0, T0);    // older
+
+            var provider = new FakeProvider(new[] { remoteRating });
+            var gatherer = new FakeGatherer(new[] { localRating });
+            var resolver = new FakeResolver(new Dictionary<string, string> { ["tt-x"] = "item-x" });
+            var sink     = new FakeSink();
+            var conn     = new ProviderConnection { Direction = SyncDirection.TwoWay };
+
+            var orch   = BuildOrchestrator(gatherer, sink, resolver);
+            var result = await orch.SyncOneAsync("user1", "Alice", provider, conn, CancellationToken.None);
+
+            // Import wins: remote value saved locally.
+            Assert.Equal(1, result.Pulled);
+            Assert.Single(sink.Saves);
+            Assert.Equal("item-x", sink.Saves[0].itemId);
+            Assert.Equal(3.0, sink.Saves[0].stars);
+
+            // Export must NOT push the older local rating back out.
+            Assert.Equal(0, result.Pushed);
+            Assert.Empty(provider.PushCalls);
+        }
     }
 }

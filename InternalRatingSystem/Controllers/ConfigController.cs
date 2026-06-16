@@ -48,6 +48,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 replaceMediaDetailsRating    = cfg.ReplaceMediaDetailsRating,
                 replaceMediaBarRating        = cfg.ReplaceMediaBarRating,
                 showRatingsOnPosters         = cfg.ShowRatingsOnPosters,
+                posterRatingPosition         = cfg.PosterRatingPosition ?? "top-right",
                 postPlaybackRatingPopup      = cfg.PostPlaybackRatingPopup,
                 communityRecentMode          = cfg.CommunityRecentMode,
                 hiddenOverlayViews           = hiddenViews,

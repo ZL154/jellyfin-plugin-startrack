@@ -46,6 +46,36 @@ namespace Jellyfin.Plugin.InternalRating.Tests
             Assert.Contains("\"Movie, with comma\"", lines[2]);
         }
 
+        // ------------------------------------------------------------------ //
+        // BuildImdbCsv (Yamtrack "Import from IMDb" format)
+        // ------------------------------------------------------------------ //
+
+        [Fact]
+        public void BuildImdbCsv_MapsTypesAndScale_SkipsEpisodesAndIdless()
+        {
+            var ratings = new[]
+            {
+                new ExternalRating("tt100", 5, null, "Heat", 1995, "movie", 4.0, new DateTime(2023, 1, 2)),
+                new ExternalRating("tt200", null, null, "Breaking Bad", 2008, "show", 5.0, new DateTime(2023, 2, 3)),
+                new ExternalRating("tt300", null, null, "Some Episode", null, "episode", 3.0, new DateTime(2023, 3, 4)),
+                new ExternalRating(null, 1, null, "No Imdb Movie", 2000, "movie", 2.0, new DateTime(2023, 4, 5)),
+            };
+
+            var svc = new FileExportService();
+            var csv = svc.BuildImdbCsv(ratings);
+            var lines = csv.Replace("\r\n", "\n").Trim().Split('\n');
+
+            Assert.Equal("Const,Title,Title Type,Your Rating,Date Rated,Created,Modified,Year", lines[0]);
+            // movie -> Movie, 4.0 stars -> 8/10
+            Assert.Contains("tt100,Heat,Movie,8,2023-01-02", csv);
+            // show -> TV Series, 5.0 stars -> 10/10
+            Assert.Contains("tt200,Breaking Bad,TV Series,10,2023-02-03", csv);
+            // episode skipped (Yamtrack IMDb import doesn't accept TV Episode)
+            Assert.DoesNotContain("tt300", csv);
+            // item without an IMDb id skipped (importer keys on Const)
+            Assert.DoesNotContain("No Imdb Movie", csv);
+        }
+
         [Fact]
         public void BuildLetterboxdCsv_TitleWithQuote_IsDoubledAndQuoted()
         {

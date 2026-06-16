@@ -49,6 +49,21 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync.Providers
         [JsonPropertyName("show")]     public TraktShowItem? Show { get; set; }
     }
 
+    internal sealed class TraktEpisodeItem
+    {
+        [JsonPropertyName("title")]  public string?   Title  { get; set; }
+        [JsonPropertyName("season")] public int?      Season { get; set; }
+        [JsonPropertyName("number")] public int?      Number { get; set; }
+        [JsonPropertyName("ids")]    public TraktIds? Ids    { get; set; }
+    }
+
+    internal sealed class TraktRatedEpisode
+    {
+        [JsonPropertyName("rating")]   public int    Rating   { get; set; }
+        [JsonPropertyName("rated_at")] public string? RatedAt { get; set; }
+        [JsonPropertyName("episode")]  public TraktEpisodeItem? Episode { get; set; }
+    }
+
     internal sealed class TraktAddedCounts
     {
         [JsonPropertyName("movies")]   public int Movies   { get; set; }
@@ -73,10 +88,10 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync.Providers
     /// runtime) and the Trakt app's <paramref name="clientId"/> /
     /// <paramref name="clientSecret"/> so tests never need <c>Plugin.Instance</c>.
     ///
-    /// NOTE (v1 simplification): episodes are pushed as show-level entries.
-    /// Trakt's full episode-level push will be a later enhancement.
+    /// Movies, shows and episodes each sync via their own Trakt bucket
+    /// (/sync/ratings movies[] / shows[] / episodes[]), matched by external ids.
     /// </summary>
-    public sealed class TraktProvider : IExternalRatingProvider
+    public sealed class TraktProvider : IExternalRatingProvider, ISupportsLibrarySync
     {
         private const string BaseUrl = "https://api.trakt.tv";
 
@@ -130,9 +145,13 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync.Providers
             if (ratings.Count == 0)
                 return 0;
 
-            // Build body — movies array and shows array
-            var movies = new List<object>();
-            var shows  = new List<object>();
+            // Build body — separate movies / shows / episodes arrays. Episodes
+            // MUST go in their own "episodes" array keyed by the EPISODE's ids;
+            // Trakt cannot match an episode id placed in the "shows" bucket (this
+            // was the bug that left episode ratings stranded in StarTrack).
+            var movies   = new List<object>();
+            var shows    = new List<object>();
+            var episodes = new List<object>();
 
             foreach (var r in ratings)
             {
@@ -142,14 +161,15 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync.Providers
 
                 var item = new { ids, rating = traktRating, rated_at = ratedAt };
 
-                // "episode" maps to shows bucket in v1 (see class-level note)
                 if (r.MediaType == "movie")
                     movies.Add(item);
+                else if (r.MediaType == "episode")
+                    episodes.Add(item);
                 else
                     shows.Add(item);
             }
 
-            var body = new { movies, shows };
+            var body = new { movies, shows, episodes };
             var json = JsonSerializer.Serialize(body);
 
             using var req = BuildRequest(HttpMethod.Post, $"{BaseUrl}/sync/ratings", conn, json);
@@ -160,7 +180,7 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync.Providers
             var dto = JsonSerializer.Deserialize<TraktSyncResponse>(responseJson);
 
             var added = dto?.Added;
-            return (added?.Movies ?? 0) + (added?.Shows ?? 0);
+            return (added?.Movies ?? 0) + (added?.Shows ?? 0) + (added?.Episodes ?? 0);
         }
 
         // ------------------------------------------------------------------ //
@@ -229,7 +249,124 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync.Providers
                 }
             }
 
+            // --- episodes ---
+            using (var req = BuildRequest(HttpMethod.Get, $"{BaseUrl}/sync/ratings/episodes", conn, body: null))
+            using (var resp = await _http.SendAsync(req, ct).ConfigureAwait(false))
+            {
+                resp.EnsureSuccessStatusCode();
+                var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                var items = JsonSerializer.Deserialize<TraktRatedEpisode[]>(json);
+                if (items != null)
+                {
+                    foreach (var item in items)
+                    {
+                        if (item.Episode == null) continue;
+                        result.Add(new ExternalRating(
+                            Imdb:      item.Episode.Ids?.Imdb,
+                            Tmdb:      item.Episode.Ids?.Tmdb,
+                            Tvdb:      item.Episode.Ids?.Tvdb,
+                            Title:     item.Episode.Title ?? string.Empty,
+                            Year:      null,
+                            MediaType: "episode",
+                            Stars:     RatingScale.FromService10(item.Rating),
+                            RatedAt:   ParseRatedAt(item.RatedAt)));
+                    }
+                }
+            }
+
             return result;
+        }
+
+        // ------------------------------------------------------------------ //
+        // Library sync (ISupportsLibrarySync) — watched history + liked
+        // ------------------------------------------------------------------ //
+
+        /// <inheritdoc />
+        /// <remarks>
+        /// Marks movies/episodes as watched via <c>POST /sync/history</c>.
+        /// Idempotent: pulls the already-watched set first and only posts items
+        /// Trakt doesn't already have, so repeated syncs never create duplicate
+        /// plays. (Shows are skipped — marking a whole show watched would mark
+        /// every episode.)
+        /// </remarks>
+        public async Task<int> MarkWatchedAsync(ProviderConnection conn, IReadOnlyList<ExternalRating> watched, CancellationToken ct)
+        {
+            if (watched.Count == 0) return 0;
+
+            var watchedMovies = await GetIdSetAsync(conn, "/sync/watched/movies", ct).ConfigureAwait(false);
+            var watchedEps    = await GetIdSetAsync(conn, "/sync/history/episodes?limit=100", ct).ConfigureAwait(false);
+
+            var movies   = new List<object>();
+            var episodes = new List<object>();
+            foreach (var r in watched)
+            {
+                var k = KeyOf(r);
+                if (k == null) continue;
+                var item = new { ids = BuildIds(r), watched_at = r.RatedAt.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ") };
+                if (r.MediaType == "movie")        { if (!watchedMovies.Contains(k)) movies.Add(item); }
+                else if (r.MediaType == "episode") { if (!watchedEps.Contains(k))    episodes.Add(item); }
+            }
+
+            if (movies.Count == 0 && episodes.Count == 0) return 0;
+            return await PostCountAsync(conn, "/sync/history", new { movies, episodes }, ct).ConfigureAwait(false);
+        }
+
+        /// <inheritdoc />
+        /// <remarks>
+        /// Pushes liked items to BOTH the user's Trakt Favorites (shown on the
+        /// profile) and a dedicated private "StarTrack Liked" list. Idempotent:
+        /// dedups against existing favorites / list items. Returns the number
+        /// newly added to Favorites.
+        /// </remarks>
+        public async Task<int> PushLikedAsync(ProviderConnection conn, IReadOnlyList<ExternalRating> liked, CancellationToken ct)
+        {
+            if (liked.Count == 0) return 0;
+            int added = 0;
+
+            // --- Favorites (movies + shows) ---
+            try
+            {
+                var favMovies = await GetIdSetAsync(conn, "/users/me/favorites/movies", ct).ConfigureAwait(false);
+                var favShows  = await GetIdSetAsync(conn, "/users/me/favorites/shows", ct).ConfigureAwait(false);
+
+                var m = new List<object>();
+                var s = new List<object>();
+                foreach (var l in liked)
+                {
+                    var k = KeyOf(l);
+                    if (k == null) continue;
+                    if (l.MediaType == "movie") { if (!favMovies.Contains(k)) m.Add(new { ids = BuildIds(l) }); }
+                    else                        { if (!favShows.Contains(k))  s.Add(new { ids = BuildIds(l) }); }
+                }
+                if (m.Count > 0 || s.Count > 0)
+                    added += await PostCountAsync(conn, "/users/me/favorites", new { movies = m, shows = s }, ct).ConfigureAwait(false);
+            }
+            catch { /* favorites is best-effort; the list below still runs */ }
+
+            // --- Dedicated "StarTrack Liked" list ---
+            try
+            {
+                var listId = await EnsureListAsync(conn, "StarTrack Liked", ct).ConfigureAwait(false);
+                if (listId != null)
+                {
+                    var inList = await GetIdSetAsync(conn, $"/users/me/lists/{listId}/items/movie", ct).ConfigureAwait(false);
+                    var inListShows = await GetIdSetAsync(conn, $"/users/me/lists/{listId}/items/show", ct).ConfigureAwait(false);
+                    var m = new List<object>();
+                    var s = new List<object>();
+                    foreach (var l in liked)
+                    {
+                        var k = KeyOf(l);
+                        if (k == null) continue;
+                        if (l.MediaType == "movie") { if (!inList.Contains(k))      m.Add(new { ids = BuildIds(l) }); }
+                        else                        { if (!inListShows.Contains(k)) s.Add(new { ids = BuildIds(l) }); }
+                    }
+                    if (m.Count > 0 || s.Count > 0)
+                        added += await PostCountAsync(conn, $"/users/me/lists/{listId}/items", new { movies = m, shows = s }, ct).ConfigureAwait(false);
+                }
+            }
+            catch { /* list is best-effort */ }
+
+            return added;
         }
 
         // ------------------------------------------------------------------ //
@@ -322,6 +459,103 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync.Providers
             if (r.Tmdb.HasValue)     ids["tmdb"] = r.Tmdb.Value;
             if (r.Tvdb.HasValue)     ids["tvdb"] = r.Tvdb.Value;
             return ids;
+        }
+
+        /// <summary>Stable cross-system key for dedup: IMDb if present, else "tmdb:N".</summary>
+        private static string? KeyOf(ExternalRating r)
+            => r.Imdb ?? (r.Tmdb.HasValue ? "tmdb:" + r.Tmdb.Value : null);
+
+        /// <summary>
+        /// GETs a Trakt array endpoint and returns the set of item keys (imdb +
+        /// "tmdb:N") found in any nested entity's <c>ids</c>. Works for
+        /// /sync/watched, /sync/history, favorites, and list-items shapes.
+        /// Best-effort: returns an empty set on any error.
+        /// </summary>
+        private async Task<HashSet<string>> GetIdSetAsync(ProviderConnection conn, string path, CancellationToken ct)
+        {
+            var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                using var req  = BuildRequest(HttpMethod.Get, $"{BaseUrl}{path}", conn, body: null);
+                using var resp = await _http.SendAsync(req, ct).ConfigureAwait(false);
+                if (!resp.IsSuccessStatusCode) return set;
+                var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                using var doc = JsonDocument.Parse(json);
+                if (doc.RootElement.ValueKind != JsonValueKind.Array) return set;
+                foreach (var el in doc.RootElement.EnumerateArray())
+                {
+                    if (el.ValueKind != JsonValueKind.Object) continue;
+                    foreach (var prop in el.EnumerateObject())
+                    {
+                        if (prop.Value.ValueKind == JsonValueKind.Object &&
+                            prop.Value.TryGetProperty("ids", out var ids))
+                        {
+                            if (ids.TryGetProperty("imdb", out var im) && im.ValueKind == JsonValueKind.String && !string.IsNullOrEmpty(im.GetString()))
+                                set.Add(im.GetString()!);
+                            if (ids.TryGetProperty("tmdb", out var tm) && tm.ValueKind == JsonValueKind.Number)
+                                set.Add("tmdb:" + tm.GetInt32());
+                        }
+                    }
+                }
+            }
+            catch { /* best-effort */ }
+            return set;
+        }
+
+        /// <summary>POSTs a JSON body and returns added.movies + added.shows + added.episodes.</summary>
+        private async Task<int> PostCountAsync(ProviderConnection conn, string path, object body, CancellationToken ct)
+        {
+            var json = JsonSerializer.Serialize(body);
+            using var req  = BuildRequest(HttpMethod.Post, $"{BaseUrl}{path}", conn, json);
+            using var resp = await _http.SendAsync(req, ct).ConfigureAwait(false);
+            resp.EnsureSuccessStatusCode();
+            var rj = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            var dto = JsonSerializer.Deserialize<TraktSyncResponse>(rj);
+            var a = dto?.Added;
+            return (a?.Movies ?? 0) + (a?.Shows ?? 0) + (a?.Episodes ?? 0);
+        }
+
+        /// <summary>
+        /// Finds the user's list by name (case-insensitive); creates it private
+        /// if absent. Returns the Trakt list id as a string, or null on failure.
+        /// </summary>
+        private async Task<string?> EnsureListAsync(ProviderConnection conn, string name, CancellationToken ct)
+        {
+            try
+            {
+                using (var req  = BuildRequest(HttpMethod.Get, $"{BaseUrl}/users/me/lists", conn, body: null))
+                using (var resp = await _http.SendAsync(req, ct).ConfigureAwait(false))
+                {
+                    if (resp.IsSuccessStatusCode)
+                    {
+                        var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                        using var doc = JsonDocument.Parse(json);
+                        if (doc.RootElement.ValueKind == JsonValueKind.Array)
+                        {
+                            foreach (var el in doc.RootElement.EnumerateArray())
+                            {
+                                if (el.TryGetProperty("name", out var n) &&
+                                    string.Equals(n.GetString(), name, StringComparison.OrdinalIgnoreCase) &&
+                                    el.TryGetProperty("ids", out var ids) && ids.TryGetProperty("trakt", out var tid))
+                                    return tid.GetInt32().ToString(System.Globalization.CultureInfo.InvariantCulture);
+                            }
+                        }
+                    }
+                }
+
+                var createBody = JsonSerializer.Serialize(new { name, description = "Movies & shows liked in StarTrack.", privacy = "private" });
+                using (var req  = BuildRequest(HttpMethod.Post, $"{BaseUrl}/users/me/lists", conn, createBody))
+                using (var resp = await _http.SendAsync(req, ct).ConfigureAwait(false))
+                {
+                    if (!resp.IsSuccessStatusCode) return null;
+                    var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                    using var doc = JsonDocument.Parse(json);
+                    if (doc.RootElement.TryGetProperty("ids", out var ids) && ids.TryGetProperty("trakt", out var tid))
+                        return tid.GetInt32().ToString(System.Globalization.CultureInfo.InvariantCulture);
+                }
+            }
+            catch { /* best-effort */ }
+            return null;
         }
 
         /// <summary>

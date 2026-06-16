@@ -10,9 +10,10 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.InternalRating.ExternalSync
 {
     /// <summary>
-    /// Scheduled task: every hour, iterate all users' external provider connections
-    /// whose <see cref="SyncDirection"/> is not <c>Off</c>, run a full sync cycle
-    /// via <see cref="SyncOrchestrator"/>, and persist the updated connection state.
+    /// Scheduled task: every 10 minutes, iterate all users' external provider
+    /// connections whose <see cref="SyncDirection"/> is not <c>Off</c>, run a full
+    /// sync cycle via <see cref="SyncOrchestrator"/>, and persist the updated
+    /// connection state.
     /// </summary>
     public sealed class ExternalSyncTask : IScheduledTask
     {
@@ -46,7 +47,7 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync
             new TaskTriggerInfo
             {
                 Type          = TaskTriggerInfoType.IntervalTrigger,
-                IntervalTicks = TimeSpan.FromHours(1).Ticks
+                IntervalTicks = TimeSpan.FromMinutes(10).Ticks
             }
         };
 

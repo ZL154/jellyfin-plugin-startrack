@@ -14,7 +14,7 @@ namespace Jellyfin.Plugin.InternalRating
     /// </summary>
     public class ScriptInjectionMiddleware
     {
-        private const string ScriptTag = "<script src=\"/Plugins/StarTrack/Widget\"></script>";
+        private static string ScriptTag => WidgetAsset.ScriptTag;
         private const string Marker    = "/Plugins/StarTrack/Widget";
 
         private readonly RequestDelegate _next;

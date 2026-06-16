@@ -52,6 +52,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         private readonly ExternalSyncSettingsRepository _settingsRepo;
         private readonly IEnumerable<IExternalRatingProvider> _providers;
         private readonly IUserManager _userManager;
+        private readonly IWatchedGatherer _watchedGatherer;
 
         // HttpClient for Simkl PIN flow (GET-based, not using DeviceCodeOAuth helper)
         private readonly HttpClient _simklHttp;
@@ -67,6 +68,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             ExternalSyncSettingsRepository settingsRepo,
             IEnumerable<IExternalRatingProvider> providers,
             IUserManager userManager,
+            IWatchedGatherer watchedGatherer,
             IHttpClientFactory httpClientFactory)
         {
             _gatherer        = gatherer;
@@ -79,7 +81,12 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             _settingsRepo    = settingsRepo;
             _providers       = providers;
             _userManager     = userManager;
+            _watchedGatherer = watchedGatherer;
             _simklHttp       = httpClientFactory.CreateClient();
+            // Simkl/Trakt sit behind Cloudflare, which 403s requests with no
+            // User-Agent (HttpClient sends none by default). Set one.
+            if (!_simklHttp.DefaultRequestHeaders.UserAgent.TryParseAdd("StarTrack-Jellyfin/1.5 (+https://github.com/ZL154/jellyfin-plugin-startrack)"))
+                _simklHttp.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "StarTrack-Jellyfin/1.5");
         }
 
         // ================================================================== //
@@ -104,13 +111,19 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             var ratings = await _gatherer.GatherAsync(userIdStr).ConfigureAwait(false);
             var dateSuffix = DateTime.UtcNow.ToString("yyyy-MM-dd");
 
-            bool useJson = string.Equals(format, "json", StringComparison.OrdinalIgnoreCase);
-
-            if (useJson)
+            if (string.Equals(format, "json", StringComparison.OrdinalIgnoreCase))
             {
                 var json = _exportService.BuildJson(ratings);
                 var jsonBytes = Encoding.UTF8.GetBytes(json);
                 return File(jsonBytes, "application/json", $"startrack-ratings-{dateSuffix}.json");
+            }
+            else if (string.Equals(format, "imdb", StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(format, "yamtrack", StringComparison.OrdinalIgnoreCase))
+            {
+                // IMDb-ratings-format CSV — importable by Yamtrack's "Import from IMDb".
+                var csv = _exportService.BuildImdbCsv(ratings);
+                var csvBytes = Encoding.UTF8.GetBytes(csv);
+                return File(csvBytes, "text/csv", $"startrack-imdb-ratings-{dateSuffix}.csv");
             }
             else
             {
@@ -625,6 +638,69 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             await _settingsRepo.SetConnectionAsync(userIdStr, providerKey, conn).ConfigureAwait(false);
 
             return Ok(result);
+        }
+
+        /// <summary>
+        /// One-shot backfill: marks every movie/episode the user has actually
+        /// PLAYED in Jellyfin (its real watched state, independent of ratings) as
+        /// watched on the provider. Idempotent — safe to run repeatedly.
+        /// POST /Plugins/StarTrack/ExternalSync/{provider}/BackfillWatched
+        /// </summary>
+        [HttpPost("{provider}/BackfillWatched")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> BackfillWatched(string provider, CancellationToken ct)
+        {
+            var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
+            if (userId == null) return Unauthorized();
+
+            var pid = ParseProvider(provider);
+            if (pid == null)
+                return BadRequest(new { error = $"Unknown provider '{provider}'" });
+
+            var userIdStr   = userId.Value.ToString("N");
+            var providerKey = pid.Value.ToString();
+
+            var conn = await _settingsRepo.GetConnectionAsync(userIdStr, providerKey).ConfigureAwait(false);
+            if (conn == null || string.IsNullOrEmpty(conn.AccessToken))
+                return BadRequest(new { error = "Provider not connected." });
+
+            var prov = GetProvider(pid.Value);
+            if (prov is not ISupportsLibrarySync lib)
+                return BadRequest(new { error = $"Provider '{provider}' does not support a watched backfill." });
+
+            try
+            {
+                await prov.EnsureTokenAsync(conn, ct).ConfigureAwait(false);
+                var watched = await _watchedGatherer.GatherWatchedAsync(userId.Value).ConfigureAwait(false);
+
+                int marked;
+                if (prov is SimklProvider simkl)
+                {
+                    // Simkl locks dates on existing entries and auto-completes
+                    // ratings, so a plain mark-watched can't fix wrong dates. Do a
+                    // full date-correct rebuild: wipe our items, re-add history
+                    // (watched_at) then ratings (rated_at).
+                    var rated = await _gatherer.GatherAsync(userIdStr).ConfigureAwait(false);
+                    marked = await simkl.RepairLibraryAsync(conn, watched, rated, ct).ConfigureAwait(false);
+                }
+                else
+                {
+                    marked = await lib.MarkWatchedAsync(conn, watched, ct).ConfigureAwait(false);
+                }
+
+                // Persist any token refresh that happened in EnsureTokenAsync.
+                await _settingsRepo.SetConnectionAsync(userIdStr, providerKey, conn).ConfigureAwait(false);
+                _logger.LogInformation("[StarTrack] BackfillWatched {User}/{Key}: played={Played} marked={Marked}",
+                    userIdStr, providerKey, watched.Count, marked);
+                return Ok(new { played = watched.Count, marked });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[StarTrack] BackfillWatched failed for {User}/{Key}", userIdStr, providerKey);
+                return StatusCode(StatusCodes.Status502BadGateway, new { error = ex.Message });
+            }
         }
 
         /// <summary>

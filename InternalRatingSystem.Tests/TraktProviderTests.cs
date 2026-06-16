@@ -135,6 +135,46 @@ namespace Jellyfin.Plugin.InternalRating.Tests
             Assert.Equal(6, shows[0].GetProperty("rating").GetInt32());
         }
 
+        // REGRESSION: episodes must go in their own "episodes" array (keyed by the
+        // episode's ids), NOT the "shows" bucket — otherwise Trakt can't match them
+        // and episode ratings never leave StarTrack.
+        [Fact]
+        public async Task PushRatingsAsync_GroupsEpisodesIntoEpisodesArray()
+        {
+            string? capturedBody = null;
+
+            var client = MakeClient(req =>
+            {
+                capturedBody = req.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
+                return Json("""{"added":{"movies":0,"shows":0,"episodes":1,"seasons":0}}""");
+            });
+
+            var provider = new TraktProvider(client, "cid", "csec");
+            var conn = FreshConn();
+
+            var rating = new ExternalRating(
+                Imdb: "tt13842130",
+                Tmdb: null,
+                Tvdb: null,
+                Title: "The Set Up",
+                Year: null,
+                MediaType: "episode",
+                Stars: 4.0,
+                RatedAt: DateTime.UtcNow);
+
+            var count = await provider.PushRatingsAsync(conn, new[] { rating }, CancellationToken.None);
+
+            Assert.Equal(1, count);
+            Assert.NotNull(capturedBody);
+            using var doc = JsonDocument.Parse(capturedBody!);
+            // Episode is in "episodes", and NOT in "shows".
+            var episodes = doc.RootElement.GetProperty("episodes");
+            Assert.Equal(1, episodes.GetArrayLength());
+            Assert.Equal("tt13842130", episodes[0].GetProperty("ids").GetProperty("imdb").GetString());
+            Assert.Equal(8, episodes[0].GetProperty("rating").GetInt32()); // 4.0 stars → 8/10
+            Assert.Equal(0, doc.RootElement.GetProperty("shows").GetArrayLength());
+        }
+
         [Fact]
         public async Task PushRatingsAsync_SkipsImdbWhenNull()
         {

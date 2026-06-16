@@ -37,6 +37,13 @@ namespace Jellyfin.Plugin.InternalRating
         /// <summary>Overlay the StarTrack average rating on media posters in library grids.</summary>
         public bool ShowRatingsOnPosters { get; set; } = true;
 
+        /// <summary>
+        /// Which corner of the poster the StarTrack rating badge sits in.
+        /// Valid values: "top-right" (default), "top-left", "bottom-right", "bottom-left".
+        /// Lets users move it off Jellyfin's watched/played checkmark (which sits top-right).
+        /// </summary>
+        public string PosterRatingPosition { get; set; } = "top-right";
+
         /// <summary>Show a rating popup after a movie or episode finishes playback.</summary>
         public bool PostPlaybackRatingPopup { get; set; } = true;
 

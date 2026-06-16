@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -84,7 +85,7 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync.Providers
     ///   Authorization: Bearer {AccessToken}
     ///   Content-Type: application/json (POST only)
     /// </summary>
-    public sealed class SimklProvider : IExternalRatingProvider
+    public sealed class SimklProvider : IExternalRatingProvider, ISupportsLibrarySync
     {
         private const string BaseUrl = "https://api.simkl.com";
 
@@ -129,6 +130,126 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync.Providers
             => Task.FromResult(false);
 
         // ------------------------------------------------------------------ //
+        // Library sync (ISupportsLibrarySync)
+        // ------------------------------------------------------------------ //
+
+        private static string Iso(DateTime dt) => dt.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ");
+
+        /// <inheritdoc />
+        /// <remarks>
+        /// Adds items to Simkl watch history (<c>POST /sync/history</c>) with the
+        /// real <c>watched_at</c>. Used by the ongoing sync. NOTE: Simkl dates are
+        /// "sticky" — this only sets the date for items NOT already in history; to
+        /// CORRECT an existing wrong date use <see cref="RepairLibraryAsync"/>.
+        /// </remarks>
+        public async Task<int> MarkWatchedAsync(ProviderConnection conn, IReadOnlyList<ExternalRating> watched, CancellationToken ct)
+        {
+            if (watched.Count == 0) return 0;
+            var movies = new List<object>(); var shows = new List<object>(); var episodes = new List<object>();
+            foreach (var r in watched)
+            {
+                var item = new { watched_at = Iso(r.RatedAt), ids = BuildIds(r) };
+                if (r.MediaType == "movie")        movies.Add(item);
+                else if (r.MediaType == "episode") episodes.Add(item);
+                else                               shows.Add(item);
+            }
+            await PostHistoryOrRemoveChunkedAsync(conn, "/sync/history", movies, shows, episodes, ct).ConfigureAwait(false);
+            return watched.Count;
+        }
+
+        /// <inheritdoc />
+        /// <remarks>Simkl has no "liked"/favorites concept — no-op.</remarks>
+        public Task<int> PushLikedAsync(ProviderConnection conn, IReadOnlyList<ExternalRating> liked, CancellationToken ct)
+            => Task.FromResult(0);
+
+        /// <summary>
+        /// One-shot REPAIR: wipes the StarTrack-managed items from Simkl ratings +
+        /// history, then re-adds them with correct dates. Order matters — history
+        /// (watched_at) is written FIRST so Simkl's auto-complete-on-rating respects
+        /// it; then ratings (rated_at). On a clean slate Simkl honors both dates
+        /// (existing entries are date-locked, hence the wipe). Only touches items
+        /// we know about (by id) — never wipes the user's other Simkl data.
+        /// </summary>
+        public async Task<int> RepairLibraryAsync(
+            ProviderConnection conn,
+            IReadOnlyList<ExternalRating> watched,
+            IReadOnlyList<ExternalRating> rated,
+            CancellationToken ct)
+        {
+            // 1) Wipe (ids only) the union of items we manage.
+            var rmMovies = new List<object>(); var rmShows = new List<object>(); var rmEpisodes = new List<object>();
+            foreach (var r in watched.Concat(rated))
+            {
+                var idItem = new { ids = BuildIds(r) };
+                if (r.MediaType == "movie")        rmMovies.Add(idItem);
+                else if (r.MediaType == "episode") rmEpisodes.Add(idItem);
+                else                               rmShows.Add(idItem);
+            }
+            // ratings have no episode bucket — fold episodes into shows for the ratings wipe
+            await PostRatingsChunkedAsync(conn, "/sync/ratings/remove", rmMovies, rmShows.Concat(rmEpisodes).ToList(), ct).ConfigureAwait(false);
+            await PostHistoryOrRemoveChunkedAsync(conn, "/sync/history/remove", rmMovies, rmShows, rmEpisodes, ct).ConfigureAwait(false);
+
+            // 2) Re-add HISTORY (watched_at) FIRST.
+            var hMovies = new List<object>(); var hShows = new List<object>(); var hEpisodes = new List<object>();
+            foreach (var r in watched)
+            {
+                var item = new { watched_at = Iso(r.RatedAt), ids = BuildIds(r) };
+                if (r.MediaType == "movie")        hMovies.Add(item);
+                else if (r.MediaType == "episode") hEpisodes.Add(item);
+                else                               hShows.Add(item);
+            }
+            await PostHistoryOrRemoveChunkedAsync(conn, "/sync/history", hMovies, hShows, hEpisodes, ct).ConfigureAwait(false);
+
+            // 3) Re-add RATINGS (rated_at).
+            var raMovies = new List<object>(); var raShows = new List<object>();
+            foreach (var r in rated)
+            {
+                var item = new { rating = RatingScale.ToService10(r.Stars), rated_at = Iso(r.RatedAt), ids = BuildIds(r) };
+                if (r.MediaType == "movie") raMovies.Add(item); else raShows.Add(item);
+            }
+            await PostRatingsChunkedAsync(conn, "/sync/ratings", raMovies, raShows, ct).ConfigureAwait(false);
+
+            return watched.Count + rated.Count;
+        }
+
+        private async Task PostHistoryOrRemoveChunkedAsync(ProviderConnection conn, string path,
+            List<object> movies, List<object> shows, List<object> episodes, CancellationToken ct)
+        {
+            const int CHUNK = 100;
+            int max = Math.Max(movies.Count, Math.Max(shows.Count, episodes.Count));
+            for (int i = 0; i < max; i += CHUNK)
+            {
+                var mv = movies.Skip(i).Take(CHUNK).ToList();
+                var sh = shows.Skip(i).Take(CHUNK).ToList();
+                var ep = episodes.Skip(i).Take(CHUNK).ToList();
+                if (mv.Count == 0 && sh.Count == 0 && ep.Count == 0) continue;
+                await PostAsync(conn, path, new { movies = mv, shows = sh, episodes = ep }, ct).ConfigureAwait(false);
+            }
+        }
+
+        private async Task PostRatingsChunkedAsync(ProviderConnection conn, string path,
+            List<object> movies, List<object> shows, CancellationToken ct)
+        {
+            const int CHUNK = 100;
+            int max = Math.Max(movies.Count, shows.Count);
+            for (int i = 0; i < max; i += CHUNK)
+            {
+                var mv = movies.Skip(i).Take(CHUNK).ToList();
+                var sh = shows.Skip(i).Take(CHUNK).ToList();
+                if (mv.Count == 0 && sh.Count == 0) continue;
+                await PostAsync(conn, path, new { movies = mv, shows = sh }, ct).ConfigureAwait(false);
+            }
+        }
+
+        private async Task PostAsync(ProviderConnection conn, string path, object body, CancellationToken ct)
+        {
+            var json = JsonSerializer.Serialize(body);
+            using var req  = BuildRequest(HttpMethod.Post, $"{BaseUrl}{path}", conn, json);
+            using var resp = await _http.SendAsync(req, ct).ConfigureAwait(false);
+            resp.EnsureSuccessStatusCode();
+        }
+
+        // ------------------------------------------------------------------ //
         // Push
         // ------------------------------------------------------------------ //
 
@@ -166,7 +287,11 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync.Providers
             {
                 int simklRating = RatingScale.ToService10(r.Stars);
                 var ids = BuildIds(r);
-                var item = new { rating = simklRating, ids };
+                // rated_at preserves the ORIGINAL rating date. Without it Simkl
+                // stamps everything "now", so every item shows up as rated/watched
+                // today and "recently watched" is wrong.
+                string ratedAt = r.RatedAt.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ");
+                var item = new { rating = simklRating, rated_at = ratedAt, ids };
 
                 // "episode" maps to shows bucket in v1 (same simplification as TraktProvider)
                 if (r.MediaType == "movie")

@@ -191,7 +191,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
     }}, 100);
 }})();
 </script>
-<script src=""/Plugins/StarTrack/Widget""></script>
+<script src=""{WidgetAsset.WidgetUrl}""></script>
 </body>
 </html>";
 

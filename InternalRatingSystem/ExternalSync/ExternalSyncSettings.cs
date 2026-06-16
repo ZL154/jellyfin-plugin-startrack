@@ -38,6 +38,8 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync
         [JsonPropertyName("pushed")]  public int Pushed { get; set; }
         [JsonPropertyName("pulled")]  public int Pulled { get; set; }
         [JsonPropertyName("skipped")] public int Skipped { get; set; }
+        [JsonPropertyName("watched")] public int Watched { get; set; }
+        [JsonPropertyName("liked")]   public int Liked { get; set; }
         [JsonPropertyName("error")]   public string? Error { get; set; }
     }
 

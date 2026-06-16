@@ -94,6 +94,43 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync
             return result;
         }
 
+        /// <summary>
+        /// Serialises <paramref name="ratings"/> as an IMDb-ratings-format CSV that
+        /// Yamtrack's "Import from IMDb" reads. Columns: <c>Const,Title,Title Type,
+        /// Your Rating,Date Rated,Created,Modified,Year</c>. Rating is on IMDb's 1–10
+        /// scale; dates are <c>yyyy-MM-dd</c>. Items without an IMDb id are skipped
+        /// (the importer keys on <c>Const</c>), and episodes are skipped (Yamtrack's
+        /// IMDb importer doesn't accept TV Episode).
+        /// </summary>
+        public string BuildImdbCsv(IReadOnlyList<ExternalRating> ratings)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("Const,Title,Title Type,Your Rating,Date Rated,Created,Modified,Year");
+
+            foreach (var r in ratings)
+            {
+                if (string.IsNullOrEmpty(r.Imdb))
+                    continue; // IMDb import matches on Const (the IMDb id)
+
+                string? titleType = r.MediaType switch
+                {
+                    "movie" => "Movie",
+                    "show"  => "TV Series",
+                    _        => null // episodes/other not supported by Yamtrack's IMDb import
+                };
+                if (titleType == null)
+                    continue;
+
+                var date     = r.RatedAt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+                var rating10 = RatingScale.ToService10(r.Stars).ToString(CultureInfo.InvariantCulture);
+                var year     = r.Year.HasValue ? r.Year.Value.ToString(CultureInfo.InvariantCulture) : string.Empty;
+
+                sb.AppendLine($"{r.Imdb},{CsvEscape(r.Title)},{titleType},{rating10},{date},{date},{date},{year}");
+            }
+
+            return sb.ToString().TrimEnd('\r', '\n');
+        }
+
         // ------------------------------------------------------------------ //
         // JSON
         // ------------------------------------------------------------------ //
