@@ -215,7 +215,13 @@
     }
 
     function startI18nWatchdog() {
-        if (!_STARTRACK_SWAPMAP) return;
+        // NOTE: do NOT early-return when the swap map isn't built yet. This
+        // function runs at init right after the first translation fetch
+        // resolves, but on a slow/failed initial fetch the map can still be
+        // empty here — and if we bailed, the interval would never be created
+        // and async-rendered content (profile stats, year pages, member
+        // grids) would stay English forever. scrubTranslations() already
+        // no-ops safely until the map exists, so just always start the loop.
         // Sweep periodically to catch async-rendered pieces (overlay, lists…).
         setInterval(function () {
             try {
@@ -276,10 +282,10 @@
 
     function timeAgo(iso) {
         var s = Math.floor((Date.now() - new Date(iso)) / 1000);
-        if (s < 60) return 'just now';
-        if (s < 3600) return Math.floor(s / 60) + 'm ago';
-        if (s < 86400) return Math.floor(s / 3600) + 'h ago';
-        return Math.floor(s / 86400) + 'd ago';
+        if (s < 60) return tr('external_sync.just_now', null, 'just now');
+        if (s < 3600) return tr('external_sync.m_ago', { n: Math.floor(s / 60) }, '{n}m ago');
+        if (s < 86400) return tr('external_sync.h_ago', { n: Math.floor(s / 3600) }, '{n}h ago');
+        return tr('external_sync.d_ago', { n: Math.floor(s / 86400) }, '{n}d ago');
     }
 
     function formatRuntime(ticks) {
@@ -503,6 +509,8 @@
             '.ir-ov-es-provider{background:rgba(255,255,255,.025)!important;border:1px solid rgba(255,255,255,.08)!important;border-radius:8px!important;padding:12px 14px!important;display:flex!important;flex-direction:column!important;gap:8px!important}',
             '.ir-ov-es-provider-head{display:flex!important;align-items:center!important;gap:10px!important;flex-wrap:wrap!important}',
             '.ir-ov-es-provider-name{font-size:.85em!important;font-weight:700!important;color:#fff!important;flex:1!important;min-width:80px!important}',
+            '.ir-ov-es-exp-tag{font-size:.62em!important;font-weight:700!important;text-transform:uppercase!important;letter-spacing:.04em!important;color:#f4c430!important;background:rgba(244,196,48,.12)!important;border:1px solid rgba(244,196,48,.35)!important;border-radius:4px!important;padding:1px 5px!important;margin-left:6px!important;vertical-align:middle!important}',
+            '.ir-ov-es-exp-note{font-size:.72em!important;color:rgba(255,255,255,.55)!important;line-height:1.5!important;margin:2px 0 6px!important}',
             '.ir-ov-es-badge{font-size:.7em!important;font-weight:700!important;padding:2px 8px!important;border-radius:12px!important;white-space:nowrap!important}',
             '.ir-ov-es-badge-connected{background:rgba(82,181,75,.2)!important;color:#7fd97a!important;border:1px solid rgba(82,181,75,.4)!important}',
             '.ir-ov-es-badge-disconnected{background:rgba(255,255,255,.06)!important;color:rgba(255,255,255,.45)!important;border:1px solid rgba(255,255,255,.12)!important}',
@@ -1599,7 +1607,7 @@
                         '<option value="1">1\u2605 only</option>' +
                         '<option value="0.5">0.5\u2605 only</option>' +
                     '</select>' +
-                    '<input type="text" class="ir-ov-search" placeholder="Search titles\u2026" />' +
+                    '<input type="text" class="ir-ov-search" placeholder="' + esc(tr('overlay.search_titles', null, 'Search titles\u2026')) + '" />' +
                     '<button class="ir-ov-export" title="Export ratings as Letterboxd-compatible CSV">\u21E9 Export</button>' +
                     '<button class="ir-ov-lb">\u2699 Letterboxd</button>' +
                     '<button class="ir-ov-es">⇄ External Sync</button>' +
@@ -1628,6 +1636,7 @@
                                     '<option value="TwoWay">Two-way</option>' +
                                 '</select>' +
                                 '<button class="ir-ov-es-btn ir-ov-es-btn-sync" style="display:none">⇄ Sync now</button>' +
+                                '<button class="ir-ov-es-btn ir-ov-es-btn-backfill" style="display:none" title="Mark everything you have already watched in Jellyfin as watched on Trakt (one-off)">▣ Backfill watched</button>' +
                                 '<button class="ir-ov-es-btn ir-ov-es-btn-disc" style="display:none">Disconnect</button>' +
                                 '<button class="ir-ov-es-btn ir-ov-es-btn-conn">Connect Trakt</button>' +
                             '</div>' +
@@ -1652,6 +1661,7 @@
                                     '<option value="TwoWay">Two-way</option>' +
                                 '</select>' +
                                 '<button class="ir-ov-es-btn ir-ov-es-btn-sync" style="display:none">⇄ Sync now</button>' +
+                                '<button class="ir-ov-es-btn ir-ov-es-btn-backfill" style="display:none" title="Rebuild your Simkl history & ratings from Jellyfin with correct dates (one-off)">▣ Backfill watched</button>' +
                                 '<button class="ir-ov-es-btn ir-ov-es-btn-disc" style="display:none">Disconnect</button>' +
                                 '<button class="ir-ov-es-btn ir-ov-es-btn-conn">Connect Simkl</button>' +
                             '</div>' +
@@ -1659,14 +1669,15 @@
                         '</div>' +
                         '<div class="ir-ov-es-provider" data-es-provider="Yamtrack">' +
                             '<div class="ir-ov-es-provider-head">' +
-                                '<span class="ir-ov-es-provider-name">Yamtrack</span>' +
+                                '<span class="ir-ov-es-provider-name">Yamtrack <span class="ir-ov-es-exp-tag">experimental</span></span>' +
                                 '<span class="ir-ov-es-badge ir-ov-es-badge-disconnected">Not connected</span>' +
                             '</div>' +
+                            '<div class="ir-ov-es-exp-note">Direct sync needs Yamtrack’s REST API (still in development). For now, use “⇩ Yamtrack CSV” below and import it in Yamtrack (Import → IMDb), or just import from your connected Trakt/Simkl.</div>' +
                             '<div class="ir-ov-es-meta"></div>' +
                             '<div class="ir-ov-es-error" style="display:none"></div>' +
                             '<div class="ir-ov-es-yamtrack-form" style="display:none">' +
-                                '<input type="url" class="ir-ov-es-yamtrack-input ir-ov-es-yamtrack-url" placeholder="Base URL (e.g. https://yamtrack.example.com)" />' +
-                                '<input type="text" class="ir-ov-es-yamtrack-input ir-ov-es-yamtrack-token" placeholder="API token" autocomplete="off" />' +
+                                '<input type="url" class="ir-ov-es-yamtrack-input ir-ov-es-yamtrack-url" placeholder="' + esc(tr('external_sync.yamtrack_baseurl_ph', null, 'Base URL (e.g. https://yamtrack.example.com)')) + '" />' +
+                                '<input type="text" class="ir-ov-es-yamtrack-input ir-ov-es-yamtrack-token" placeholder="' + esc(tr('external_sync.yamtrack_token_ph', null, 'API token')) + '" autocomplete="off" />' +
                                 '<button class="ir-ov-es-btn ir-ov-es-btn-conn ir-ov-es-ym-form-conn">Connect</button>' +
                             '</div>' +
                             '<div class="ir-ov-es-controls">' +
@@ -1687,6 +1698,7 @@
                         '<span class="ir-ov-es-io-label">Export / Import</span>' +
                         '<button class="ir-ov-es-btn ir-ov-es-btn-export-csv">⇩ CSV</button>' +
                         '<button class="ir-ov-es-btn ir-ov-es-btn-export-json">⇩ JSON</button>' +
+                        '<button class="ir-ov-es-btn ir-ov-es-btn-export-imdb" title="IMDb-format CSV — import it into Yamtrack via &quot;Import from IMDb&quot;">⇩ Yamtrack CSV</button>' +
                         '<label class="ir-ov-es-import-label">' +
                             '<input type="file" accept=".csv,.json,text/csv,application/json" class="ir-ov-es-import-file" />' +
                             '⇧ Import file' +
@@ -2091,18 +2103,27 @@
                 return undefined;
             }
 
+            function esDirLabel(dir) {
+                switch (dir) {
+                    case 'TwoWay':     return tr('external_sync.dir_two_way', null, 'Two-way');
+                    case 'ExportOnly': return tr('external_sync.dir_export_only', null, 'Export only');
+                    case 'ImportOnly': return tr('external_sync.dir_import_only', null, 'Import only');
+                    default:           return tr('external_sync.dir_off', null, 'Off');
+                }
+            }
+
             function esFormatMeta(s) {
                 var parts = [];
                 var dir = esPick(s, 'direction', 'Direction') || 'Off';
-                if (dir && dir !== 'Off') parts.push('Direction: ' + dir.replace(/([A-Z])/g, ' $1').trim());
+                if (dir && dir !== 'Off') parts.push(tr('external_sync.meta_direction', null, 'Direction:') + ' ' + esDirLabel(dir));
                 var last = esPick(s, 'lastSyncedAt', 'LastSyncedAt');
-                if (last) parts.push('Last sync: ' + timeAgo(last));
+                if (last) parts.push(tr('external_sync.meta_last_sync', null, 'Last sync:') + ' ' + timeAgo(last));
                 var pushed = esPick(s, 'lastPushed', 'LastPushed');
                 var pulled = esPick(s, 'lastPulled', 'LastPulled');
                 if (pushed != null || pulled != null) {
                     var io = [];
-                    if (pushed != null) io.push('pushed ' + pushed);
-                    if (pulled != null) io.push('pulled ' + pulled);
+                    if (pushed != null) io.push(tr('external_sync.meta_pushed', { n: pushed }, 'pushed {n}'));
+                    if (pulled != null) io.push(tr('external_sync.meta_pulled', { n: pulled }, 'pulled {n}'));
                     parts.push(io.join(', '));
                 }
                 return parts.join(' · ');
@@ -2120,6 +2141,7 @@
                 var authBox  = card.querySelector('.ir-ov-es-auth-box');
                 var dirSel   = card.querySelector('.ir-ov-es-dir');
                 var syncBtn  = card.querySelector('.ir-ov-es-btn-sync');
+                var backfillBtn = card.querySelector('.ir-ov-es-btn-backfill');
                 var discBtn  = card.querySelector('.ir-ov-es-btn-disc');
                 var connBtn  = card.querySelector('.ir-ov-es-btn-conn:not(.ir-ov-es-ym-form-conn):not(.ir-ov-es-ym-main-conn),.ir-ov-es-btn-conn.ir-ov-es-ym-main-conn');
                 var ymForm   = card.querySelector('.ir-ov-es-yamtrack-form');
@@ -2155,6 +2177,7 @@
 
                 // Sync / Disconnect — only when connected
                 if (syncBtn) syncBtn.style.display = connected ? '' : 'none';
+                if (backfillBtn) backfillBtn.style.display = connected ? '' : 'none';
                 if (discBtn) discBtn.style.display = connected ? '' : 'none';
 
                 // Connect button / Yamtrack form — only when NOT connected
@@ -2188,8 +2211,18 @@
                     if (!arr) return;
                     arr.forEach(function (s) {
                         var p = esPick(s, 'provider', 'Provider') || '';
-                        _esStatus[p] = s;
+                        // The Status API returns lowercase provider names ("trakt"),
+                        // but the cards use capitalized data-es-provider ("Trakt").
+                        // Match case-insensitively, then key the cache by the card's
+                        // own provider name so downstream lookups stay consistent.
                         var card = esPanel.querySelector('[data-es-provider="' + p + '"]');
+                        if (!card) {
+                            var cards = esPanel.querySelectorAll('[data-es-provider]');
+                            for (var i = 0; i < cards.length; i++) {
+                                if ((cards[i].getAttribute('data-es-provider') || '').toLowerCase() === p.toLowerCase()) { card = cards[i]; break; }
+                            }
+                        }
+                        _esStatus[card ? card.getAttribute('data-es-provider') : p] = s;
                         if (card) esRenderCard(card, s);
                     });
                 });
@@ -2211,6 +2244,7 @@
                 var authCode = card.querySelector('.ir-ov-es-auth-code');
                 var dirSel   = card.querySelector('.ir-ov-es-dir');
                 var syncBtn  = card.querySelector('.ir-ov-es-btn-sync');
+                var backfillBtn = card.querySelector('.ir-ov-es-btn-backfill');
                 var discBtn  = card.querySelector('.ir-ov-es-btn-disc');
 
                 // Direction change
@@ -2237,6 +2271,27 @@
                             var pulled  = esPick(r, 'pulled', 'Pulled') || 0;
                             var skipped = esPick(r, 'skipped', 'Skipped') || 0;
                             esShowStatus(card, 'Done: pushed ' + pushed + ', pulled ' + pulled + ', skipped ' + skipped + '.', 'ok');
+                            esLoadStatus();
+                        });
+                    });
+                }
+
+                // Backfill watched (one-off: push Jellyfin played-state to the service)
+                if (backfillBtn) {
+                    backfillBtn.addEventListener('click', function () {
+                        if (!window.confirm(tr('external_sync.backfill_confirm', null,
+                            'Mark everything you have already watched in Jellyfin as watched on Trakt? This is a one-off backfill.'))) return;
+                        backfillBtn.disabled = true;
+                        esShowStatus(card, tr('external_sync.backfill_running', null, 'Backfilling watched history…'), '');
+                        apiEsBackfill(provider).then(function (r) {
+                            backfillBtn.disabled = false;
+                            if (!r) { esShowStatus(card, 'Backfill failed.', 'err'); return; }
+                            var err = esPick(r, 'error', 'Error');
+                            if (err) { esShowStatus(card, err, 'err'); return; }
+                            var marked = esPick(r, 'marked', 'Marked') || 0;
+                            var played = esPick(r, 'played', 'Played') || 0;
+                            esShowStatus(card, tr('external_sync.backfill_done', { marked: marked, played: played },
+                                'Backfilled: {marked} newly marked watched ({played} played in Jellyfin).'), 'ok');
                             esLoadStatus();
                         });
                     });
@@ -2346,6 +2401,7 @@
             // Export buttons
             var exportCsvBtn  = esPanel.querySelector('.ir-ov-es-btn-export-csv');
             var exportJsonBtn = esPanel.querySelector('.ir-ov-es-btn-export-json');
+            var exportImdbBtn = esPanel.querySelector('.ir-ov-es-btn-export-imdb');
             var importFile    = esPanel.querySelector('.ir-ov-es-import-file');
             var ioStatus      = esPanel.querySelector('.ir-ov-es-io-status');
 
@@ -2367,7 +2423,7 @@
                         var a = document.createElement('a');
                         var url = URL.createObjectURL(blob);
                         a.href = url;
-                        a.download = 'startrack-export.' + format;
+                        a.download = 'startrack-export.' + (format === 'json' ? 'json' : 'csv');
                         document.body.appendChild(a);
                         a.click();
                         setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 0);
@@ -2378,6 +2434,7 @@
 
             if (exportCsvBtn)  exportCsvBtn.addEventListener('click',  function () { triggerEsDownload('csv'); });
             if (exportJsonBtn) exportJsonBtn.addEventListener('click', function () { triggerEsDownload('json'); });
+            if (exportImdbBtn) exportImdbBtn.addEventListener('click', function () { triggerEsDownload('yamtrack'); });
 
             if (importFile) {
                 importFile.addEventListener('change', function () {
@@ -3458,7 +3515,7 @@
 
         var searchHtml =
             '<div class="ir-mem-search-row">' +
-                '<input class="ir-mem-search" type="text" placeholder="Search members…" value="' + esc(_membersSearchQ) + '" />' +
+                '<input class="ir-mem-search" type="text" placeholder="' + esc(tr('members.search_members', null, 'Search members…')) + '" value="' + esc(_membersSearchQ) + '" />' +
                 (q ? '<button class="ir-mem-search-clear" type="button" title="Clear">✕</button>' : '') +
             '</div>';
 
@@ -4230,10 +4287,10 @@
             var clickable = v > 0;
             histHtml += '<button class="ir-mem-bar' + (v === 0 ? ' ir-mem-bar-empty' : '') + '" type="button" ' +
                 (clickable ? 'data-stars="' + esc(k) + '"' : 'disabled') +
-                ' title="' + esc(v + ' film' + (v === 1 ? '' : 's') + ' rated ' + k + '★') + '">' +
+                ' title="' + esc(tr('stats.bar_tip', { n: v, stars: k }, '{n} films rated {stars}★')) + '">' +
                 '<span class="ir-mem-bar-fill" style="height:' + pct + '%"></span>' +
                 '<span class="ir-mem-bar-label">' + esc(k) + '</span>' +
-                '<span class="ir-mem-bar-pop"><b>' + v + '</b> rated ' + esc(k) + '★</span>' +
+                '<span class="ir-mem-bar-pop"><b>' + v + '</b> ' + esc(tr('stats.rated_word', null, 'rated')) + ' ' + esc(k) + '★</span>' +
                 '</button>';
         });
 
@@ -4478,9 +4535,9 @@
                     var v = byDay[di] || 0;
                     var pct = Math.round((v / maxD) * 100);
                     if (pct < 6 && v > 0) pct = 6;
-                    dayBars += '<div class="ir-mem-tl-bar" title="' + esc(dayLabel + ' ' + di + ' · ' + v + ' rating' + (v === 1 ? '' : 's')) + '">' +
+                    dayBars += '<div class="ir-mem-tl-bar" title="' + esc(dayLabel + ' ' + di + ' · ' + tr('stats.rating_count', { n: v }, '{n} ratings')) + '">' +
                         '<div class="ir-mem-tl-bar-fill" style="height:' + pct + '%"></div>' +
-                        '<div class="ir-mem-tl-pop"><b>' + v + '</b> rated · ' + dayLabel + ' ' + di + '</div>' +
+                        '<div class="ir-mem-tl-pop"><b>' + v + '</b> ' + esc(tr('stats.rated_word', null, 'rated')) + ' · ' + esc(dayLabel + ' ' + di) + '</div>' +
                     '</div>';
                 }
                 // Day-of-month tick row — every 5th day labeled.
@@ -4521,9 +4578,9 @@
                 var mLabel = monthFmt[parseInt(parts[1],10) - 1] + ' ' + parts[0];
                 return '<div class="ir-mem-tl-bar"' +
                     ' data-count="' + f.count + '" data-month="' + esc(mLabel) + '"' +
-                    ' title="' + esc(mLabel + ' · ' + f.count + ' rating' + (f.count === 1 ? '' : 's')) + '">' +
+                    ' title="' + esc(mLabel + ' · ' + tr('stats.rating_count', { n: f.count }, '{n} ratings')) + '">' +
                     '<div class="ir-mem-tl-bar-fill" style="height:' + pct + '%"></div>' +
-                    '<div class="ir-mem-tl-pop"><b>' + f.count + '</b> rated · ' + esc(mLabel) + '</div>' +
+                    '<div class="ir-mem-tl-pop"><b>' + f.count + '</b> ' + esc(tr('stats.rated_word', null, 'rated')) + ' · ' + esc(mLabel) + '</div>' +
                 '</div>';
             }).join('');
             var ticks = filled.map(function (f) {
@@ -4558,9 +4615,9 @@
             (extra.ratingsThisYear > 0 ? bigStat(extra.ratingsThisYear, 'this year') : '') +
             (extra.daysJournaled > 0 ? bigStat(extra.daysJournaled, 'days journaled') : '') +
             (extra.hoursWatched > 0 ? bigStat(extra.hoursWatched.toFixed(1) + 'h', 'watched') : '') +
-            (firstStr !== '—' ? bigStat(firstStr, 'started rating', lastStr ? 'last: ' + lastStr : '') : '') +
+            (firstStr !== '—' ? bigStat(firstStr, 'started rating', lastStr ? tr('stats.last_date', { date: lastStr }, 'last: {date}') : '') : '') +
             (extra.longestFilmTitle ? bigStat(extra.longestFilmHours.toFixed(1) + 'h', 'longest film', extra.longestFilmTitle) : '') +
-            (extra.highestRatedDecade ? bigStat(extra.highestRatedDecade, 'top decade', extra.highestRatedDecadeAvg.toFixed(1) + '★ avg') : '') +
+            (extra.highestRatedDecade ? bigStat(extra.highestRatedDecade, 'top decade', tr('stats.star_avg', { avg: extra.highestRatedDecadeAvg.toFixed(1) }, '{avg}★ avg')) : '') +
             '</div>';
 
         var timelineBlock = (extra.monthTimeline && extra.monthTimeline.length)
@@ -4586,10 +4643,10 @@
                       'onerror="this.classList.add(\'ir-mem-pp-img-failed\')" />'
                     : '') +
             '</span>';
-            return '<div class="ir-mem-pp" title="' + esc(p.name + ' — ' + p.count + ' film' + (p.count === 1 ? '' : 's')) + '">' +
+            return '<div class="ir-mem-pp" title="' + esc(p.name + ' — ' + tr('stats.film_count', { n: p.count }, '{n} films')) + '">' +
                 avatar +
                 '<span class="ir-mem-pp-name">' + esc(p.name) + '</span>' +
-                '<span class="ir-mem-pp-count">' + (p.count|0) + ' film' + (p.count === 1 ? '' : 's') + '</span>' +
+                '<span class="ir-mem-pp-count">' + esc(tr('stats.film_count', { n: (p.count|0) }, '{n} films')) + '</span>' +
             '</div>';
         }
 
@@ -4615,15 +4672,15 @@
                         '<div class="ir-mem-yearcard-head">' +
                             '<span class="ir-mem-yearcard-year">' + (y.year|0) + '</span>' +
                             '<span class="ir-mem-yearcard-stats">' +
-                                '<b>' + (y.ratingsCount|0) + '</b> rated · ' +
-                                (y.avgRating > 0 ? '<b>' + y.avgRating.toFixed(2) + '★</b> avg · ' : '') +
-                                (y.hoursWatched > 0 ? '<b>' + y.hoursWatched.toFixed(0) + 'h</b> watched' : '') +
+                                '<b>' + (y.ratingsCount|0) + '</b> ' + esc(tr('stats.rated_word', null, 'rated')) + ' · ' +
+                                (y.avgRating > 0 ? '<b>' + y.avgRating.toFixed(2) + '★</b> ' + esc(tr('stats.avg_word', null, 'avg')) + ' · ' : '') +
+                                (y.hoursWatched > 0 ? '<b>' + y.hoursWatched.toFixed(0) + 'h</b> ' + esc(tr('stats.watched_word', null, 'watched')) : '') +
                             '</span>' +
                             '<span class="ir-mem-yearcard-arrow">→</span>' +
                         '</div>' +
                         (y.topFilmId
                             ? '<div class="ir-mem-yearcard-top" data-iid="' + esc(y.topFilmId) + '">' +
-                                '<span class="ir-mem-yearcard-toplabel">Best of ' + (y.year|0) + ' ·</span> ' +
+                                '<span class="ir-mem-yearcard-toplabel">' + esc(tr('stats.best_of', { year: (y.year|0) }, 'Best of {year}')) + ' ·</span> ' +
                                 '<span class="ir-mem-yearcard-toptitle">' + esc(y.topFilmTitle || '—') + '</span>' +
                                 '<span class="ir-mem-yearcard-topstars">' + (y.topFilmStars > 0 ? y.topFilmStars.toFixed(1) + '★' : '') + '</span>' +
                             '</div>'
@@ -4697,7 +4754,7 @@
             // Re-bin into 7 rows x ~53 cols.
             var rows = [[],[],[],[],[],[],[]];
             cells.forEach(function (c) { rows[c.day].push(c); });
-            var dayLabels = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+            var dayLabels = [tr('dow.sun',null,'Sun'),tr('dow.mon',null,'Mon'),tr('dow.tue',null,'Tue'),tr('dow.wed',null,'Wed'),tr('dow.thu',null,'Thu'),tr('dow.fri',null,'Fri'),tr('dow.sat',null,'Sat')];
             return '<div class="ir-mem-heatmap">' +
                 rows.map(function (r, idx) {
                     return '<div class="ir-mem-heatmap-row">' +
@@ -4707,7 +4764,7 @@
                                       c.count >= max * 0.75 ? 4 :
                                       c.count >= max * 0.5  ? 3 :
                                       c.count >= max * 0.25 ? 2 : 1;
-                            return '<span class="ir-mem-heatmap-cell ir-mem-heatmap-l' + lvl + '" title="' + esc(c.key + ' · ' + c.count + ' film' + (c.count===1?'':'s')) + '"></span>';
+                            return '<span class="ir-mem-heatmap-cell ir-mem-heatmap-l' + lvl + '" title="' + esc(c.key + ' · ' + tr('stats.film_count', { n: c.count }, '{n} films')) + '"></span>';
                         }).join('') +
                     '</div>';
                 }).join('') +
@@ -4755,6 +4812,12 @@
         // (year-card expand, timeline filter chips, year-open buttons).
         wireProfileNav(host);
         wireProfilePosters(host);
+        // Translate the freshly-rendered stat labels. This async bundle is
+        // injected after the initial overlay scrub, so without this call the
+        // labels (films rated / Top genres / By decade / heatmap day names...)
+        // stay English even when the user's language is set. Mirrors what
+        // every other async overlay render does.
+        try { scrubTranslations(host); } catch (e) {}
     }
 
     // Full-page list (watchlist / liked / diary). Renders the back button
@@ -5057,7 +5120,7 @@
         var head = '<div class="ir-mem-prof-head">' +
             '<button class="ir-mem-back" type="button">← Back to profile</button>' +
             '<span class="ir-mem-prof-name">' + esc(p.name || '') + ' · ' + y + '</span>' +
-            '<span class="ir-mem-prof-sub">' + rows.length + ' rated</span>' +
+            '<span class="ir-mem-prof-sub">' + rows.length + ' ' + esc(tr('stats.rated_word', null, 'rated')) + '</span>' +
         '</div>';
 
         // Headline tiles + temporal stats (first/last/peak/day-of-week +
@@ -5076,10 +5139,10 @@
                     (yStat.hoursWatched > 0 ? '<div class="ir-mem-overview-tile"><span class="ir-mem-overview-v">' + yStat.hoursWatched.toFixed(0) + 'h</span><span class="ir-mem-overview-l">watched</span></div>' : '') +
                     (yStat.firstWatched ? '<div class="ir-mem-overview-tile"><span class="ir-mem-overview-v">' + esc(fmtShortDate(yStat.firstWatched)) + '</span><span class="ir-mem-overview-l">first watched</span></div>' : '') +
                     (yStat.lastWatched  ? '<div class="ir-mem-overview-tile"><span class="ir-mem-overview-v">' + esc(fmtShortDate(yStat.lastWatched))  + '</span><span class="ir-mem-overview-l">last watched</span></div>' : '') +
-                    (yStat.mostWatchedDay ? '<div class="ir-mem-overview-tile"><span class="ir-mem-overview-v">' + esc(yStat.mostWatchedDay) + '</span><span class="ir-mem-overview-l">most-watched day · ' + (yStat.mostWatchedDayCount|0) + ' films</span></div>' : '') +
-                    (yStat.peakDate    ? '<div class="ir-mem-overview-tile"><span class="ir-mem-overview-v">' + (yStat.peakDateCount|0) + '</span><span class="ir-mem-overview-l">peak day · ' + esc(fmtShortDate(yStat.peakDate)) + '</span></div>' : '') +
-                    (topDirector ? '<div class="ir-mem-overview-tile"><span class="ir-mem-overview-v">' + esc(topDirector.name) + '</span><span class="ir-mem-overview-l">top director · ' + (topDirector.count|0) + ' films</span></div>' : '') +
-                    (yStat.topFilmTitle ? '<div class="ir-mem-overview-tile ir-mem-overview-clickable" data-iid="' + esc(yStat.topFilmId) + '"><span class="ir-mem-overview-v">' + (yStat.topFilmStars > 0 ? yStat.topFilmStars.toFixed(1) + '★' : '—') + '</span><span class="ir-mem-overview-l">best · ' + esc(yStat.topFilmTitle) + '</span></div>' : '') +
+                    (yStat.mostWatchedDay ? '<div class="ir-mem-overview-tile"><span class="ir-mem-overview-v">' + esc(yStat.mostWatchedDay) + '</span><span class="ir-mem-overview-l">' + esc(tr('stats.most_watched_day_n', { n: (yStat.mostWatchedDayCount|0) }, 'most-watched day · {n} films')) + '</span></div>' : '') +
+                    (yStat.peakDate    ? '<div class="ir-mem-overview-tile"><span class="ir-mem-overview-v">' + (yStat.peakDateCount|0) + '</span><span class="ir-mem-overview-l">' + esc(tr('stats.peak_day_d', { date: fmtShortDate(yStat.peakDate) }, 'peak day · {date}')) + '</span></div>' : '') +
+                    (topDirector ? '<div class="ir-mem-overview-tile"><span class="ir-mem-overview-v">' + esc(topDirector.name) + '</span><span class="ir-mem-overview-l">' + esc(tr('stats.top_director_n', { n: (topDirector.count|0) }, 'top director · {n} films')) + '</span></div>' : '') +
+                    (yStat.topFilmTitle ? '<div class="ir-mem-overview-tile ir-mem-overview-clickable" data-iid="' + esc(yStat.topFilmId) + '"><span class="ir-mem-overview-v">' + (yStat.topFilmStars > 0 ? yStat.topFilmStars.toFixed(1) + '★' : '—') + '</span><span class="ir-mem-overview-l">' + esc(tr('stats.best_film', { title: yStat.topFilmTitle }, 'best · {title}')) + '</span></div>' : '') +
                 '</div>';
         }
 
@@ -5105,9 +5168,9 @@
                     '<span class="ir-mem-pp-fb">' + initial + '</span>' +
                     (imgUrl ? '<img class="ir-mem-pp-img" src="' + esc(imgUrl) + '" loading="lazy" alt="" onerror="this.classList.add(\'ir-mem-pp-img-failed\')" />' : '') +
                 '</span>';
-                return '<div class="ir-mem-pp" title="' + esc(pp.name + ' — ' + pp.count + ' film' + (pp.count===1?'':'s')) + '">' +
+                return '<div class="ir-mem-pp" title="' + esc(pp.name + ' — ' + tr('stats.film_count', { n: pp.count }, '{n} films')) + '">' +
                     av + '<span class="ir-mem-pp-name">' + esc(pp.name) + '</span>' +
-                    '<span class="ir-mem-pp-count">' + (pp.count|0) + ' film' + (pp.count===1?'':'s') + '</span>' +
+                    '<span class="ir-mem-pp-count">' + esc(tr('stats.film_count', { n: (pp.count|0) }, '{n} films')) + '</span>' +
                 '</div>';
             }).join('') + '</div>';
         }
@@ -5120,10 +5183,10 @@
             var bars = hk.map(function (k) {
                 var v = yStat.histogram[k] || 0;
                 var pct = maxY > 0 ? Math.round((v / maxY) * 100) : 0;
-                return '<div class="ir-mem-bar' + (v === 0 ? ' ir-mem-bar-empty' : '') + '" title="' + esc(k+'★ — '+v+' rating'+(v===1?'':'s')) + '">' +
+                return '<div class="ir-mem-bar' + (v === 0 ? ' ir-mem-bar-empty' : '') + '" title="' + esc(k+'★ — '+tr('stats.rating_count', { n: v }, '{n} ratings')) + '">' +
                     '<span class="ir-mem-bar-fill" style="height:' + pct + '%"></span>' +
                     '<span class="ir-mem-bar-label">' + esc(k) + '</span>' +
-                    '<span class="ir-mem-bar-pop"><b>' + v + '</b> rated ' + esc(k) + '★</span>' +
+                    '<span class="ir-mem-bar-pop"><b>' + v + '</b> ' + esc(tr('stats.rated_word', null, 'rated')) + ' ' + esc(k) + '★</span>' +
                 '</div>';
             }).join('');
             histHtml = '<div class="ir-mem-hist" style="height:140px">' + bars + '</div>';
@@ -5139,7 +5202,7 @@
             : '';
 
         if (rows.length === 0 && !yStat) {
-            return '<div class="ir-mem-profile">' + head + '<div class="ir-ov-empty">No ratings recorded in ' + y + '.</div></div>';
+            return '<div class="ir-mem-profile">' + head + '<div class="ir-ov-empty">' + esc(tr('stats.no_ratings_in', { year: y }, 'No ratings recorded in {year}.')) + '</div></div>';
         }
 
         function starRow(stars) {
@@ -5154,7 +5217,7 @@
             return html;
         }
 
-        var listBody = rows.length === 0 ? '' : '<h5 class="ir-mem-statcol-title" style="margin:24px 0 8px">All films rated in ' + y + '</h5>' +
+        var listBody = rows.length === 0 ? '' : '<h5 class="ir-mem-statcol-title" style="margin:24px 0 8px">' + esc(tr('stats.all_films_in', { year: y }, 'All films rated in {year}')) + '</h5>' +
             '<ul class="ir-mem-allratings">' + rows.map(function (r) {
                 var when = '';
                 try { when = new Date(r.ratedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }); } catch (e) {}
@@ -5913,6 +5976,16 @@
           .catch(function () { return null; });
     }
 
+    function apiEsBackfill(provider) {
+        var auth = getAuth(); if (!auth) return Promise.resolve(null);
+        // Parse the body even on non-2xx so the caller can surface the error message.
+        return fetch('/Plugins/StarTrack/ExternalSync/' + encodeURIComponent(provider) + '/BackfillWatched', {
+            method: 'POST',
+            headers: { Authorization: auth }
+        }).then(function (r) { return r.json().catch(function () { return null; }); })
+          .catch(function () { return null; });
+    }
+
     function apiEsDisconnect(provider) {
         var auth = getAuth(); if (!auth) return Promise.resolve(false);
         return fetch('/Plugins/StarTrack/ExternalSync/' + encodeURIComponent(provider) + '/Disconnect', {
@@ -6570,7 +6643,12 @@
                     if (host.querySelector('.ir-poster-badge')) return;
                     var b = document.createElement('span');
                     b.className = 'ir-poster-badge';
-                    b.style.cssText = 'position:absolute;top:6px;right:6px;padding:3px 8px;border-radius:999px;background:rgba(0,0,0,.82);color:#f4c430;font-size:.75em;font-weight:700;z-index:5;pointer-events:none;line-height:1.25;letter-spacing:.02em;box-shadow:0 2px 6px rgba(0,0,0,.5);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)';
+                    // Corner is configurable so the badge can sit off Jellyfin's
+                    // watched/played checkmark (which lives top-right).
+                    var pos   = _STARTRACK_CONFIG.posterRatingPosition || 'top-right';
+                    var vert  = pos.indexOf('bottom') === 0 ? 'bottom:6px' : 'top:6px';
+                    var horiz = pos.indexOf('left') !== -1 ? 'left:6px' : 'right:6px';
+                    b.style.cssText = 'position:absolute;' + vert + ';' + horiz + ';padding:3px 8px;border-radius:999px;background:rgba(0,0,0,.82);color:#f4c430;font-size:.75em;font-weight:700;z-index:5;pointer-events:none;line-height:1.25;letter-spacing:.02em;box-shadow:0 2px 6px rgba(0,0,0,.5);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)';
                     b.textContent = '\u2605 ' + d.averageRating.toFixed(1);
                     if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
                     host.appendChild(b);
@@ -6809,36 +6887,36 @@
                 // server-side responses (Members list and profile fetches).
                 '<label class="ir-prefs-row" style="display:flex;gap:12px;align-items:center;padding:14px 0;border-top:1px solid rgba(255,255,255,.08);cursor:pointer">' +
                     '<div style="flex:1;min-width:0">' +
-                        '<div style="color:#fff;font-size:.95em">Hide me from Members</div>' +
-                        '<div style="color:rgba(255,255,255,.5);font-size:.78em;margin-top:3px">Other users won’t see your card or be able to open your profile.</div>' +
+                        '<div style="color:#fff;font-size:.95em">' + esc(tr('prefs.hide_member', null, 'Hide me from Members')) + '</div>' +
+                        '<div style="color:rgba(255,255,255,.5);font-size:.78em;margin-top:3px">' + esc(tr('prefs.hide_member_sub', null, 'Other users won’t see your card or be able to open your profile.')) + '</div>' +
                     '</div>' +
                     '<span class="ir-toggle"><input type="checkbox" id="ir-prefs-hidemember" /><span class="ir-toggle-track"><span class="ir-toggle-thumb"></span></span></span>' +
                 '</label>' +
                 '<label class="ir-prefs-row" style="display:flex;gap:12px;align-items:center;padding:14px 0;border-top:1px solid rgba(255,255,255,.08);cursor:pointer">' +
                     '<div style="flex:1;min-width:0">' +
-                        '<div style="color:#fff;font-size:.95em">Hide my followers</div>' +
-                        '<div style="color:rgba(255,255,255,.5);font-size:.78em;margin-top:3px">Your follower count and follower list will be hidden from others. You’ll still see them yourself.</div>' +
+                        '<div style="color:#fff;font-size:.95em">' + esc(tr('prefs.hide_followers', null, 'Hide my followers')) + '</div>' +
+                        '<div style="color:rgba(255,255,255,.5);font-size:.78em;margin-top:3px">' + esc(tr('prefs.hide_followers_sub', null, 'Your follower count and follower list will be hidden from others. You’ll still see them yourself.')) + '</div>' +
                     '</div>' +
                     '<span class="ir-toggle"><input type="checkbox" id="ir-prefs-hidefollow" /><span class="ir-toggle-track"><span class="ir-toggle-thumb"></span></span></span>' +
                 '</label>' +
                 '<label class="ir-prefs-row" style="display:flex;gap:12px;align-items:center;padding:14px 0;border-top:1px solid rgba(255,255,255,.08);cursor:pointer">' +
                     '<div style="flex:1;min-width:0">' +
-                        '<div style="color:#fff;font-size:.95em">Hide who I follow</div>' +
-                        '<div style="color:rgba(255,255,255,.5);font-size:.78em;margin-top:3px">Your following count and list will be hidden from others. You’ll still see them yourself.</div>' +
+                        '<div style="color:#fff;font-size:.95em">' + esc(tr('prefs.hide_following', null, 'Hide who I follow')) + '</div>' +
+                        '<div style="color:rgba(255,255,255,.5);font-size:.78em;margin-top:3px">' + esc(tr('prefs.hide_following_sub', null, 'Your following count and list will be hidden from others. You’ll still see them yourself.')) + '</div>' +
                     '</div>' +
                     '<span class="ir-toggle"><input type="checkbox" id="ir-prefs-hidefollowing" /><span class="ir-toggle-track"><span class="ir-toggle-thumb"></span></span></span>' +
                 '</label>' +
                 '<label class="ir-prefs-row" style="display:flex;gap:12px;align-items:center;padding:14px 0;border-top:1px solid rgba(255,255,255,.08);cursor:pointer">' +
                     '<div style="flex:1;min-width:0">' +
-                        '<div style="color:#fff;font-size:.95em">Hide my stats</div>' +
-                        '<div style="color:rgba(255,255,255,.5);font-size:.78em;margin-top:3px">Activity timeline, top genres / directors / actors, year breakdown and decade chart will be hidden from others. You still see your own.</div>' +
+                        '<div style="color:#fff;font-size:.95em">' + esc(tr('prefs.hide_stats', null, 'Hide my stats')) + '</div>' +
+                        '<div style="color:rgba(255,255,255,.5);font-size:.78em;margin-top:3px">' + esc(tr('prefs.hide_stats_sub', null, 'Activity timeline, top genres / directors / actors, year breakdown and decade chart will be hidden from others. You still see your own.')) + '</div>' +
                     '</div>' +
                     '<span class="ir-toggle"><input type="checkbox" id="ir-prefs-hidestats" /><span class="ir-toggle-track"><span class="ir-toggle-thumb"></span></span></span>' +
                 '</label>' +
                 '<label class="ir-prefs-row" style="display:flex;gap:12px;align-items:center;padding:14px 0;border-top:1px solid rgba(255,255,255,.08);cursor:pointer">' +
                     '<div style="flex:1;min-width:0">' +
-                        '<div style="color:#fff;font-size:.95em">Hide my recent activity</div>' +
-                        '<div style="color:rgba(255,255,255,.5);font-size:.78em;margin-top:3px">Your ratings, diary entries and reviews won’t appear in the Activity feed for other users. You still see your own activity.</div>' +
+                        '<div style="color:#fff;font-size:.95em">' + esc(tr('prefs.hide_activity', null, 'Hide my recent activity')) + '</div>' +
+                        '<div style="color:rgba(255,255,255,.5);font-size:.78em;margin-top:3px">' + esc(tr('prefs.hide_activity_sub', null, 'Your ratings, diary entries and reviews won’t appear in the Activity feed for other users. You still see your own activity.')) + '</div>' +
                     '</div>' +
                     '<span class="ir-toggle"><input type="checkbox" id="ir-prefs-hideactivity" /><span class="ir-toggle-track"><span class="ir-toggle-thumb"></span></span></span>' +
                 '</label>' +
@@ -6981,6 +7059,8 @@
         _adminSetCheckbox(root.querySelector('#stReplaceMediaDetails'),  _adminPickKey(c, 'ReplaceMediaDetailsRating'));
         _adminSetCheckbox(root.querySelector('#stReplaceMediaBar'),      _adminPickKey(c, 'ReplaceMediaBarRating'));
         _adminSetCheckbox(root.querySelector('#stShowRatingsOnPosters'), _adminPickKey(c, 'ShowRatingsOnPosters'));
+        var posSel = root.querySelector('#stPosterPosition');
+        if (posSel) posSel.value = _adminPickKey(c, 'PosterRatingPosition') || 'top-right';
         _adminSetCheckbox(root.querySelector('#stPostPlaybackPopup'),    _adminPickKey(c, 'PostPlaybackRatingPopup'));
         _adminSetCheckbox(root.querySelector('#stCommunityRecentMode'),  _adminPickKey(c, 'CommunityRecentMode'));
 
@@ -7018,6 +7098,8 @@
         c.ReplaceMediaDetailsRating = !!(root.querySelector('#stReplaceMediaDetails')  && root.querySelector('#stReplaceMediaDetails').checked);
         c.ReplaceMediaBarRating     = !!(root.querySelector('#stReplaceMediaBar')      && root.querySelector('#stReplaceMediaBar').checked);
         c.ShowRatingsOnPosters      = !!(root.querySelector('#stShowRatingsOnPosters') && root.querySelector('#stShowRatingsOnPosters').checked);
+        var _pos = root.querySelector('#stPosterPosition');
+        if (_pos) c.PosterRatingPosition = _pos.value || 'top-right';
         c.PostPlaybackRatingPopup   = !!(root.querySelector('#stPostPlaybackPopup')    && root.querySelector('#stPostPlaybackPopup').checked);
         c.CommunityRecentMode       = !!(root.querySelector('#stCommunityRecentMode')  && root.querySelector('#stCommunityRecentMode').checked);
 
