@@ -20,7 +20,7 @@
 ## 📑 Table of contents
 
 - [Overview](#overview)
-- [Features](#features) — i18n, ratings, views, Top 4, Letterboxd, search, social, admin
+- [Features](#features) — external sync, i18n, ratings, views, Top 4, Letterboxd, search, social, admin
 - [Screenshots](#-screenshots)
 - [Requirements](#requirements)
 - [Installation](#installation)
@@ -43,6 +43,17 @@ Designed to integrate cleanly with modern Jellyfin setups. Works on desktop and 
 ---
 
 ## Features
+
+### 🆕 New in 1.6
+
+- **External rating sync (Trakt · Simkl · Yamtrack)** — connect an external service and StarTrack keeps your ratings in sync. Trakt uses device-code login, Simkl uses a PIN; admins drop the client ID/secret into the plugin config page, each user connects from the **⇄ External Sync** panel in *My Ratings*. Pick a direction per service — **Off / Export only / Import only / Two-way** — and a background task syncs every 10 minutes.
+- **Newer-wins conflict resolution** — in two-way mode, the most recently changed rating wins, so a fresh local edit is never clobbered by a stale remote value (and vice-versa).
+- **Watched history + likes push** *(Trakt)* — rated movies/episodes are also marked **watched** on Trakt (so History / Up Next populate), and your ♡ liked items are pushed to a "StarTrack Liked" list (plus Favorites if your Trakt account is VIP).
+- **One-shot Backfill** — a button that seeds the whole service from your existing library in one pass. Simkl gets a dedicated date-accuracy repair so watched/rated dates are preserved instead of all stamped "today".
+- **Yamtrack CSV export** — no released Yamtrack build exposes a public API yet, so StarTrack exports an **IMDb-format CSV** you import via Yamtrack → *Import → IMDb*. Marked experimental; the native provider is ready for when their REST API ships.
+- **Daily auto-export** — a scheduled task writes your ratings out to a file every day for automatic backup.
+- **Configurable poster rating badge position** — the gold ★ badge corner is now a setting (**top-right** default / top-left / bottom-right / bottom-left) so it no longer collides with Jellyfin's watched checkmark (issue #8).
+- **Full 8-language i18n** for all of the new External Sync UI.
 
 ### 🆕 New in 1.5.2
 
@@ -278,6 +289,19 @@ Each view supports search, sort, type filter, and (where applicable) star filter
 5. Click **⭐ Import Top 4** to scrape your Letterboxd profile's favourite films
 6. Click **Sync now** any time to pull your latest ratings + watchlist + likes via RSS / HTML scrape
 
+### External sync (Trakt / Simkl / Yamtrack)
+1. **Admin (one-time):** Dashboard → Plugins → StarTrack — paste a **Trakt** client ID + secret and/or a **Simkl** client ID (create a free app on each service's developer page). This is server-wide; users don't need their own keys.
+2. In *My Ratings*, open the **⇄ External Sync** panel.
+3. **Connect** a service:
+   - **Trakt** — click connect, you'll get a code to enter at `trakt.tv/activate`.
+   - **Simkl** — click connect and approve the PIN.
+4. Choose a **direction** for that service: Off / Export only / Import only / Two-way.
+5. Click **Sync** (or just wait — it auto-syncs every 10 minutes). In two-way mode the newer rating wins on each side.
+6. **Backfill** (optional) seeds the service from your whole library in one pass, and marks rated items watched.
+7. **Yamtrack:** click **⇩ Yamtrack CSV** to download an IMDb-format file, then in Yamtrack go to **Import → IMDb** and upload it. (Yamtrack has no public rating API yet — see notes above.)
+
+> Ratings only import for items that exist in your Jellyfin library; titles you rated on a service but don't own can't be matched.
+
 ---
 
 ## API Reference
@@ -338,6 +362,21 @@ All endpoints are under `/Plugins/StarTrack/`. Every endpoint requires Jellyfin 
 | `POST` | `/Letterboxd/Cleanup` | Purge ratings whose library item no longer has a file on disk |
 | `GET` | `/Letterboxd/Diagnose` | Library matcher diagnostic + sample of normalised titles |
 
+### External sync *(new in 1.6)*
+All under `/Plugins/StarTrack/ExternalSync/`. `{provider}` is `trakt`, `simkl`, or `yamtrack`.
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/Status` | Connection state + direction for every provider |
+| `POST` | `/{provider}/StartAuth` | Begin device-code / PIN login |
+| `POST` | `/{provider}/PollAuth` | Poll for auth completion + store token |
+| `POST` | `/Yamtrack/Connect` | Connect Yamtrack with a base URL + token |
+| `POST` | `/{provider}/SetDirection` | Set Off / ExportOnly / ImportOnly / TwoWay |
+| `POST` | `/{provider}/Sync` | Run a sync now |
+| `POST` | `/{provider}/BackfillWatched` | One-shot library backfill (marks watched / repairs dates) |
+| `POST` | `/{provider}/Disconnect` | Remove the stored token for a provider |
+| `GET` | `/Export?format=letterboxd\|imdb\|yamtrack` | Download ratings as CSV/JSON in the chosen format |
+| `POST` | `/Import` | Import ratings from an uploaded CSV/JSON file |
+
 ### Members & social *(new in 1.5)*
 | Method | Endpoint | Description |
 |---|---|---|
@@ -383,6 +422,7 @@ All data is stored as plain JSON in `<jellyfin-data>/data/InternalRating/`:
 | `letterboxd.json` | Per-user Letterboxd sync settings (username, auto-sync, last-synced state) |
 | `follows.json` *(new in 1.5)* | Per-user follow graph |
 | `privacy.json` *(new in 1.5)* | Per-user privacy flags (hide stats / activity / followers / etc) |
+| `external-sync.json` *(new in 1.6)* | Per-user, per-provider external-sync settings: direction, OAuth tokens, last-sync state |
 
 Back them up or migrate them like any other data file — no database required.
 
