@@ -9,6 +9,14 @@
     "imageUrl": "https://cdn.jsdelivr.net/gh/ZL154/jellyfin-plugin-startrack@main/assets/logo.svg",
     "versions": [
       {
+        "version": "1.6.0.0",
+        "changelog": "External Rating Sync — two-way sync of your StarTrack ratings with Trakt, Simkl, and Yamtrack. Connect an account (Trakt device-code, Simkl PIN), pick One-way or Two-way, and StarTrack mirrors ratings in both directions with newer-wins conflict resolution so a fresh local edit is never clobbered by a stale remote value. Syncs automatically every 10 minutes. Also pushes watched history (marks films/episodes played on the service) and likes (Trakt Favorites + a 'StarTrack Liked' list). New one-shot Backfill button seeds the whole service from your existing library; Simkl gets a dedicated date-accuracy repair pass (rewrites watched/rated dates instead of stamping everything 'today'). Yamtrack has no public API in released builds, so StarTrack exports an IMDb-format CSV you import via Yamtrack → Import → IMDb (marked experimental). Issue #8 part 1: the poster rating badge corner is now configurable (top-right default / top-left / bottom-right / bottom-left) so it no longer collides with Jellyfin's watched checkmark. Full 8-language i18n for all new UI. No data migration needed; existing files are unchanged.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/ZL154/jellyfin-plugin-startrack/releases/download/v1.6.0/Jellyfin.Plugin.InternalRating_1.6.0.0.zip",
+        "checksum": "3cb3ca5763fbe7d8630fb627b3dcedd6",
+        "timestamp": "2026-06-16T20:25:00Z"
+      },
+      {
         "version": "1.5.3.0",
         "changelog": "Fixes Members tab + activity feed on Jellyfin 10.11.9+ where IUserManager.Users was removed from the interface. Also dedups the unified activity feed: rating-and-diary pairs for the same item on the same day no longer surface twice (Letterboxd RSS sync writes both — only the richest variant is shown now).",
         "targetAbi": "10.11.0.0",
