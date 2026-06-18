@@ -1442,8 +1442,8 @@
                         '<span class="ir-yc"></span>' +
                     '</div>' +
                     '<div class="ir-rev-wrap">' +
-                        '<textarea class="ir-rev" placeholder="Add a review (optional)\u2026" maxlength="10000" rows="2"></textarea>' +
-                        '<span class="ir-rev-hint">0 / 10000</span>' +
+                        '<textarea class="ir-rev" placeholder="Add a review (optional)\u2026" maxlength="' + (_STARTRACK_CONFIG.maxReviewLength || 10000) + '" rows="2"></textarea>' +
+                        '<span class="ir-rev-hint">0 / ' + (_STARTRACK_CONFIG.maxReviewLength || 10000) + '</span>' +
                     '</div>' +
                     '<div class="ir-submit-row">' +
                         '<button class="ir-submit">\u2605 Save Rating</button>' +
@@ -5648,7 +5648,7 @@
         });
 
         if (rev) {
-            rev.addEventListener('input', function () { if (revHint) revHint.textContent = rev.value.length + ' / 10000'; });
+            rev.addEventListener('input', function () { if (revHint) revHint.textContent = rev.value.length + ' / ' + (_STARTRACK_CONFIG.maxReviewLength || 10000); });
             rev.addEventListener('click', function (e) { e.stopPropagation(); });
         }
 
@@ -7061,6 +7061,8 @@
         _adminSetCheckbox(root.querySelector('#stShowRatingsOnPosters'), _adminPickKey(c, 'ShowRatingsOnPosters'));
         var posSel = root.querySelector('#stPosterPosition');
         if (posSel) posSel.value = _adminPickKey(c, 'PosterRatingPosition') || 'top-right';
+        var mrl = root.querySelector('#stMaxReviewLength');
+        if (mrl) mrl.value = _adminPickKey(c, 'MaxReviewLength') || 10000;
         _adminSetCheckbox(root.querySelector('#stPostPlaybackPopup'),    _adminPickKey(c, 'PostPlaybackRatingPopup'));
         _adminSetCheckbox(root.querySelector('#stCommunityRecentMode'),  _adminPickKey(c, 'CommunityRecentMode'));
 
@@ -7100,6 +7102,8 @@
         c.ShowRatingsOnPosters      = !!(root.querySelector('#stShowRatingsOnPosters') && root.querySelector('#stShowRatingsOnPosters').checked);
         var _pos = root.querySelector('#stPosterPosition');
         if (_pos) c.PosterRatingPosition = _pos.value || 'top-right';
+        var _mrl = root.querySelector('#stMaxReviewLength');
+        if (_mrl) { var _mrlN = parseInt(_mrl.value, 10); c.MaxReviewLength = isNaN(_mrlN) ? 10000 : Math.min(10000, Math.max(1, _mrlN)); }
         c.PostPlaybackRatingPopup   = !!(root.querySelector('#stPostPlaybackPopup')    && root.querySelector('#stPostPlaybackPopup').checked);
         c.CommunityRecentMode       = !!(root.querySelector('#stCommunityRecentMode')  && root.querySelector('#stCommunityRecentMode').checked);
 

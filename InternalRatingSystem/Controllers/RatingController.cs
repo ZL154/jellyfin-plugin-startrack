@@ -68,6 +68,11 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 return BadRequest("Invalid item id.");
             if (request.Stars < 0.5 || request.Stars > 5)
                 return BadRequest("Stars must be between 0.5 and 5.");
+            var maxReview = Plugin.Instance?.Configuration?.MaxReviewLength ?? 10000;
+            if (maxReview < 1) maxReview = 1;
+            if (maxReview > 10000) maxReview = 10000;
+            if ((request.Review?.Length ?? 0) > maxReview)
+                return BadRequest($"Review too long (max {maxReview} characters).");
 
             var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
             if (userId == null)

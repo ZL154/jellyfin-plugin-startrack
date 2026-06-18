@@ -51,6 +51,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 posterRatingPosition         = cfg.PosterRatingPosition ?? "top-right",
                 postPlaybackRatingPopup      = cfg.PostPlaybackRatingPopup,
                 communityRecentMode          = cfg.CommunityRecentMode,
+                maxReviewLength              = (cfg.MaxReviewLength <= 0 ? 10000 : (cfg.MaxReviewLength > 10000 ? 10000 : cfg.MaxReviewLength)),
                 hiddenOverlayViews           = hiddenViews,
                 supportedLanguages           = SupportedLanguages
             });

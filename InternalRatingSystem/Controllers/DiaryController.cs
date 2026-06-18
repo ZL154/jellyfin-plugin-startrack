@@ -54,8 +54,11 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             if (!Guid.TryParse(req.ItemId, out _)) return BadRequest("Invalid item id.");
             if (req.Stars.HasValue && (req.Stars.Value < 0.5 || req.Stars.Value > 5))
                 return BadRequest("Stars must be between 0.5 and 5.");
-            if ((req.Review?.Length ?? 0) > 10000)
-                return BadRequest("Review too long (max 10000 characters).");
+            var maxReview = Plugin.Instance?.Configuration?.MaxReviewLength ?? 10000;
+            if (maxReview < 1) maxReview = 1;
+            if (maxReview > 10000) maxReview = 10000;
+            if ((req.Review?.Length ?? 0) > maxReview)
+                return BadRequest($"Review too long (max {maxReview} characters).");
 
             var watchedAt = req.WatchedAt?.ToUniversalTime() ?? DateTime.UtcNow;
             if (watchedAt.Year < 1900 || watchedAt > DateTime.UtcNow.AddDays(1))

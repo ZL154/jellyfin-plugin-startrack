@@ -61,6 +61,14 @@ namespace Jellyfin.Plugin.InternalRating
         /// </summary>
         public string HiddenOverlayViews { get; set; } = string.Empty;
 
+        // ---- Reviews ----------------------------------------------------- //
+
+        /// <summary>
+        /// Maximum length (characters) allowed for a free-text review. Default 10000;
+        /// admins can lower it (e.g. 1000) if that feels too long. Clamped to 1-10000.
+        /// </summary>
+        public int MaxReviewLength { get; set; } = 10000;
+
         // ---- Daily auto-export ------------------------------------------- //
 
         /// <summary>When true, a daily scheduled task exports all users' ratings to disk.</summary>

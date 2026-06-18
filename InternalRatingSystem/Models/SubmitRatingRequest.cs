@@ -12,8 +12,8 @@ namespace Jellyfin.Plugin.InternalRating.Models
         [JsonPropertyName("stars")]
         public double Stars { get; set; }
 
-        /// <summary>Optional free-text review (max 1000 chars).</summary>
-        [MaxLength(1000)]
+        /// <summary>Optional free-text review (ceiling 10000 chars; admin-configurable limit enforced in the controller).</summary>
+        [MaxLength(10000)]
         [JsonPropertyName("review")]
         public string? Review { get; set; }
     }
