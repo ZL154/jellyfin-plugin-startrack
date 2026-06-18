@@ -52,6 +52,8 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 postPlaybackRatingPopup      = cfg.PostPlaybackRatingPopup,
                 communityRecentMode          = cfg.CommunityRecentMode,
                 maxReviewLength              = (cfg.MaxReviewLength <= 0 ? 10000 : (cfg.MaxReviewLength > 10000 ? 10000 : cfg.MaxReviewLength)),
+                compactMediaBadge            = cfg.CompactMediaBadge,
+                ratingSize                   = (cfg.RatingSize == "large" ? "large" : "normal"),
                 hiddenOverlayViews           = hiddenViews,
                 supportedLanguages           = SupportedLanguages
             });

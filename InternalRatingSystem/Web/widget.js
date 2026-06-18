@@ -209,6 +209,7 @@
             .then(function (cfg) {
                 if (cfg) {
                     for (var k in cfg) _STARTRACK_CONFIG[k] = cfg[k];
+                    try { document.documentElement.setAttribute('data-st-size', _STARTRACK_CONFIG.ratingSize === 'large' ? 'large' : 'normal'); } catch (e) {}
                 }
             })
             .catch(function () {});
@@ -407,6 +408,11 @@
             '#ir-widget *{box-sizing:border-box!important;font-family:inherit!important}',
             '.ir-pill{display:flex!important;align-items:center!important;gap:6px!important;cursor:pointer!important;padding:8px 16px!important;border-radius:24px!important;background:rgba(10,10,10,.93)!important;border:1px solid rgba(255,255,255,.22)!important;backdrop-filter:blur(10px)!important;box-shadow:0 4px 24px rgba(0,0,0,.65)!important;transition:background .2s,transform .15s!important;user-select:none!important;white-space:nowrap!important;color:#fff!important}',
             '.ir-pill:hover{background:rgba(30,30,30,.98)!important;transform:scale(1.05)!important}',
+            'html[data-st-size="large"] .ir-pill{padding:11px 22px!important;font-size:1.2em!important}',
+            'html[data-st-size="large"] .ir-poster-badge{font-size:.95em!important;padding:5px 11px!important}',
+            'html[data-st-size="large"] #ir-page-badge{font-size:1.05em!important;padding:5px 14px!important}',
+            '.ir-pill:focus-visible{outline:2px solid #f4c430!important;outline-offset:2px!important}',
+            '#ir-page-badge:focus-visible{outline:2px solid #f4c430!important;outline-offset:2px!important}',
             '.ir-star-icon{color:#f4c430!important;font-size:1.1em!important}',
             '.ir-avg-text{font-size:.95em!important;font-weight:700!important}',
             '.ir-label{color:rgba(255,255,255,.5)!important;font-size:.75em!important;text-transform:uppercase!important;letter-spacing:.05em!important}',
@@ -1386,7 +1392,12 @@
         var badge = document.createElement('span');
         badge.id = 'ir-page-badge';
         badge.title = 'StarTrack · ' + data.totalRatings + ' rating' + (data.totalRatings !== 1 ? 's' : '') + ' · click to rate';
-        badge.textContent = '★ ' + data.averageRating.toFixed(1) + '  StarTrack (' + data.totalRatings + ')';
+        badge.textContent = _STARTRACK_CONFIG.compactMediaBadge
+            ? '★ ' + data.averageRating.toFixed(1)
+            : '★ ' + data.averageRating.toFixed(1) + '  StarTrack (' + data.totalRatings + ')';
+        badge.setAttribute('tabindex', '0');
+        badge.setAttribute('role', 'button');
+        badge.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); badge.click(); } });
         badge.addEventListener('click', function () {
             if (_el) { var p = _el.querySelector('.ir-pill'); if (p) p.click(); }
         });
@@ -1421,7 +1432,7 @@
         _el = document.createElement('div');
         _el.id = 'ir-widget';
         _el.innerHTML =
-            '<div class="ir-pill">' +
+            '<div class="ir-pill" tabindex="0" role="button" aria-label="Rate">' +
                 '<span class="ir-star-icon">\u2606</span>' +
                 '<span class="ir-avg-text" style="display:none"></span>' +
                 '<span class="ir-label">Rate</span>' +
@@ -5607,6 +5618,7 @@
         bindLanguagePickers(el);
 
         var pill = el.querySelector('.ir-pill'), panel = el.querySelector('.ir-panel');
+        if (pill) pill.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pill.click(); } });
         var tb = el.querySelector('.ir-tb'), listEl = el.querySelector('.ir-list');
         var rb = el.querySelector('.ir-rb'), submit = el.querySelector('.ir-submit');
         var flash = el.querySelector('.ir-flash'), yc = el.querySelector('.ir-yc');
@@ -7068,6 +7080,9 @@
         if (posSel) posSel.value = _adminPickKey(c, 'PosterRatingPosition') || 'top-right';
         var mrl = root.querySelector('#stMaxReviewLength');
         if (mrl) mrl.value = _adminPickKey(c, 'MaxReviewLength') || 10000;
+        _adminSetCheckbox(root.querySelector('#stCompactMediaBadge'), _adminPickKey(c, 'CompactMediaBadge'));
+        var rsz = root.querySelector('#stRatingSize');
+        if (rsz) rsz.value = _adminPickKey(c, 'RatingSize') || 'normal';
         _adminSetCheckbox(root.querySelector('#stPostPlaybackPopup'),    _adminPickKey(c, 'PostPlaybackRatingPopup'));
         _adminSetCheckbox(root.querySelector('#stCommunityRecentMode'),  _adminPickKey(c, 'CommunityRecentMode'));
 
@@ -7109,6 +7124,9 @@
         if (_pos) c.PosterRatingPosition = _pos.value || 'top-right';
         var _mrl = root.querySelector('#stMaxReviewLength');
         if (_mrl) { var _mrlN = parseInt(_mrl.value, 10); c.MaxReviewLength = isNaN(_mrlN) ? 10000 : Math.min(10000, Math.max(1, _mrlN)); }
+        c.CompactMediaBadge = !!(root.querySelector('#stCompactMediaBadge') && root.querySelector('#stCompactMediaBadge').checked);
+        var _rsz = root.querySelector('#stRatingSize');
+        if (_rsz) c.RatingSize = _rsz.value === 'large' ? 'large' : 'normal';
         c.PostPlaybackRatingPopup   = !!(root.querySelector('#stPostPlaybackPopup')    && root.querySelector('#stPostPlaybackPopup').checked);
         c.CommunityRecentMode       = !!(root.querySelector('#stCommunityRecentMode')  && root.querySelector('#stCommunityRecentMode').checked);
 

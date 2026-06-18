@@ -69,6 +69,12 @@ namespace Jellyfin.Plugin.InternalRating
         /// </summary>
         public int MaxReviewLength { get; set; } = 10000;
 
+        /// <summary>Show only the rating on the media-page badge instead of the rating plus "StarTrack (N)".</summary>
+        public bool CompactMediaBadge { get; set; } = false;
+
+        /// <summary>Size of the rating badges + floating pill: "normal" (default) or "large".</summary>
+        public string RatingSize { get; set; } = "normal";
+
         // ---- Daily auto-export ------------------------------------------- //
 
         /// <summary>When true, a daily scheduled task exports all users' ratings to disk.</summary>
