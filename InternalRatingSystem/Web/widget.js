@@ -1442,8 +1442,8 @@
                         '<span class="ir-yc"></span>' +
                     '</div>' +
                     '<div class="ir-rev-wrap">' +
-                        '<textarea class="ir-rev" placeholder="Add a review (optional)\u2026" maxlength="1000" rows="2"></textarea>' +
-                        '<span class="ir-rev-hint">0 / 1000</span>' +
+                        '<textarea class="ir-rev" placeholder="Add a review (optional)\u2026" maxlength="10000" rows="2"></textarea>' +
+                        '<span class="ir-rev-hint">0 / 10000</span>' +
                     '</div>' +
                     '<div class="ir-submit-row">' +
                         '<button class="ir-submit">\u2605 Save Rating</button>' +
@@ -5648,7 +5648,7 @@
         });
 
         if (rev) {
-            rev.addEventListener('input', function () { if (revHint) revHint.textContent = rev.value.length + ' / 1000'; });
+            rev.addEventListener('input', function () { if (revHint) revHint.textContent = rev.value.length + ' / 10000'; });
             rev.addEventListener('click', function (e) { e.stopPropagation(); });
         }
 
