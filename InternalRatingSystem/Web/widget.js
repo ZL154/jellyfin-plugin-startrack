@@ -1374,8 +1374,13 @@
     // ── Page badge ────────────────────────────────────────────────────────
 
     function upsertPageBadge(data) {
-        var old = document.getElementById('ir-page-badge');
-        if (old) old.remove();
+        // Remove ALL existing badges, not just the first. Jellyfin caches / clones
+        // detail-page DOM across navigation, which leaves behind duplicate
+        // #ir-page-badge nodes — and cloned nodes lose their click handler, so they
+        // read as dead "click to rate" copies. getElementById only returns one, so the
+        // duplicates accumulated (issues #8 "twice", #11 "triplicate"). Clear them all.
+        var _olds = document.querySelectorAll('#ir-page-badge');
+        for (var _oi = 0; _oi < _olds.length; _oi++) _olds[_oi].remove();
         if (!data || data.totalRatings === 0) return;
 
         var badge = document.createElement('span');
