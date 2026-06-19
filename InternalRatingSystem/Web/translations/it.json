@@ -523,5 +523,14 @@
   "cfg.poster_pos_tl": "In alto a sinistra",
   "cfg.poster_pos_br": "In basso a destra",
   "cfg.poster_pos_bl": "In basso a sinistra",
-  "cfg.poster_pos_sub": "Sposta il badge di valutazione lontano dalla spunta «visto» di Jellyfin (in alto a destra)."
+  "cfg.poster_pos_sub": "Sposta il badge di valutazione lontano dalla spunta «visto» di Jellyfin (in alto a destra).",
+  "admin.group.reviews": "Recensioni",
+  "cfg.max_review_label": "Lunghezza massima della recensione (caratteri)",
+  "cfg.max_review_sub": "Quanti caratteri può avere una recensione. Predefinito 10000; riducilo (es. 1000) se è troppo lungo.",
+  "admin.toggle.compact_badge": "Badge compatto nella pagina del media (solo voto)",
+  "admin.toggle.compact_badge_sub": "Mostra solo il voto invece dell'etichetta StarTrack e del conteggio. Il testo completo rimane nel tooltip.",
+  "cfg.rating_size_label": "Dimensione del badge di valutazione",
+  "cfg.rating_size_normal": "Normale (predefinito)",
+  "cfg.rating_size_large": "Grande",
+  "cfg.rating_size_sub": "Ingrandisce i badge di valutazione sui poster e il pulsante flottante di valutazione — più leggibile su TV o schermi 4K."
 }

@@ -523,5 +523,14 @@
   "cfg.poster_pos_tl": "Arriba a la izquierda",
   "cfg.poster_pos_br": "Abajo a la derecha",
   "cfg.poster_pos_bl": "Abajo a la izquierda",
-  "cfg.poster_pos_sub": "Mueve la insignia de valoración fuera de la marca de visto de Jellyfin (que está arriba a la derecha)."
+  "cfg.poster_pos_sub": "Mueve la insignia de valoración fuera de la marca de visto de Jellyfin (que está arriba a la derecha).",
+  "admin.group.reviews": "Reseñas",
+  "cfg.max_review_label": "Longitud máxima de la reseña (caracteres)",
+  "cfg.max_review_sub": "Cuántos caracteres puede tener una reseña. Predeterminado 10000; redúcelo (p. ej. 1000) si te resulta demasiado largo.",
+  "admin.toggle.compact_badge": "Insignia compacta en la página del medio (solo la valoración)",
+  "admin.toggle.compact_badge_sub": "Muestra solo la valoración en lugar de la etiqueta StarTrack y el recuento. El texto completo permanece en el tooltip.",
+  "cfg.rating_size_label": "Tamaño de la insignia de valoración",
+  "cfg.rating_size_normal": "Normal (predeterminado)",
+  "cfg.rating_size_large": "Grande",
+  "cfg.rating_size_sub": "Aumenta el tamaño de las insignias de valoración en los pósteres y del botón flotante de valorar — más fácil de leer en un televisor o pantalla 4K."
 }

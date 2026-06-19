@@ -523,5 +523,14 @@
   "cfg.poster_pos_tl": "En haut à gauche",
   "cfg.poster_pos_br": "En bas à droite",
   "cfg.poster_pos_bl": "En bas à gauche",
-  "cfg.poster_pos_sub": "Déplace le badge de note hors de la coche « vu » de Jellyfin (située en haut à droite)."
+  "cfg.poster_pos_sub": "Déplace le badge de note hors de la coche « vu » de Jellyfin (située en haut à droite).",
+  "admin.group.reviews": "Critiques",
+  "cfg.max_review_label": "Longueur maximale de la critique (caractères)",
+  "cfg.max_review_sub": "Nombre de caractères autorisés pour une critique. Par défaut 10000 ; réduisez-le (par ex. 1000) si c'est trop long.",
+  "admin.toggle.compact_badge": "Badge compact sur la page du média (note seule)",
+  "admin.toggle.compact_badge_sub": "Affiche uniquement la note au lieu du libellé StarTrack et du nombre. Le texte complet reste dans l'infobulle.",
+  "cfg.rating_size_label": "Taille du badge de note",
+  "cfg.rating_size_normal": "Normale (par défaut)",
+  "cfg.rating_size_large": "Grande",
+  "cfg.rating_size_sub": "Agrandit les badges de note sur les affiches et le bouton flottant de notation — plus lisible sur un téléviseur ou un écran 4K."
 }

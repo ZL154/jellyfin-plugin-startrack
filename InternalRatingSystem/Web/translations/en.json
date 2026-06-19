@@ -523,5 +523,14 @@
   "cfg.poster_pos_tl": "Top left",
   "cfg.poster_pos_br": "Bottom right",
   "cfg.poster_pos_bl": "Bottom left",
-  "cfg.poster_pos_sub": "Move the rating badge off Jellyfin's watched checkmark (which sits in the top-right corner)."
+  "cfg.poster_pos_sub": "Move the rating badge off Jellyfin's watched checkmark (which sits in the top-right corner).",
+  "admin.group.reviews": "Reviews",
+  "cfg.max_review_label": "Maximum review length (characters)",
+  "cfg.max_review_sub": "How many characters a review can be. Default 10000; lower it (e.g. 1000) if that feels too long.",
+  "admin.toggle.compact_badge": "Compact media-page badge (rating only)",
+  "admin.toggle.compact_badge_sub": "Shows the rating on its own instead of with the StarTrack label and count. The full text stays in the hover tooltip.",
+  "cfg.rating_size_label": "Rating badge size",
+  "cfg.rating_size_normal": "Normal (default)",
+  "cfg.rating_size_large": "Large",
+  "cfg.rating_size_sub": "Make the poster rating badges and the floating Rate pill bigger - easier to read on a TV or 4K screen."
 }

@@ -523,5 +523,14 @@
   "cfg.poster_pos_tl": "Oben links",
   "cfg.poster_pos_br": "Unten rechts",
   "cfg.poster_pos_bl": "Unten links",
-  "cfg.poster_pos_sub": "Verschiebe das Bewertungs-Badge weg von Jellyfins Gesehen-Häkchen (das oben rechts sitzt)."
+  "cfg.poster_pos_sub": "Verschiebe das Bewertungs-Badge weg von Jellyfins Gesehen-Häkchen (das oben rechts sitzt).",
+  "admin.group.reviews": "Rezensionen",
+  "cfg.max_review_label": "Maximale Rezensionslänge (Zeichen)",
+  "cfg.max_review_sub": "Wie viele Zeichen eine Rezension haben darf. Standard 10000; verringern (z. B. 1000), falls das zu lang ist.",
+  "admin.toggle.compact_badge": "Kompakte Badge auf der Medienseite (nur Bewertung)",
+  "admin.toggle.compact_badge_sub": "Zeigt nur die Bewertung statt mit dem StarTrack-Label und der Anzahl. Der vollständige Text bleibt im Tooltip.",
+  "cfg.rating_size_label": "Größe der Bewertungs-Badge",
+  "cfg.rating_size_normal": "Normal (Standard)",
+  "cfg.rating_size_large": "Groß",
+  "cfg.rating_size_sub": "Macht die Poster-Bewertungs-Badges und die schwebende Bewerten-Schaltfläche größer – besser lesbar auf einem TV oder 4K-Bildschirm."
 }

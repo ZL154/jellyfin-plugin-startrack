@@ -523,5 +523,14 @@
   "cfg.poster_pos_tl": "左上",
   "cfg.poster_pos_br": "右下",
   "cfg.poster_pos_bl": "左下",
-  "cfg.poster_pos_sub": "将评分徽章移开 Jellyfin 的已观看勾选标记（位于右上角）。"
+  "cfg.poster_pos_sub": "将评分徽章移开 Jellyfin 的已观看勾选标记（位于右上角）。",
+  "admin.group.reviews": "评价",
+  "cfg.max_review_label": "评价最大长度（字符）",
+  "cfg.max_review_sub": "一条评价可包含的字符数。默认 10000；如果太长可调低（例如 1000）。",
+  "admin.toggle.compact_badge": "媒体页面紧凑徽章（仅显示评分）",
+  "admin.toggle.compact_badge_sub": "仅显示评分，而不显示 StarTrack 标签和数量。完整文本保留在悬停提示中。",
+  "cfg.rating_size_label": "评分徽章大小",
+  "cfg.rating_size_normal": "正常（默认）",
+  "cfg.rating_size_large": "大",
+  "cfg.rating_size_sub": "放大海报上的评分徽章和悬浮的评分按钮——在电视或 4K 屏幕上更易阅读。"
 }

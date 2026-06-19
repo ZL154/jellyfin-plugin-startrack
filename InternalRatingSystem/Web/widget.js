@@ -1398,7 +1398,11 @@
         badge.setAttribute('tabindex', '0');
         badge.setAttribute('role', 'button');
         badge.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); badge.click(); } });
-        badge.addEventListener('click', function () {
+        badge.addEventListener('click', function (e) {
+            // The badge lives OUTSIDE #ir-widget, so without stopPropagation this click
+            // bubbles to the document outside-click handler and instantly closes the
+            // panel the pill just opened — i.e. "click to rate does nothing" (#11).
+            if (e && e.stopPropagation) e.stopPropagation();
             if (_el) { var p = _el.querySelector('.ir-pill'); if (p) p.click(); }
         });
 

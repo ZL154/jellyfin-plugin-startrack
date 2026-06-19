@@ -523,5 +523,14 @@
   "cfg.poster_pos_tl": "Canto superior esquerdo",
   "cfg.poster_pos_br": "Canto inferior direito",
   "cfg.poster_pos_bl": "Canto inferior esquerdo",
-  "cfg.poster_pos_sub": "Move o emblema de avaliação para fora da marca de visto do Jellyfin (que fica no canto superior direito)."
+  "cfg.poster_pos_sub": "Move o emblema de avaliação para fora da marca de visto do Jellyfin (que fica no canto superior direito).",
+  "admin.group.reviews": "Avaliações",
+  "cfg.max_review_label": "Comprimento máximo da avaliação (caracteres)",
+  "cfg.max_review_sub": "Quantos caracteres uma avaliação pode ter. Padrão 10000; reduza (ex. 1000) se achar muito longo.",
+  "admin.toggle.compact_badge": "Selo compacto na página de mídia (apenas a nota)",
+  "admin.toggle.compact_badge_sub": "Mostra apenas a nota em vez do rótulo StarTrack e da contagem. O texto completo permanece na dica de ferramenta.",
+  "cfg.rating_size_label": "Tamanho do selo de avaliação",
+  "cfg.rating_size_normal": "Normal (padrão)",
+  "cfg.rating_size_large": "Grande",
+  "cfg.rating_size_sub": "Aumenta os selos de avaliação nos pôsteres e o botão flutuante de avaliar — mais fácil de ler numa TV ou ecrã 4K."
 }

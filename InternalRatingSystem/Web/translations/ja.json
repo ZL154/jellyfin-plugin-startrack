@@ -523,5 +523,14 @@
   "cfg.poster_pos_tl": "左上",
   "cfg.poster_pos_br": "右下",
   "cfg.poster_pos_bl": "左下",
-  "cfg.poster_pos_sub": "評価バッジをJellyfinの視聴済みチェック（右上）と重ならない位置に移動します。"
+  "cfg.poster_pos_sub": "評価バッジをJellyfinの視聴済みチェック（右上）と重ならない位置に移動します。",
+  "admin.group.reviews": "レビュー",
+  "cfg.max_review_label": "レビューの最大文字数",
+  "cfg.max_review_sub": "レビューに使用できる文字数です。既定値は 10000。長すぎる場合は小さく（例: 1000）設定してください。",
+  "admin.toggle.compact_badge": "メディアページのバッジを簡略表示（評価のみ）",
+  "admin.toggle.compact_badge_sub": "StarTrack のラベルや件数を付けず、評価のみを表示します。完全なテキストはツールチップに残ります。",
+  "cfg.rating_size_label": "評価バッジのサイズ",
+  "cfg.rating_size_normal": "標準（既定）",
+  "cfg.rating_size_large": "大",
+  "cfg.rating_size_sub": "ポスターの評価バッジとフローティングの評価ボタンを大きくします。テレビや 4K 画面で見やすくなります。"
 }
