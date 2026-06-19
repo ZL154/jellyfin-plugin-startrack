@@ -532,5 +532,6 @@
   "cfg.rating_size_label": "Tamanho do selo de avaliação",
   "cfg.rating_size_normal": "Normal (padrão)",
   "cfg.rating_size_large": "Grande",
-  "cfg.rating_size_sub": "Aumenta os selos de avaliação nos pôsteres e o botão flutuante de avaliar — mais fácil de ler numa TV ou ecrã 4K."
+  "cfg.rating_size_sub": "Aumenta os selos de avaliação nos pôsteres e o botão flutuante de avaliar — mais fácil de ler numa TV ou ecrã 4K.",
+  "cfg.rating_size_largetv": "Grande (apenas TV)"
 }

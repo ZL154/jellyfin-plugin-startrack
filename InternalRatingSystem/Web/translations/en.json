@@ -532,5 +532,6 @@
   "cfg.rating_size_label": "Rating badge size",
   "cfg.rating_size_normal": "Normal (default)",
   "cfg.rating_size_large": "Large",
-  "cfg.rating_size_sub": "Make the poster rating badges and the floating Rate pill bigger - easier to read on a TV or 4K screen."
+  "cfg.rating_size_sub": "Make the poster rating badges and the floating Rate pill bigger - easier to read on a TV or 4K screen.",
+  "cfg.rating_size_largetv": "Large (TV only)"
 }

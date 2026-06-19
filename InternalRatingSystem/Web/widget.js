@@ -209,7 +209,13 @@
             .then(function (cfg) {
                 if (cfg) {
                     for (var k in cfg) _STARTRACK_CONFIG[k] = cfg[k];
-                    try { document.documentElement.setAttribute('data-st-size', _STARTRACK_CONFIG.ratingSize === 'large' ? 'large' : 'normal'); } catch (e) {}
+                    try {
+                        var _rs = _STARTRACK_CONFIG.ratingSize;
+                        var _ua = (navigator.userAgent || '').toLowerCase();
+                        var _tv = /web0?os|webos|tizen|smart-?tv|netcast|hbbtv|appletv|googletv|android ?tv|crkey|bravia|viera/.test(_ua);
+                        var _big = _rs === 'large' || (_rs === 'largetv' && _tv);
+                        document.documentElement.setAttribute('data-st-size', _big ? 'large' : 'normal');
+                    } catch (e) {}
                 }
             })
             .catch(function () {});
@@ -408,9 +414,9 @@
             '#ir-widget *{box-sizing:border-box!important;font-family:inherit!important}',
             '.ir-pill{display:flex!important;align-items:center!important;gap:6px!important;cursor:pointer!important;padding:8px 16px!important;border-radius:24px!important;background:rgba(10,10,10,.93)!important;border:1px solid rgba(255,255,255,.22)!important;backdrop-filter:blur(10px)!important;box-shadow:0 4px 24px rgba(0,0,0,.65)!important;transition:background .2s,transform .15s!important;user-select:none!important;white-space:nowrap!important;color:#fff!important}',
             '.ir-pill:hover{background:rgba(30,30,30,.98)!important;transform:scale(1.05)!important}',
-            'html[data-st-size="large"] .ir-pill{padding:11px 22px!important;font-size:1.2em!important}',
-            'html[data-st-size="large"] .ir-poster-badge{font-size:.95em!important;padding:5px 11px!important}',
-            'html[data-st-size="large"] #ir-page-badge{font-size:1.05em!important;padding:5px 14px!important}',
+            'html[data-st-size="large"] .ir-pill{padding:13px 26px!important;font-size:1.45em!important}',
+            'html[data-st-size="large"] .ir-poster-badge{font-size:1.15em!important;padding:6px 13px!important}',
+            'html[data-st-size="large"] #ir-page-badge{font-size:1.25em!important;padding:6px 16px!important}',
             '.ir-pill:focus-visible{outline:2px solid #f4c430!important;outline-offset:2px!important}',
             '#ir-page-badge:focus-visible{outline:2px solid #f4c430!important;outline-offset:2px!important}',
             '.ir-star-icon{color:#f4c430!important;font-size:1.1em!important}',
@@ -7149,7 +7155,7 @@
         if (_mrl) { var _mrlN = parseInt(_mrl.value, 10); c.MaxReviewLength = isNaN(_mrlN) ? 10000 : Math.min(10000, Math.max(1, _mrlN)); }
         c.CompactMediaBadge = !!(root.querySelector('#stCompactMediaBadge') && root.querySelector('#stCompactMediaBadge').checked);
         var _rsz = root.querySelector('#stRatingSize');
-        if (_rsz) c.RatingSize = _rsz.value === 'large' ? 'large' : 'normal';
+        if (_rsz) c.RatingSize = (_rsz.value === 'large' || _rsz.value === 'largetv') ? _rsz.value : 'normal';
         c.PostPlaybackRatingPopup   = !!(root.querySelector('#stPostPlaybackPopup')    && root.querySelector('#stPostPlaybackPopup').checked);
         c.CommunityRecentMode       = !!(root.querySelector('#stCommunityRecentMode')  && root.querySelector('#stCommunityRecentMode').checked);
 

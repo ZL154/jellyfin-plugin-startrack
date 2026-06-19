@@ -532,5 +532,6 @@
   "cfg.rating_size_label": "Größe der Bewertungs-Badge",
   "cfg.rating_size_normal": "Normal (Standard)",
   "cfg.rating_size_large": "Groß",
-  "cfg.rating_size_sub": "Macht die Poster-Bewertungs-Badges und die schwebende Bewerten-Schaltfläche größer – besser lesbar auf einem TV oder 4K-Bildschirm."
+  "cfg.rating_size_sub": "Macht die Poster-Bewertungs-Badges und die schwebende Bewerten-Schaltfläche größer – besser lesbar auf einem TV oder 4K-Bildschirm.",
+  "cfg.rating_size_largetv": "Groß (nur TV)"
 }

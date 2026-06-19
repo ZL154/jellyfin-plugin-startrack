@@ -532,5 +532,6 @@
   "cfg.rating_size_label": "评分徽章大小",
   "cfg.rating_size_normal": "正常（默认）",
   "cfg.rating_size_large": "大",
-  "cfg.rating_size_sub": "放大海报上的评分徽章和悬浮的评分按钮——在电视或 4K 屏幕上更易阅读。"
+  "cfg.rating_size_sub": "放大海报上的评分徽章和悬浮的评分按钮——在电视或 4K 屏幕上更易阅读。",
+  "cfg.rating_size_largetv": "大（仅电视）"
 }

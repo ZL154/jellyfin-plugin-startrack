@@ -53,7 +53,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 communityRecentMode          = cfg.CommunityRecentMode,
                 maxReviewLength              = (cfg.MaxReviewLength <= 0 ? 10000 : (cfg.MaxReviewLength > 10000 ? 10000 : cfg.MaxReviewLength)),
                 compactMediaBadge            = cfg.CompactMediaBadge,
-                ratingSize                   = (cfg.RatingSize == "large" ? "large" : "normal"),
+                ratingSize                   = (cfg.RatingSize == "large" || cfg.RatingSize == "largetv" ? cfg.RatingSize : "normal"),
                 hiddenOverlayViews           = hiddenViews,
                 supportedLanguages           = SupportedLanguages
             });
