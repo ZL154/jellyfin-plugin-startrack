@@ -195,9 +195,21 @@ namespace Jellyfin.Plugin.InternalRating
 
                     if (html.Contains(Marker, StringComparison.Ordinal))
                     {
-                        DiagIndexPatched = true;
-                        DiagPatchedPath  = path;
-                        return;
+                        // Already injected. If the current (content-hashed) script tag is
+                        // present we're up to date. Otherwise the token is stale (the widget
+                        // changed since the last patch) — strip the old injection and fall
+                        // through to re-add the fresh one, which busts browser/CDN caches.
+                        if (html.Contains(ScriptTag, StringComparison.Ordinal))
+                        {
+                            DiagIndexPatched = true;
+                            DiagPatchedPath  = path;
+                            return;
+                        }
+                        html = System.Text.RegularExpressions.Regex.Replace(
+                            html,
+                            "/Plugins/StarTrack/Widget(<script[^>]*src=\"/Plugins/StarTrack/Widget\\?v=[^\"]*\"[^>]*></script>)?",
+                            string.Empty,
+                            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
                     }
 
                     if (!html.Contains("</body>", StringComparison.OrdinalIgnoreCase)) continue;

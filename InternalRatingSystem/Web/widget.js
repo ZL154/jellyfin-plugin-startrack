@@ -1416,7 +1416,7 @@
         // reads first. Scoped to the detail-header meta row so it can't latch onto a
         // rating inside a card elsewhere on the page. If the native rating isn't found
         // (e.g. it's supplied by a third-party ratings plugin), fall through below.
-        var ratingAnchor = document.querySelector('.itemMiscInfo .starRatingContainer, .mediaInfoItems .starRatingContainer');
+        var ratingAnchor = document.querySelector('.itemMiscInfo .mdblist-rating-container, .mediaInfoItems .mdblist-rating-container, .itemMiscInfo .starRatingContainer, .mediaInfoItems .starRatingContainer');
         if (ratingAnchor && ratingAnchor.parentNode) {
             badge.style.cssText += ';display:inline-flex!important;margin-bottom:0!important;vertical-align:middle!important';
             ratingAnchor.parentNode.insertBefore(badge, ratingAnchor);
