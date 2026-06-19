@@ -1394,7 +1394,7 @@
         badge.title = 'StarTrack · ' + data.totalRatings + ' rating' + (data.totalRatings !== 1 ? 's' : '') + ' · click to rate';
         badge.textContent = _STARTRACK_CONFIG.compactMediaBadge
             ? '★ ' + data.averageRating.toFixed(1)
-            : '★ ' + data.averageRating.toFixed(1) + '  StarTrack (' + data.totalRatings + ')';
+            : '★ ' + data.averageRating.toFixed(1) + '  StarTrack' + (data.totalRatings > 1 ? ' (' + data.totalRatings + ')' : '');
         badge.setAttribute('tabindex', '0');
         badge.setAttribute('role', 'button');
         badge.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); badge.click(); } });
