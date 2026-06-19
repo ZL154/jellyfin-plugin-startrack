@@ -5647,6 +5647,14 @@
             open = !open;
             panel.classList.toggle('ir-open', open);
             if (open) {
+                // Reflect the admin's current review-length cap. maxReviewLength may
+                // have arrived from PublicConfig after this panel was built (or changed
+                // since), and the textarea's maxlength/counter were baked at build time.
+                if (rev) {
+                    var _mx = _STARTRACK_CONFIG.maxReviewLength || 10000;
+                    rev.setAttribute('maxlength', _mx);
+                    if (revHint) revHint.textContent = rev.value.length + ' / ' + _mx;
+                }
                 // Always reset to the correct primary view when opening. Prevents
                 // a stale Letterboxd sync view from being shown on re-open and
                 // prevents an empty black panel if the user navigated away while
