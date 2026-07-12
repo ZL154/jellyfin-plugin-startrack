@@ -3,6 +3,30 @@
 
     console.log('[StarTrack] widget.js loaded — v1.4.6');
 
+    // [v1.6.2] (#13, LinkdxTTV) Derive Jellyfin's base path so StarTrack API calls
+    // work when Jellyfin is served under a sub-path (BaseURL, e.g. /jelly behind a
+    // reverse proxy). Our injected <script src> carries the base
+    // (…/Plugins/StarTrack/Widget), so we read it back off our own <script> element
+    // and prefix every StarTrack fetch with it. Empty string when at the domain root.
+    var _ST_BASE = (function () {
+        try {
+            var marker = '/Plugins/StarTrack/Widget';
+            var src = (document.currentScript && document.currentScript.src) || '';
+            if (!src) {
+                var scripts = document.getElementsByTagName('script');
+                for (var i = 0; i < scripts.length; i++) {
+                    if (scripts[i].src && scripts[i].src.indexOf(marker) !== -1) { src = scripts[i].src; break; }
+                }
+            }
+            if (!src) return '';
+            var path = src;
+            try { path = new URL(src, window.location.origin).pathname; } catch (e) {}
+            var idx = path.indexOf(marker);
+            return idx > 0 ? path.substring(0, idx) : '';
+        } catch (e) { return ''; }
+    })();
+    if (_ST_BASE) console.log('[StarTrack] base path: "' + _ST_BASE + '"');
+
     // ── i18n + config runtime (StarTrack v1.4) ────────────────────────────
     // Runtime translation for UI text. We load the translation bundle once
     // from /Plugins/StarTrack/Translations/{lang} and every piece of text
@@ -184,7 +208,7 @@
     }
 
     function loadTranslations(lang) {
-        return fetch('/Plugins/StarTrack/Translations/' + encodeURIComponent(lang))
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Translations/' + encodeURIComponent(lang))
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(function (j) {
                 if (j) _STARTRACK_STRINGS = j;
@@ -194,7 +218,7 @@
     }
 
     function loadEnglishThenActive(lang) {
-        return fetch('/Plugins/StarTrack/Translations/en')
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Translations/en')
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(function (en) {
                 _STARTRACK_STRINGS_EN = en || {};
@@ -203,19 +227,51 @@
             });
     }
 
+    // [v1.6.2] On very small screens (phones) the enlarged rating eats the whole
+    // thumbnail, so "large" is auto-ignored there regardless of config/override
+    // (locksoft #8). ~600px ≈ phone breakpoint.
+    function _viewportTooSmallForLarge() {
+        return (window.innerWidth || document.documentElement.clientWidth || 9999) < 600;
+    }
+
+    // [v1.6.2] Resolve the effective rating size and set data-st-size. Precedence:
+    // a per-user override (chosen from the rating panel, stored in localStorage as
+    // startrack_user_size = 'normal' | 'large') beats the admin default; on a phone
+    // viewport, large is forced back to normal so the rating stays usable.
+    function applyRatingSize() {
+        try {
+            var override = null;
+            try { override = localStorage.getItem('startrack_user_size'); } catch (e) {}
+            var big;
+            if (override === 'large' || override === 'normal') {
+                big = (override === 'large');
+            } else {
+                var _rs = _STARTRACK_CONFIG.ratingSize;
+                var _ua = (navigator.userAgent || '').toLowerCase();
+                var _tv = /web0?os|webos|tizen|smart-?tv|netcast|hbbtv|appletv|googletv|android ?tv|crkey|bravia|viera/.test(_ua);
+                big = (_rs === 'large') || (_rs === 'largetv' && _tv);
+            }
+            if (big && _viewportTooSmallForLarge()) big = false;
+            document.documentElement.setAttribute('data-st-size', big ? 'large' : 'normal');
+        } catch (e) {}
+    }
+
+    var _sizeResizeHooked = false;
+    function hookSizeResize() {
+        if (_sizeResizeHooked) return;
+        _sizeResizeHooked = true;
+        var t;
+        window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(applyRatingSize, 200); });
+    }
+
     function loadPublicConfig() {
-        return fetch('/Plugins/StarTrack/PublicConfig', { cache: 'no-store' })
+        return fetch(_ST_BASE + '/Plugins/StarTrack/PublicConfig', { cache: 'no-store' })
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(function (cfg) {
                 if (cfg) {
                     for (var k in cfg) _STARTRACK_CONFIG[k] = cfg[k];
-                    try {
-                        var _rs = _STARTRACK_CONFIG.ratingSize;
-                        var _ua = (navigator.userAgent || '').toLowerCase();
-                        var _tv = /web0?os|webos|tizen|smart-?tv|netcast|hbbtv|appletv|googletv|android ?tv|crkey|bravia|viera/.test(_ua);
-                        var _big = _rs === 'large' || (_rs === 'largetv' && _tv);
-                        document.documentElement.setAttribute('data-st-size', _big ? 'large' : 'normal');
-                    } catch (e) {}
+                    applyRatingSize();
+                    hookSizeResize();
                 }
             })
             .catch(function () {});
@@ -396,10 +452,10 @@
         }).catch(function (e) { console.error('[StarTrack] fetch error:', e); return null; });
     }
 
-    function apiGet(id)              { return apiFetch('/Plugins/StarTrack/Ratings/' + id).then(function (r) { return r ? r.json() : null; }); }
-    function apiPost(id, stars, rev) { return apiFetch('/Plugins/StarTrack/Ratings/' + id, { method: 'POST', body: JSON.stringify({ stars: stars, review: rev || null }) }).then(function (r) { return r !== null; }); }
-    function apiDel(id)              { return apiFetch('/Plugins/StarTrack/Ratings/' + id, { method: 'DELETE' }).then(function (r) { return r !== null; }); }
-    function apiMyRatings(limit)     { return apiFetch('/Plugins/StarTrack/MyRatings' + (limit ? '?limit=' + limit : '')).then(function (r) { return r ? r.json() : null; }); }
+    function apiGet(id)              { return apiFetch(_ST_BASE + '/Plugins/StarTrack/Ratings/' + id).then(function (r) { return r ? r.json() : null; }); }
+    function apiPost(id, stars, rev) { return apiFetch(_ST_BASE + '/Plugins/StarTrack/Ratings/' + id, { method: 'POST', body: JSON.stringify({ stars: stars, review: rev || null }) }).then(function (r) { return r !== null; }); }
+    function apiDel(id)              { return apiFetch(_ST_BASE + '/Plugins/StarTrack/Ratings/' + id, { method: 'DELETE' }).then(function (r) { return r !== null; }); }
+    function apiMyRatings(limit)     { return apiFetch(_ST_BASE + '/Plugins/StarTrack/MyRatings' + (limit ? '?limit=' + limit : '')).then(function (r) { return r ? r.json() : null; }); }
 
     // ── Styles ────────────────────────────────────────────────────────────
 
@@ -416,7 +472,7 @@
             '.ir-pill:hover{background:rgba(30,30,30,.98)!important;transform:scale(1.05)!important}',
             'html[data-st-size="large"] .ir-pill{padding:13px 26px!important;font-size:1.45em!important}',
             'html[data-st-size="large"] .ir-poster-badge{font-size:1.15em!important;padding:6px 13px!important}',
-            'html[data-st-size="large"] #ir-page-badge{font-size:1.25em!important;padding:6px 16px!important}',
+            'html[data-st-size="large"] #ir-page-badge{font-size:1.25em!important;padding:3px 14px!important}',
             'html[data-st-size="large"] .ir-panel{width:390px!important;padding:22px!important;font-size:1.22em!important}',
             'html[data-st-size="large"] .ir-sw{font-size:2.1em!important}',
             'html[data-st-size="large"] .ir-submit{font-size:.95em!important;padding:9px 20px!important}',
@@ -497,7 +553,7 @@
             '.ir-rec-rev{font-size:.78em!important;color:rgba(255,255,255,.4)!important;margin-top:3px!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;font-style:italic!important}',
             '.ir-rec-stars{color:#f4c430!important;font-size:.92em!important;white-space:nowrap!important;font-weight:700!important;flex-shrink:0!important}',
             // Page badge
-            '#ir-page-badge{display:block!important;margin-bottom:8px!important;background:rgba(10,10,10,.85)!important;border:1px solid rgba(244,196,48,.5)!important;border-radius:4px!important;padding:3px 10px!important;font-size:.82em!important;font-weight:700!important;color:#f4c430!important;cursor:pointer!important;white-space:nowrap!important;line-height:1.6!important;width:fit-content!important}',
+            '#ir-page-badge{display:block!important;margin-bottom:8px!important;margin-right:8px!important;background:rgba(10,10,10,.85)!important;border:1px solid rgba(244,196,48,.5)!important;border-radius:4px!important;padding:3px 10px!important;font-size:.82em!important;font-weight:700!important;color:#f4c430!important;cursor:pointer!important;white-space:nowrap!important;line-height:1.6!important;width:fit-content!important}',
             '#ir-page-badge:hover{background:rgba(30,30,30,.95)!important}',
             // ── My Ratings overlay — red/black theme ──────────────────────
             '#ir-overlay{position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:0!important;width:100vw!important;height:100vh!important;height:100dvh!important;max-width:100vw!important;max-height:100vh!important;z-index:2147483646!important;background:#080808!important;display:none!important;flex-direction:column!important;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif!important;color:#fff!important;margin:0!important;padding:0!important;transform:none!important;box-sizing:border-box!important;overflow:hidden!important}',
@@ -1388,22 +1444,64 @@
 
     // ── Page badge ────────────────────────────────────────────────────────
 
+    // Text of the badge we last inserted — used to recognise attribute-stripped
+    // clones (see _stripOldPageBadges) even after the value changes.
+    var _lastBadgeText = null;
+
+    // Remove EVERY prior badge. v1.6.1 removed by `#ir-page-badge` only, but
+    // Jellyfin clones the detail-header DOM across navigation / rating re-renders
+    // and some clones drop the id+class entirely, rendering as plain, unclickable
+    // text that the id-based sweep can't see — so copies kept piling up on
+    // web/iPad (#8 "twice", #11 "triplicate"). Three-layer sweep: id, class,
+    // data-attr; then a catch-all that deletes bare leaf nodes inside the detail
+    // meta rows whose text is unmistakably ours (contains "StarTrack", or exactly
+    // equals the last compact badge we wrote). Scoped to meta rows so a native
+    // ★ rating is never touched.
+    function _stripOldPageBadges() {
+        var marked = document.querySelectorAll('#ir-page-badge, .ir-page-badge, [data-st-page-badge]');
+        for (var i = 0; i < marked.length; i++) marked[i].remove();
+        var rows = document.querySelectorAll('.itemMiscInfo, .mediaInfoItems');
+        for (var r = 0; r < rows.length; r++) {
+            var kids = rows[r].querySelectorAll('span, div');
+            for (var k = 0; k < kids.length; k++) {
+                var t = kids[k].textContent.trim();
+                if (kids[k].childElementCount !== 0) continue;
+                if ((t.charAt(0) === '★' && t.indexOf('StarTrack') !== -1) ||
+                    (_lastBadgeText && t === _lastBadgeText)) {
+                    kids[k].remove();
+                }
+            }
+        }
+    }
+
+    // The SPA keeps prior detail views in the DOM (hidden). A document-wide
+    // querySelector can latch onto a HIDDEN view's rating row, so the badge ends
+    // up invisible on the page the user is actually looking at while orphan copies
+    // linger (locksoft: "I can't see the button but see the duplicated text").
+    // Scope insertion to the page that isn't .hide and is actually rendered.
+    function _visiblePageScope() {
+        var pages = document.querySelectorAll('.page, .mainAnimatedPage, .itemView');
+        for (var i = 0; i < pages.length; i++) {
+            if (!pages[i].classList.contains('hide') && pages[i].offsetParent !== null) return pages[i];
+        }
+        return document;
+    }
+
     function upsertPageBadge(data) {
-        // Remove ALL existing badges, not just the first. Jellyfin caches / clones
-        // detail-page DOM across navigation, which leaves behind duplicate
-        // #ir-page-badge nodes — and cloned nodes lose their click handler, so they
-        // read as dead "click to rate" copies. getElementById only returns one, so the
-        // duplicates accumulated (issues #8 "twice", #11 "triplicate"). Clear them all.
-        var _olds = document.querySelectorAll('#ir-page-badge');
-        for (var _oi = 0; _oi < _olds.length; _oi++) _olds[_oi].remove();
-        if (!data || data.totalRatings === 0) return;
+        _stripOldPageBadges();
+        if (!data || data.totalRatings === 0) { _lastBadgeText = null; return; }
+
+        var text = _STARTRACK_CONFIG.compactMediaBadge
+            ? '★ ' + data.averageRating.toFixed(1)
+            : '★ ' + data.averageRating.toFixed(1) + '  StarTrack' + (data.totalRatings > 1 ? ' (' + data.totalRatings + ')' : '');
+        _lastBadgeText = text;
 
         var badge = document.createElement('span');
         badge.id = 'ir-page-badge';
+        badge.className = 'ir-page-badge';
+        badge.setAttribute('data-st-page-badge', '1');
         badge.title = 'StarTrack · ' + data.totalRatings + ' rating' + (data.totalRatings !== 1 ? 's' : '') + ' · click to rate';
-        badge.textContent = _STARTRACK_CONFIG.compactMediaBadge
-            ? '★ ' + data.averageRating.toFixed(1)
-            : '★ ' + data.averageRating.toFixed(1) + '  StarTrack' + (data.totalRatings > 1 ? ' (' + data.totalRatings + ')' : '');
+        badge.textContent = text;
         badge.setAttribute('tabindex', '0');
         badge.setAttribute('role', 'button');
         badge.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); badge.click(); } });
@@ -1415,11 +1513,13 @@
             if (_el) { var p = _el.querySelector('.ir-pill'); if (p) p.click(); }
         });
 
+        var scope = _visiblePageScope();
+
         // #11 (locksoft): sit right before the native community rating so StarTrack
-        // reads first. Scoped to the detail-header meta row so it can't latch onto a
-        // rating inside a card elsewhere on the page. If the native rating isn't found
-        // (e.g. it's supplied by a third-party ratings plugin), fall through below.
-        var ratingAnchor = document.querySelector('.itemMiscInfo .mdblist-rating-container, .mediaInfoItems .mdblist-rating-container, .itemMiscInfo .starRatingContainer, .mediaInfoItems .starRatingContainer');
+        // reads first. Scoped to the visible detail-header meta row so it can't latch
+        // onto a rating inside a card elsewhere, or a hidden cached view. If the
+        // native rating isn't found (e.g. supplied by a third-party plugin), fall through.
+        var ratingAnchor = scope.querySelector('.itemMiscInfo .mdblist-rating-container, .mediaInfoItems .mdblist-rating-container, .itemMiscInfo .starRatingContainer, .mediaInfoItems .starRatingContainer');
         if (ratingAnchor && ratingAnchor.parentNode) {
             badge.style.cssText += ';display:inline-flex!important;margin-bottom:0!important;vertical-align:middle!important';
             ratingAnchor.parentNode.insertBefore(badge, ratingAnchor);
@@ -1429,7 +1529,7 @@
         var placed = false;
         var anchors = ['.itemMiscInfo', '.mediaInfoItems', '.itemTags', '.externalLinks', '.itemExternalLinks', '.ratings'];
         for (var i = 0; i < anchors.length; i++) {
-            var anchor = document.querySelector(anchors[i]);
+            var anchor = scope.querySelector(anchors[i]);
             if (anchor && anchor.parentNode) { anchor.parentNode.insertBefore(badge, anchor); placed = true; break; }
         }
         if (!placed) setTimeout(function () { if (!document.getElementById('ir-page-badge')) upsertPageBadge(data); }, 1000);
@@ -1494,6 +1594,9 @@
                     '<div class="ir-list" style="display:none"></div>' +
                     '<button class="ir-lb-open-btn" title="Connect your Letterboxd account">\u2699 Letterboxd sync</button>' +
                     '<button class="ir-lang-btn" title="Change language" style="background:none;border:none;color:rgba(255,255,255,.45);cursor:pointer;padding:4px 8px;font-size:.8em;margin-left:6px">\ud83c\udf10 <span class="ir-lang-label">EN</span></button>' +
+                    // [v1.6.2] (#8, locksoft) per-device rating-size override \u2014 cycles
+                    // Default \u2192 Large \u2192 Normal, stored in localStorage, beats the admin default.
+                    '<button class="ir-size-btn" title="Rating size on this device" style="background:none;border:none;color:rgba(255,255,255,.45);cursor:pointer;padding:4px 8px;font-size:.8em;margin-left:2px">\u2922 <span class="ir-size-label"></span></button>' +
                 '</div>' +
                 // Recent view
                 '<div class="ir-recent-panel" style="display:none">' +
@@ -1853,7 +1956,7 @@
             exportEl.addEventListener('click', function () {
                 var auth = getAuth(); if (!auth) return;
                 // Fetch with auth header, convert to blob, trigger download
-                fetch('/Plugins/StarTrack/ExportCsv', { headers: { Authorization: auth } })
+                fetch(_ST_BASE + '/Plugins/StarTrack/ExportCsv', { headers: { Authorization: auth } })
                     .then(function (r) { return r.ok ? r.blob() : null; })
                     .then(function (blob) {
                         if (!blob) { alert('Export failed.'); return; }
@@ -2453,7 +2556,7 @@
 
             function triggerEsDownload(format) {
                 var auth = getAuth(); if (!auth) return;
-                fetch('/Plugins/StarTrack/ExternalSync/Export?format=' + format, { headers: { Authorization: auth } })
+                fetch(_ST_BASE + '/Plugins/StarTrack/ExternalSync/Export?format=' + format, { headers: { Authorization: auth } })
                     .then(function (r) {
                         if (!r.ok) { esIoStatus('Export failed.', 'err'); return null; }
                         return r.blob();
@@ -2490,7 +2593,7 @@
                     var isJson = /\.json$/i.test(file.name);
                     var ct = isJson ? 'application/json' : 'text/csv';
                     file.text().then(function (text) {
-                    return fetch('/Plugins/StarTrack/ExternalSync/Import?format=' + (isJson ? 'json' : 'csv'), {
+                    return fetch(_ST_BASE + '/Plugins/StarTrack/ExternalSync/Import?format=' + (isJson ? 'json' : 'csv'), {
                         method: 'POST',
                         headers: { Authorization: auth, 'Content-Type': ct },
                         body: text
@@ -5640,6 +5743,7 @@
 
     function bindInteractions(el) {
         bindLanguagePickers(el);
+        bindSizeToggle(el);
 
         var pill = el.querySelector('.ir-pill'), panel = el.querySelector('.ir-panel');
         if (pill) pill.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pill.click(); } });
@@ -5926,14 +6030,14 @@
 
     function apiLbGetSettings() {
         var auth = getAuth(); if (!auth) return Promise.resolve(null);
-        return fetch('/Plugins/StarTrack/Letterboxd/Settings', { headers: { Authorization: auth } })
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Letterboxd/Settings', { headers: { Authorization: auth } })
             .then(function (r) { return r.ok ? r.json() : null; })
             .catch(function () { return null; });
     }
 
     function apiLbSaveSettings(username, enableAutoSync) {
         var auth = getAuth(); if (!auth) return Promise.resolve(false);
-        return fetch('/Plugins/StarTrack/Letterboxd/Settings', {
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Letterboxd/Settings', {
             method: 'POST',
             headers: { Authorization: auth, 'Content-Type': 'application/json' },
             body: JSON.stringify({ username: username, enableAutoSync: enableAutoSync })
@@ -5942,7 +6046,7 @@
 
     function apiLbSyncNow() {
         var auth = getAuth(); if (!auth) return Promise.resolve(null);
-        return fetch('/Plugins/StarTrack/Letterboxd/SyncNow', {
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Letterboxd/SyncNow', {
             method: 'POST',
             headers: { Authorization: auth }
         }).then(function (r) { return r.ok ? r.json() : null; })
@@ -5951,7 +6055,7 @@
 
     function apiLbDiagnose() {
         var auth = getAuth(); if (!auth) return Promise.resolve(null);
-        return fetch('/Plugins/StarTrack/Letterboxd/Diagnose', {
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Letterboxd/Diagnose', {
             headers: { Authorization: auth }
         }).then(function (r) { return r.ok ? r.json() : null; })
           .catch(function () { return null; });
@@ -5959,7 +6063,7 @@
 
     function apiLbCleanup() {
         var auth = getAuth(); if (!auth) return Promise.resolve(null);
-        return fetch('/Plugins/StarTrack/Letterboxd/Cleanup', {
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Letterboxd/Cleanup', {
             method: 'POST',
             headers: { Authorization: auth }
         }).then(function (r) { return r.ok ? r.json() : null; })
@@ -5970,14 +6074,14 @@
 
     function apiEsGetStatus() {
         var auth = getAuth(); if (!auth) return Promise.resolve(null);
-        return fetch('/Plugins/StarTrack/ExternalSync/Status', { headers: { Authorization: auth } })
+        return fetch(_ST_BASE + '/Plugins/StarTrack/ExternalSync/Status', { headers: { Authorization: auth } })
             .then(function (r) { return r.ok ? r.json() : null; })
             .catch(function () { return null; });
     }
 
     function apiEsStartAuth(provider) {
         var auth = getAuth(); if (!auth) return Promise.resolve(null);
-        return fetch('/Plugins/StarTrack/ExternalSync/' + encodeURIComponent(provider) + '/StartAuth', {
+        return fetch(_ST_BASE + '/Plugins/StarTrack/ExternalSync/' + encodeURIComponent(provider) + '/StartAuth', {
             method: 'POST',
             headers: { Authorization: auth }
         }).then(function (r) {
@@ -5989,7 +6093,7 @@
 
     function apiEsPollAuth(provider) {
         var auth = getAuth(); if (!auth) return Promise.resolve(null);
-        return fetch('/Plugins/StarTrack/ExternalSync/' + encodeURIComponent(provider) + '/PollAuth', {
+        return fetch(_ST_BASE + '/Plugins/StarTrack/ExternalSync/' + encodeURIComponent(provider) + '/PollAuth', {
             method: 'POST',
             headers: { Authorization: auth }
         }).then(function (r) { return r.ok ? r.json() : null; })
@@ -5998,7 +6102,7 @@
 
     function apiEsYamtrackConnect(baseUrl, apiToken) {
         var auth = getAuth(); if (!auth) return Promise.resolve(false);
-        return fetch('/Plugins/StarTrack/ExternalSync/Yamtrack/Connect', {
+        return fetch(_ST_BASE + '/Plugins/StarTrack/ExternalSync/Yamtrack/Connect', {
             method: 'POST',
             headers: { Authorization: auth, 'Content-Type': 'application/json' },
             body: JSON.stringify({ baseUrl: baseUrl, apiToken: apiToken })
@@ -6008,7 +6112,7 @@
 
     function apiEsSetDirection(provider, direction) {
         var auth = getAuth(); if (!auth) return Promise.resolve(false);
-        return fetch('/Plugins/StarTrack/ExternalSync/' + encodeURIComponent(provider) + '/SetDirection', {
+        return fetch(_ST_BASE + '/Plugins/StarTrack/ExternalSync/' + encodeURIComponent(provider) + '/SetDirection', {
             method: 'POST',
             headers: { Authorization: auth, 'Content-Type': 'application/json' },
             body: JSON.stringify({ direction: direction })
@@ -6018,7 +6122,7 @@
 
     function apiEsSync(provider) {
         var auth = getAuth(); if (!auth) return Promise.resolve(null);
-        return fetch('/Plugins/StarTrack/ExternalSync/' + encodeURIComponent(provider) + '/Sync', {
+        return fetch(_ST_BASE + '/Plugins/StarTrack/ExternalSync/' + encodeURIComponent(provider) + '/Sync', {
             method: 'POST',
             headers: { Authorization: auth }
         }).then(function (r) { return r.ok ? r.json() : null; })
@@ -6028,7 +6132,7 @@
     function apiEsBackfill(provider) {
         var auth = getAuth(); if (!auth) return Promise.resolve(null);
         // Parse the body even on non-2xx so the caller can surface the error message.
-        return fetch('/Plugins/StarTrack/ExternalSync/' + encodeURIComponent(provider) + '/BackfillWatched', {
+        return fetch(_ST_BASE + '/Plugins/StarTrack/ExternalSync/' + encodeURIComponent(provider) + '/BackfillWatched', {
             method: 'POST',
             headers: { Authorization: auth }
         }).then(function (r) { return r.json().catch(function () { return null; }); })
@@ -6037,7 +6141,7 @@
 
     function apiEsDisconnect(provider) {
         var auth = getAuth(); if (!auth) return Promise.resolve(false);
-        return fetch('/Plugins/StarTrack/ExternalSync/' + encodeURIComponent(provider) + '/Disconnect', {
+        return fetch(_ST_BASE + '/Plugins/StarTrack/ExternalSync/' + encodeURIComponent(provider) + '/Disconnect', {
             method: 'POST',
             headers: { Authorization: auth }
         }).then(function (r) { return r.ok; })
@@ -6048,7 +6152,7 @@
 
     function apiInteractionStatus(itemId) {
         var auth = getAuth(); if (!auth) return Promise.resolve(null);
-        return fetch('/Plugins/StarTrack/Interactions/' + encodeURIComponent(itemId), {
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Interactions/' + encodeURIComponent(itemId), {
             headers: { Authorization: auth }
         }).then(function (r) { return r.ok ? r.json() : null; })
           .catch(function () { return null; });
@@ -6056,63 +6160,63 @@
 
     function apiWatchlistAdd(itemId) {
         var auth = getAuth(); if (!auth) return Promise.resolve(false);
-        return fetch('/Plugins/StarTrack/Watchlist/' + encodeURIComponent(itemId), {
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Watchlist/' + encodeURIComponent(itemId), {
             method: 'POST', headers: { Authorization: auth }
         }).then(function (r) { return r.ok; }).catch(function () { return false; });
     }
 
     function apiWatchlistRemove(itemId) {
         var auth = getAuth(); if (!auth) return Promise.resolve(false);
-        return fetch('/Plugins/StarTrack/Watchlist/' + encodeURIComponent(itemId), {
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Watchlist/' + encodeURIComponent(itemId), {
             method: 'DELETE', headers: { Authorization: auth }
         }).then(function (r) { return r.ok; }).catch(function () { return false; });
     }
 
     function apiLikeAdd(itemId) {
         var auth = getAuth(); if (!auth) return Promise.resolve(false);
-        return fetch('/Plugins/StarTrack/Likes/' + encodeURIComponent(itemId), {
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Likes/' + encodeURIComponent(itemId), {
             method: 'POST', headers: { Authorization: auth }
         }).then(function (r) { return r.ok; }).catch(function () { return false; });
     }
 
     function apiLikeRemove(itemId) {
         var auth = getAuth(); if (!auth) return Promise.resolve(false);
-        return fetch('/Plugins/StarTrack/Likes/' + encodeURIComponent(itemId), {
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Likes/' + encodeURIComponent(itemId), {
             method: 'DELETE', headers: { Authorization: auth }
         }).then(function (r) { return r.ok; }).catch(function () { return false; });
     }
 
     function apiMyWatchlist() {
         var auth = getAuth(); if (!auth) return Promise.resolve([]);
-        return fetch('/Plugins/StarTrack/MyWatchlist', { headers: { Authorization: auth } })
+        return fetch(_ST_BASE + '/Plugins/StarTrack/MyWatchlist', { headers: { Authorization: auth } })
             .then(function (r) { return r.ok ? r.json() : []; })
             .catch(function () { return []; });
     }
 
     function apiEveryonesWatchlist() {
         var auth = getAuth(); if (!auth) return Promise.resolve([]);
-        return fetch('/Plugins/StarTrack/EveryonesWatchlist', { headers: { Authorization: auth } })
+        return fetch(_ST_BASE + '/Plugins/StarTrack/EveryonesWatchlist', { headers: { Authorization: auth } })
             .then(function (r) { return r.ok ? r.json() : []; })
             .catch(function () { return []; });
     }
 
     function apiMyLikes() {
         var auth = getAuth(); if (!auth) return Promise.resolve([]);
-        return fetch('/Plugins/StarTrack/MyLikes', { headers: { Authorization: auth } })
+        return fetch(_ST_BASE + '/Plugins/StarTrack/MyLikes', { headers: { Authorization: auth } })
             .then(function (r) { return r.ok ? r.json() : []; })
             .catch(function () { return []; });
     }
 
     function apiMyFavorites() {
         var auth = getAuth(); if (!auth) return Promise.resolve([]);
-        return fetch('/Plugins/StarTrack/MyFavorites', { headers: { Authorization: auth } })
+        return fetch(_ST_BASE + '/Plugins/StarTrack/MyFavorites', { headers: { Authorization: auth } })
             .then(function (r) { return r.ok ? r.json() : []; })
             .catch(function () { return []; });
     }
 
     function apiSetFavorites(itemIds) {
         var auth = getAuth(); if (!auth) return Promise.resolve(false);
-        return fetch('/Plugins/StarTrack/MyFavorites', {
+        return fetch(_ST_BASE + '/Plugins/StarTrack/MyFavorites', {
             method: 'POST',
             headers: { Authorization: auth, 'Content-Type': 'application/json' },
             body: JSON.stringify({ itemIds: itemIds })
@@ -6121,7 +6225,7 @@
 
     function apiRecommendations(limit) {
         var auth = getAuth(); if (!auth) return Promise.resolve([]);
-        return fetch('/Plugins/StarTrack/Recommendations?limit=' + (limit || 60), {
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Recommendations?limit=' + (limit || 60), {
             headers: { Authorization: auth }
         }).then(function (r) { return r.ok ? r.json() : []; })
           .catch(function () { return []; });
@@ -6129,63 +6233,63 @@
 
     function apiMyDiary() {
         var auth = getAuth(); if (!auth) return Promise.resolve([]);
-        return fetch('/Plugins/StarTrack/MyDiary', { headers: { Authorization: auth } })
+        return fetch(_ST_BASE + '/Plugins/StarTrack/MyDiary', { headers: { Authorization: auth } })
             .then(function (r) { return r.ok ? r.json() : []; })
             .catch(function () { return []; });
     }
 
     function apiListMembers() {
         var auth = getAuth(); if (!auth) return Promise.resolve([]);
-        return fetch('/Plugins/StarTrack/Members', { headers: { Authorization: auth } })
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Members', { headers: { Authorization: auth } })
             .then(function (r) { return r.ok ? r.json() : []; })
             .catch(function () { return []; });
     }
 
     function apiMemberProfile(userId) {
         var auth = getAuth(); if (!auth) return Promise.resolve(null);
-        return fetch('/Plugins/StarTrack/Members/' + encodeURIComponent(userId) + '/Profile', { headers: { Authorization: auth } })
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Members/' + encodeURIComponent(userId) + '/Profile', { headers: { Authorization: auth } })
             .then(function (r) { return r.ok ? r.json() : null; })
             .catch(function () { return null; });
     }
 
     function apiMemberStats(userId) {
         var auth = getAuth(); if (!auth) return Promise.resolve(null);
-        return fetch('/Plugins/StarTrack/Members/' + encodeURIComponent(userId) + '/Stats', { headers: { Authorization: auth } })
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Members/' + encodeURIComponent(userId) + '/Stats', { headers: { Authorization: auth } })
             .then(function (r) { return r.ok ? r.json() : null; })
             .catch(function () { return null; });
     }
 
     function apiMemberReviews(userId) {
         var auth = getAuth(); if (!auth) return Promise.resolve([]);
-        return fetch('/Plugins/StarTrack/Members/' + encodeURIComponent(userId) + '/Reviews', { headers: { Authorization: auth } })
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Members/' + encodeURIComponent(userId) + '/Reviews', { headers: { Authorization: auth } })
             .then(function (r) { return r.ok ? r.json() : []; })
             .catch(function () { return []; });
     }
 
     function apiActivityFeed(limit) {
         var auth = getAuth(); if (!auth) return Promise.resolve([]);
-        return fetch('/Plugins/StarTrack/Activity?limit=' + (limit || 100) + '&scope=' + (_activityScope || 'following'), { headers: { Authorization: auth } })
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Activity?limit=' + (limit || 100) + '&scope=' + (_activityScope || 'following'), { headers: { Authorization: auth } })
             .then(function (r) { return r.ok ? r.json() : []; })
             .catch(function () { return []; });
     }
 
     function apiCompare(aId, bId) {
         var auth = getAuth(); if (!auth) return Promise.resolve(null);
-        return fetch('/Plugins/StarTrack/Compare?a=' + encodeURIComponent(aId) + '&b=' + encodeURIComponent(bId), { headers: { Authorization: auth } })
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Compare?a=' + encodeURIComponent(aId) + '&b=' + encodeURIComponent(bId), { headers: { Authorization: auth } })
             .then(function (r) { return r.ok ? r.json() : null; })
             .catch(function () { return null; });
     }
 
     function apiFollow(userId) {
         var auth = getAuth(); if (!auth) return Promise.resolve(null);
-        return fetch('/Plugins/StarTrack/Members/' + encodeURIComponent(userId) + '/Follow', {
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Members/' + encodeURIComponent(userId) + '/Follow', {
             method: 'POST', headers: { Authorization: auth }
         }).catch(function () { return null; });
     }
 
     function apiUnfollow(userId) {
         var auth = getAuth(); if (!auth) return Promise.resolve(null);
-        return fetch('/Plugins/StarTrack/Members/' + encodeURIComponent(userId) + '/Unfollow', {
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Members/' + encodeURIComponent(userId) + '/Unfollow', {
             method: 'POST', headers: { Authorization: auth }
         }).catch(function () { return null; });
     }
@@ -6194,21 +6298,21 @@
     function apiFollowList(userId, tab) {
         var auth = getAuth(); if (!auth) return Promise.resolve([]);
         var path = tab === 'followers' ? 'Followers' : 'Following';
-        return fetch('/Plugins/StarTrack/Members/' + encodeURIComponent(userId) + '/' + path, { headers: { Authorization: auth } })
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Members/' + encodeURIComponent(userId) + '/' + path, { headers: { Authorization: auth } })
             .then(function (r) { return r.ok ? r.json() : []; })
             .catch(function () { return []; });
     }
 
     function apiGetPrivacy() {
         var auth = getAuth(); if (!auth) return Promise.resolve({ hideFromMembers: false, hideFollowerCount: false });
-        return fetch('/Plugins/StarTrack/MyPrivacy', { headers: { Authorization: auth } })
+        return fetch(_ST_BASE + '/Plugins/StarTrack/MyPrivacy', { headers: { Authorization: auth } })
             .then(function (r) { return r.ok ? r.json() : { hideFromMembers: false, hideFollowerCount: false }; })
             .catch(function () { return { hideFromMembers: false, hideFollowerCount: false }; });
     }
 
     function apiSetPrivacy(hideFromMembers, hideFollowerCount, hideFollowing, hideStats, hideActivity) {
         var auth = getAuth(); if (!auth) return Promise.resolve(null);
-        return fetch('/Plugins/StarTrack/MyPrivacy', {
+        return fetch(_ST_BASE + '/Plugins/StarTrack/MyPrivacy', {
             method: 'POST',
             headers: { Authorization: auth, 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -6223,7 +6327,7 @@
 
     function apiRecent(limit) {
         var auth = getAuth(); if (!auth) return Promise.resolve([]);
-        return fetch('/Plugins/StarTrack/Recent?limit=' + (limit || 100), {
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Recent?limit=' + (limit || 100), {
             headers: { Authorization: auth }
         }).then(function (r) { return r.ok ? r.json() : []; })
           .catch(function () { return []; });
@@ -6231,7 +6335,7 @@
 
     function apiScrapeFavorites() {
         var auth = getAuth(); if (!auth) return Promise.resolve(null);
-        return fetch('/Plugins/StarTrack/Letterboxd/ScrapeFavorites', {
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Letterboxd/ScrapeFavorites', {
             method: 'POST', headers: { Authorization: auth }
         }).then(function (r) { return r.ok ? r.json() : null; })
           .catch(function () { return null; });
@@ -6240,14 +6344,14 @@
     // Lists API
     function apiGetLists() {
         var auth = getAuth(); if (!auth) return Promise.resolve([]);
-        return fetch('/Plugins/StarTrack/Lists', { headers: { Authorization: auth } })
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Lists', { headers: { Authorization: auth } })
             .then(function (r) { return r.ok ? r.json() : []; })
             .catch(function () { return []; });
     }
 
     function apiCreateList(name, description, collaborative) {
         var auth = getAuth(); if (!auth) return Promise.resolve(null);
-        return fetch('/Plugins/StarTrack/Lists', {
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Lists', {
             method: 'POST',
             headers: { Authorization: auth, 'Content-Type': 'application/json' },
             body: JSON.stringify({ name: name, description: description, collaborative: collaborative })
@@ -6257,14 +6361,14 @@
 
     function apiDeleteList(listId) {
         var auth = getAuth(); if (!auth) return Promise.resolve(false);
-        return fetch('/Plugins/StarTrack/Lists/' + encodeURIComponent(listId), {
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Lists/' + encodeURIComponent(listId), {
             method: 'DELETE', headers: { Authorization: auth }
         }).then(function (r) { return r.ok; }).catch(function () { return false; });
     }
 
     function apiAddToList(listId, itemId) {
         var auth = getAuth(); if (!auth) return Promise.resolve(false);
-        return fetch('/Plugins/StarTrack/Lists/' + encodeURIComponent(listId) + '/Items', {
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Lists/' + encodeURIComponent(listId) + '/Items', {
             method: 'POST',
             headers: { Authorization: auth, 'Content-Type': 'application/json' },
             body: JSON.stringify({ itemId: itemId })
@@ -6273,14 +6377,14 @@
 
     function apiRemoveFromList(listId, itemId) {
         var auth = getAuth(); if (!auth) return Promise.resolve(false);
-        return fetch('/Plugins/StarTrack/Lists/' + encodeURIComponent(listId) + '/Items/' + encodeURIComponent(itemId), {
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Lists/' + encodeURIComponent(listId) + '/Items/' + encodeURIComponent(itemId), {
             method: 'DELETE', headers: { Authorization: auth }
         }).then(function (r) { return r.ok; }).catch(function () { return false; });
     }
 
     function apiLbImportCsv(csvText) {
         var auth = getAuth(); if (!auth) return Promise.resolve(null);
-        return fetch('/Plugins/StarTrack/Letterboxd/Import', {
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Letterboxd/Import', {
             method: 'POST',
             headers: { Authorization: auth, 'Content-Type': 'text/csv' },
             body: csvText
@@ -6295,7 +6399,7 @@
     function apiLbImportBytes(bytes, filename) {
         var auth = getAuth(); if (!auth) return Promise.resolve(null);
         var looksZip = /\.zip$/i.test(filename || '');
-        return fetch('/Plugins/StarTrack/Letterboxd/Import', {
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Letterboxd/Import', {
             method: 'POST',
             headers: {
                 Authorization: auth,
@@ -6521,6 +6625,35 @@
     // ── Admin-toggle enforcement ─────────────────────────────────────────
     // applyConfigVisibility() hides pieces of the widget based on server
     // config. It's called on boot + whenever ensureEl mounts.
+
+    // [v1.6.2] (#8, locksoft) per-device rating-size toggle in the panel footer.
+    // Cycles Default (admin) → Large → Normal, persisted in localStorage and
+    // applied immediately via applyRatingSize().
+    function bindSizeToggle(root) {
+        var btns = root.querySelectorAll('.ir-size-btn');
+        if (!btns.length) return;
+        function cur() { try { return localStorage.getItem('startrack_user_size'); } catch (e) { return null; } }
+        function labelFor(v) {
+            return v === 'large' ? tr('widget.size_large', null, 'Large')
+                 : v === 'normal' ? tr('widget.size_normal', null, 'Normal')
+                 : tr('widget.size_default', null, 'Default');
+        }
+        function refresh() {
+            var v = cur();
+            root.querySelectorAll('.ir-size-label').forEach(function (l) { l.textContent = labelFor(v); });
+        }
+        refresh();
+        btns.forEach(function (btn) {
+            btn.addEventListener('click', function (ev) {
+                ev.stopPropagation();
+                var v = cur();
+                var next = (v === 'large') ? 'normal' : (v === 'normal') ? null : 'large'; // default→large→normal→default
+                try { if (next === null) localStorage.removeItem('startrack_user_size'); else localStorage.setItem('startrack_user_size', next); } catch (e) {}
+                applyRatingSize();
+                refresh();
+            });
+        });
+    }
 
     function bindLanguagePickers(root) {
         var btns = root.querySelectorAll('.ir-lang-btn');
@@ -6840,7 +6973,7 @@
             if (!selected) { prompt.remove(); return; }
             var auth = getAuth();
             if (!auth) { prompt.remove(); return; }
-            fetch('/Plugins/StarTrack/Ratings/' + itemId, {
+            fetch(_ST_BASE + '/Plugins/StarTrack/Ratings/' + itemId, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: auth },
                 body: JSON.stringify({ stars: selected })
@@ -7113,6 +7246,7 @@
         var mrl = root.querySelector('#stMaxReviewLength');
         if (mrl) mrl.value = _adminPickKey(c, 'MaxReviewLength') || 10000;
         _adminSetCheckbox(root.querySelector('#stCompactMediaBadge'), _adminPickKey(c, 'CompactMediaBadge'));
+        _adminSetCheckbox(root.querySelector('#stMirrorToNativeRating'), _adminPickKey(c, 'MirrorToNativeRating'));
         var rsz = root.querySelector('#stRatingSize');
         if (rsz) rsz.value = _adminPickKey(c, 'RatingSize') || 'normal';
         _adminSetCheckbox(root.querySelector('#stPostPlaybackPopup'),    _adminPickKey(c, 'PostPlaybackRatingPopup'));
@@ -7157,6 +7291,7 @@
         var _mrl = root.querySelector('#stMaxReviewLength');
         if (_mrl) { var _mrlN = parseInt(_mrl.value, 10); c.MaxReviewLength = isNaN(_mrlN) ? 10000 : Math.min(10000, Math.max(1, _mrlN)); }
         c.CompactMediaBadge = !!(root.querySelector('#stCompactMediaBadge') && root.querySelector('#stCompactMediaBadge').checked);
+        c.MirrorToNativeRating = !!(root.querySelector('#stMirrorToNativeRating') && root.querySelector('#stMirrorToNativeRating').checked);
         var _rsz = root.querySelector('#stRatingSize');
         if (_rsz) c.RatingSize = (_rsz.value === 'large' || _rsz.value === 'largetv') ? _rsz.value : 'normal';
         c.PostPlaybackRatingPopup   = !!(root.querySelector('#stPostPlaybackPopup')    && root.querySelector('#stPostPlaybackPopup').checked);
@@ -7192,7 +7327,7 @@
                 _adminLog('giving up — ApiClient never initialised');
                 return Promise.resolve();
             }
-            return fetch('/Plugins/StarTrack/AdminConfig', { headers: { Authorization: auth } })
+            return fetch(_ST_BASE + '/Plugins/StarTrack/AdminConfig', { headers: { Authorization: auth } })
                 .then(function (r) { return r.ok ? r.json() : null; })
                 .then(cache)
                 .catch(function (e) { _adminLog('AdminConfig fetch failed', e); });
@@ -7228,7 +7363,7 @@
         } else {
             var auth = getAuth(); if (!auth) { markErr('No auth'); return false; }
             var body = _adminReadForm(null);
-            fetch('/Plugins/StarTrack/AdminConfig', {
+            fetch(_ST_BASE + '/Plugins/StarTrack/AdminConfig', {
                 method: 'POST',
                 headers: { Authorization: auth, 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
@@ -7247,10 +7382,10 @@
     function _adminLoadTranslations(lang) {
         return Promise.resolve().then(function () {
             if (_adminEn) return null;
-            return fetch('/Plugins/StarTrack/Translations/en').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { _adminEn = j || {}; });
+            return fetch(_ST_BASE + '/Plugins/StarTrack/Translations/en').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { _adminEn = j || {}; });
         }).then(function () {
             if (lang === 'en') { _adminTr = _adminEn; return; }
-            return fetch('/Plugins/StarTrack/Translations/' + encodeURIComponent(lang)).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { if (j) _adminTr = j; });
+            return fetch(_ST_BASE + '/Plugins/StarTrack/Translations/' + encodeURIComponent(lang)).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { if (j) _adminTr = j; });
         }).catch(function () { _adminTr = _adminEn; });
     }
 
@@ -7279,7 +7414,7 @@
         var auth = getAuth(); if (!auth) return;
         var el = document.getElementById('irStats');
         if (!el) return;
-        fetch('/Plugins/StarTrack/Stats', { headers: { Authorization: auth } })
+        fetch(_ST_BASE + '/Plugins/StarTrack/Stats', { headers: { Authorization: auth } })
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(function (d) {
                 if (!d || !el) return;
@@ -7324,7 +7459,7 @@
                 } else {
                     var auth = getAuth(); if (!auth) { markErr('No auth'); return; }
                     var body = _adminReadForm(null);
-                    fetch('/Plugins/StarTrack/AdminConfig', {
+                    fetch(_ST_BASE + '/Plugins/StarTrack/AdminConfig', {
                         method: 'POST',
                         headers: { Authorization: auth, 'Content-Type': 'application/json' },
                         body: JSON.stringify(body)

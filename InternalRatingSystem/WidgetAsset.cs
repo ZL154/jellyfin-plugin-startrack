@@ -25,8 +25,12 @@ namespace Jellyfin.Plugin.InternalRating
         /// <summary>Short content hash of the embedded widget.js (8 hex chars).</summary>
         public static string Version => _version.Value;
 
-        /// <summary>The widget endpoint path including the cache-busting query.</summary>
-        public static string WidgetUrl => "/Plugins/StarTrack/Widget?v=" + Version;
+        /// <summary>[v1.6.2] (#13) Jellyfin's base path ("" or "/sub"), so the widget
+        /// URL routes correctly when Jellyfin is served under a reverse-proxy sub-path.</summary>
+        private static string Base => Plugin.Instance?.BaseUrl ?? string.Empty;
+
+        /// <summary>The widget endpoint path including the base prefix + cache-busting query.</summary>
+        public static string WidgetUrl => Base + "/Plugins/StarTrack/Widget?v=" + Version;
 
         /// <summary>The full &lt;script&gt; tag injected into index.html.</summary>
         public static string ScriptTag => "<script src=\"" + WidgetUrl + "\"></script>";

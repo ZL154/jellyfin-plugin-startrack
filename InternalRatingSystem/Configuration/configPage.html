@@ -194,6 +194,14 @@
                             </span>
                         </label>
 
+                        <label class="st-row">
+                            <input type="checkbox" id="stMirrorToNativeRating" class="st-cb" />
+                            <span class="st-row-body">
+                                <span class="st-row-title" data-tr="Also save ratings to Jellyfin's native rating field">Also save ratings to Jellyfin's native rating field</span>
+                                <span class="st-row-sub" data-tr="Writes each StarTrack rating into Jellyfin's built-in per-user rating (0.5–5 stars mapped to 0–10) so it shows in Jellyfin's own UI and works with library filters and backups. Off by default; a native rating is only written when a user rates in StarTrack.">Writes each StarTrack rating into Jellyfin's built-in per-user rating (0.5–5 stars mapped to 0–10) so it shows in Jellyfin's own UI and works with library filters and backups. Off by default; a native rating is only written when a user rates in StarTrack.</span>
+                            </span>
+                        </label>
+
                         <div class="st-row" style="cursor:default">
                             <span class="st-row-body">
                                 <label class="st-row-title" for="stRatingSize" data-tr="Rating badge size">Rating badge size</label>

@@ -75,6 +75,13 @@ namespace Jellyfin.Plugin.InternalRating
         /// <summary>Size of the rating badges + floating pill: "normal" (default) or "large".</summary>
         public string RatingSize { get; set; } = "normal";
 
+        /// <summary>[v1.6.2] (#12, damientkyt) Also write each StarTrack rating into
+        /// Jellyfin's native per-user rating field (StarTrack's 0.5–5 stars are mapped
+        /// x2 to Jellyfin's 0–10 scale), so ratings show in Jellyfin's own UI and are
+        /// usable in filters / library backups. Opt-in; default off so existing native
+        /// ratings are never touched unless an admin enables this.</summary>
+        public bool MirrorToNativeRating { get; set; } = false;
+
         // ---- Daily auto-export ------------------------------------------- //
 
         /// <summary>When true, a daily scheduled task exports all users' ratings to disk.</summary>

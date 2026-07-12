@@ -4,10 +4,14 @@ using System.Linq;
 using System.Net.Mime;
 using System.Reflection;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.InternalRating.Data;
 using Jellyfin.Plugin.InternalRating.Models;
+using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Net;
+using MediaBrowser.Model.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -29,18 +33,53 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         private readonly PrivacyRepository _privacy;
         private readonly IAuthorizationContext _authContext;
         private readonly ILogger<RatingController> _logger;
+        private readonly IUserDataManager _userDataManager;
+        private readonly ILibraryManager _libraryManager;
+        private readonly IUserManager _userManager;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="RatingController"/> class.
         /// </summary>
         public RatingController(
             IAuthorizationContext authContext,
-            ILogger<RatingController> logger)
+            ILogger<RatingController> logger,
+            IUserDataManager userDataManager,
+            ILibraryManager libraryManager,
+            IUserManager userManager)
         {
-            _repository  = Plugin.Instance!.Repository;
-            _privacy     = Plugin.Instance!.Privacy;
-            _authContext = authContext;
-            _logger      = logger;
+            _repository      = Plugin.Instance!.Repository;
+            _privacy         = Plugin.Instance!.Privacy;
+            _authContext     = authContext;
+            _logger          = logger;
+            _userDataManager = userDataManager;
+            _libraryManager  = libraryManager;
+            _userManager     = userManager;
+        }
+
+        /// <summary>[v1.6.2] (#12, damientkyt) Mirror a StarTrack rating into Jellyfin's
+        /// native per-user rating field when the admin opts in. StarTrack stars (0.5–5)
+        /// map x2 onto Jellyfin's 0–10 scale; pass <paramref name="stars"/> = null to
+        /// clear the native rating (on delete). Best-effort — never blocks the rating.</summary>
+        private void MirrorNativeRating(Guid userId, string itemId, double? stars)
+        {
+            if (!(Plugin.Instance?.Configuration?.MirrorToNativeRating ?? false)) return;
+            try
+            {
+                if (!Guid.TryParse(itemId, out var itemGuid)) return;
+                var item = _libraryManager.GetItemById(itemGuid);
+                if (item == null) return;
+                var user = _userManager.GetUserById(userId);
+                if (user == null) return;
+                var data = _userDataManager.GetUserData(user, item);
+                if (data == null) return;
+                data.Rating = stars.HasValue ? stars.Value * 2.0 : (double?)null;
+                _userDataManager.SaveUserData(user, item, data, UserDataSaveReason.UpdateUserRating, CancellationToken.None);
+                _logger.LogInformation("[StarTrack] Mirrored rating to native field: item {Item} = {Rating}", itemId, data.Rating);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[StarTrack] Failed to mirror rating to native field for item {Item}", itemId);
+            }
         }
 
         /// <summary>Gets all ratings for an item.</summary>
@@ -86,6 +125,8 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             await _repository.SaveRatingAsync(itemId, userId.Value.ToString("N"), userName, request.Stars, request.Review)
                 .ConfigureAwait(false);
 
+            MirrorNativeRating(userId.Value, itemId, request.Stars);
+
             _logger.LogInformation("[StarTrack] {User} rated {Item}: {Stars}★", userName, itemId, request.Stars);
             return Ok();
         }
@@ -102,6 +143,8 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
 
             await _repository.DeleteRatingAsync(itemId, userId.Value.ToString("N"))
                 .ConfigureAwait(false);
+
+            MirrorNativeRating(userId.Value, itemId, null);
             return Ok();
         }
 

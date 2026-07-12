@@ -5,6 +5,7 @@ using Jellyfin.Plugin.InternalRating.ExternalSync;
 using Jellyfin.Plugin.InternalRating.Letterboxd;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Plugins;
+using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Model.Plugins;
 using MediaBrowser.Model.Serialization;
 
@@ -50,10 +51,37 @@ namespace Jellyfin.Plugin.InternalRating
         /// <summary>Per-user, per-provider external sync settings (Trakt, Simkl, etc.).</summary>
         public ExternalSyncSettingsRepository ExternalSyncSettings { get; }
 
-        public Plugin(IApplicationPaths applicationPaths, IXmlSerializer xmlSerializer)
+        private readonly IServerConfigurationManager _serverConfig;
+
+        /// <summary>[v1.6.2] (#13, LinkdxTTV) Jellyfin's configured base path
+        /// (BaseURL network setting, e.g. "/jelly") for reverse-proxy sub-path
+        /// deployments. Normalized to "" (root) or "/xxx" with no trailing slash.
+        /// The injected widget &lt;script&gt; and all its API calls are prefixed
+        /// with this so they route correctly behind a sub-path proxy.</summary>
+        public string BaseUrl
+        {
+            get
+            {
+                try
+                {
+                    // Read the NetworkConfiguration.BaseUrl reflectively via the stable
+                    // IConfigurationManager.GetConfiguration("network") — avoids a
+                    // compile-time reference to the Jellyfin.Networking assembly.
+                    var netCfg = _serverConfig.GetConfiguration("network");
+                    var b = (netCfg?.GetType().GetProperty("BaseUrl")?.GetValue(netCfg) as string ?? string.Empty).Trim();
+                    if (b.Length == 0) return string.Empty;
+                    if (!b.StartsWith('/')) b = "/" + b;
+                    return b.TrimEnd('/');
+                }
+                catch { return string.Empty; }
+            }
+        }
+
+        public Plugin(IApplicationPaths applicationPaths, IXmlSerializer xmlSerializer, IServerConfigurationManager serverConfig)
             : base(applicationPaths, xmlSerializer)
         {
             Instance              = this;
+            _serverConfig         = serverConfig;
             Repository            = new RatingRepository(applicationPaths);
             LetterboxdSettings    = new LetterboxdSettingsRepository(applicationPaths);
             Interactions          = new UserInteractionsRepository(applicationPaths);
