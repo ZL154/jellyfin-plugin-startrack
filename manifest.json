@@ -9,14 +9,6 @@
     "imageUrl": "https://cdn.jsdelivr.net/gh/ZL154/jellyfin-plugin-startrack@main/assets/logo.svg",
     "versions": [
       {
-        "version": "1.6.2.0",
-        "changelog": "Reverse-proxy sub-path support, native-rating mirror, and media-page badge fixes. FIXED (#13, LinkdxTTV): the widget and all its API calls now respect Jellyfin's BaseURL sub-path setting, so StarTrack works when Jellyfin is served under a path like /jelly behind nginx - previously it requested /Plugins/StarTrack/... from the domain root and failed to route. NEW (#12, damientkyt): an optional 'Also save ratings to Jellyfin's native rating field' toggle in the plugin settings (off by default) mirrors each StarTrack rating into Jellyfin's built-in per-user rating (0.5-5 stars mapped to 0-10), so it shows in Jellyfin's own UI and works with library filters and backups; it is cleared when you remove the StarTrack rating. FIXED (#11 / #8, khutede / locksoft): the media-page rating badge no longer duplicates, goes stale, or disappears on web and iPad (leftover clones that lost their styling are now swept and insertion is scoped to the visible page), plus a per-device rating-size toggle (Default / Large / Normal) in the rating panel, and large size is auto-ignored on small phone screens. In-place upgrade, no data migration.",
-        "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/ZL154/jellyfin-plugin-startrack/releases/download/v1.6.2/Jellyfin.Plugin.InternalRating_1.6.2.zip",
-        "checksum": "e7ce26f6550210f6acfaee82b845e61a",
-        "timestamp": "2026-07-12T17:59:28Z"
-      },
-      {
         "version": "1.6.1.0",
         "changelog": "Community bug-fixes and options (#8, #10, #11). The rating badge no longer appears two or three times on media detail pages (Jellyfin caches the page DOM; stale copies are now cleared) and the badge is clickable to open the rating panel. It drops the '(1)' count for a single rating, and a new 'Compact media-page badge' option shows just the score. The badge now sits before the IMDb / Rotten Tomatoes / community ratings so your own rating reads first. Review length is now an admin setting (default 10000; lower it, e.g. 1000) - completes #10 (thanks @debrunbaix). New 'Rating badge size' option (Normal / Large / Large on TV only) enlarges the poster badges, the floating Rate pill and the whole rating panel including the clickable stars - handy on 4K TVs; 'Large on TV only' auto-applies on TV web clients and stays normal on phone/desktop. The floating pill and badge are now reachable with a TV remote's D-pad (OK/Enter opens the panel). All new settings translated in 8 languages. Also fixes injected-widget cache-busting so plugin updates reliably reach browsers. No data migration needed.",
         "targetAbi": "10.11.0.0",
