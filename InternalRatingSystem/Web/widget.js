@@ -27,6 +27,16 @@
     })();
     if (_ST_BASE) console.log('[StarTrack] base path: "' + _ST_BASE + '"');
 
+    // [v1.6.2] (#8, locksoft) Detect a TV / big-screen client (LG webOS, Tizen,
+    // Android TV, Apple TV web, etc.). On TV we always show a focusable rating
+    // badge next to the title and enlarge the controls, because the floating pill
+    // is hard/impossible to reach with a remote D-pad.
+    var _ST_IS_TV = (function () {
+        try { return /web0?os|webos|tizen|smart-?tv|netcast|hbbtv|appletv|googletv|android ?tv|crkey|bravia|viera/.test((navigator.userAgent || '').toLowerCase()); }
+        catch (e) { return false; }
+    })();
+    if (_ST_IS_TV) { try { document.documentElement.setAttribute('data-st-tv', '1'); } catch (e) {} }
+
     // ── i18n + config runtime (StarTrack v1.4) ────────────────────────────
     // Runtime translation for UI text. We load the translation bundle once
     // from /Plugins/StarTrack/Translations/{lang} and every piece of text
@@ -242,16 +252,17 @@
         try {
             var override = null;
             try { override = localStorage.getItem('startrack_user_size'); } catch (e) {}
-            var big;
-            if (override === 'large' || override === 'normal') {
-                big = (override === 'large');
-            } else {
-                var _rs = _STARTRACK_CONFIG.ratingSize;
-                var _ua = (navigator.userAgent || '').toLowerCase();
-                var _tv = /web0?os|webos|tizen|smart-?tv|netcast|hbbtv|appletv|googletv|android ?tv|crkey|bravia|viera/.test(_ua);
-                big = (_rs === 'large') || (_rs === 'largetv' && _tv);
-            }
-            if (big && _viewportTooSmallForLarge()) big = false;
+            // A per-user override (chosen in Preferences) beats the admin default.
+            // Both use the same vocabulary as the settings page: normal / large / largetv.
+            var eff = (override === 'normal' || override === 'large' || override === 'largetv')
+                ? override
+                : (_STARTRACK_CONFIG.ratingSize || 'normal');
+            var big = (eff === 'large') || (eff === 'largetv' && _ST_IS_TV);
+            // [v1.6.2] (#8, locksoft) The small-viewport clamp is for phones only.
+            // A TV is a large screen viewed from across the room — it should always
+            // honour Large (some webOS/Tizen builds report an oddly narrow CSS width,
+            // which previously tripped this guard and left the pill/badge tiny on TV).
+            if (big && !_ST_IS_TV && _viewportTooSmallForLarge()) big = false;
             document.documentElement.setAttribute('data-st-size', big ? 'large' : 'normal');
         } catch (e) {}
     }
@@ -555,6 +566,17 @@
             // Page badge
             '#ir-page-badge{display:block!important;margin-bottom:8px!important;margin-right:8px!important;background:rgba(10,10,10,.85)!important;border:1px solid rgba(244,196,48,.5)!important;border-radius:4px!important;padding:3px 10px!important;font-size:.82em!important;font-weight:700!important;color:#f4c430!important;cursor:pointer!important;white-space:nowrap!important;line-height:1.6!important;width:fit-content!important}',
             '#ir-page-badge:hover{background:rgba(30,30,30,.95)!important}',
+            '#ir-page-badge{font-family:inherit!important;-webkit-appearance:none!important;appearance:none!important;text-align:left!important}',
+            '#ir-page-badge .ir-pb-star,#ir-page-badge .ir-pb-label{color:#f4c430!important}',
+            '#ir-page-badge .ir-pb-num{color:#fff!important}',
+            '#ir-page-badge.ir-page-badge-empty{color:rgba(255,255,255,.5)!important;border-color:rgba(255,255,255,.25)!important;background:rgba(10,10,10,.55)!important;font-weight:600!important}',
+            'html[data-st-tv="1"] #ir-page-badge:focus,html[data-st-tv="1"] #ir-page-badge:focus-visible{outline:3px solid #f4c430!important;outline-offset:3px!important;background:rgba(45,45,45,.98)!important}',
+            'html[data-st-tv="1"][data-st-size="large"] .ir-pill{padding:14px 28px!important;font-size:26px!important}',
+            'html[data-st-tv="1"][data-st-size="large"] #ir-page-badge{font-size:24px!important;padding:8px 18px!important}',
+            // [v1.6.2] (#8, locksoft) TV: post-playback popup stars are focusable; show a focus ring.
+            '#ir-pp-prompt .ir-pp-star{border-radius:6px;outline:none}',
+            'html[data-st-tv="1"] #ir-pp-prompt .ir-pp-star:focus,html[data-st-tv="1"] #ir-pp-prompt .ir-pp-star:focus-visible{outline:3px solid #f4c430!important;outline-offset:2px!important}',
+            'html[data-st-tv="1"] #ir-pp-prompt .ir-pp-later:focus,html[data-st-tv="1"] #ir-pp-prompt .ir-pp-save:focus{outline:3px solid #f4c430!important;outline-offset:2px!important}',
             // ── My Ratings overlay — red/black theme ──────────────────────
             '#ir-overlay{position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:0!important;width:100vw!important;height:100vh!important;height:100dvh!important;max-width:100vw!important;max-height:100vh!important;z-index:2147483646!important;background:#080808!important;display:none!important;flex-direction:column!important;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif!important;color:#fff!important;margin:0!important;padding:0!important;transform:none!important;box-sizing:border-box!important;overflow:hidden!important}',
             'html.ir-ov-locked,body.ir-ov-locked{overflow:hidden!important}',
@@ -1489,19 +1511,41 @@
 
     function upsertPageBadge(data) {
         _stripOldPageBadges();
-        if (!data || data.totalRatings === 0) { _lastBadgeText = null; return; }
+        var hasRatings = !!(data && data.totalRatings > 0);
+        // [v1.6.2] (#8, locksoft) On TV, ALWAYS show a focusable badge next to the
+        // title (dimmed when there are no ratings yet) so the remote D-pad has a
+        // rate target — the floating pill can't be reached with a remote. On
+        // non-TV clients with no ratings we stay out of the way (the pill is easy
+        // to click).
+        if (!hasRatings && !_ST_IS_TV) { _lastBadgeText = null; return; }
 
-        var text = _STARTRACK_CONFIG.compactMediaBadge
-            ? '★ ' + data.averageRating.toFixed(1)
-            : '★ ' + data.averageRating.toFixed(1) + '  StarTrack' + (data.totalRatings > 1 ? ' (' + data.totalRatings + ')' : '');
+        var text = hasRatings
+            ? (_STARTRACK_CONFIG.compactMediaBadge
+                ? '★ ' + data.averageRating.toFixed(1)
+                : '★ ' + data.averageRating.toFixed(1) + '  StarTrack' + (data.totalRatings > 1 ? ' (' + data.totalRatings + ')' : ''))
+            : tr('widget.badge_rate_prompt', null, '☆ Rate');
         _lastBadgeText = text;
 
-        var badge = document.createElement('span');
+        // A real <button> with Jellyfin's `focusable` class so the TV remote's
+        // D-pad / focus manager can reach it (a bare <span tabindex> was skipped
+        // on webOS). Native buttons + `focusable` are what Jellyfin navigates.
+        var badge = document.createElement('button');
+        badge.type = 'button';
         badge.id = 'ir-page-badge';
-        badge.className = 'ir-page-badge';
+        badge.className = 'ir-page-badge focusable' + (hasRatings ? '' : ' ir-page-badge-empty');
         badge.setAttribute('data-st-page-badge', '1');
-        badge.title = 'StarTrack · ' + data.totalRatings + ' rating' + (data.totalRatings !== 1 ? 's' : '') + ' · click to rate';
-        badge.textContent = text;
+        badge.title = hasRatings
+            ? ('StarTrack · ' + data.totalRatings + ' rating' + (data.totalRatings !== 1 ? 's' : '') + ' · click to rate')
+            : 'StarTrack · click to rate';
+        if (hasRatings) {
+            // [v1.6.2] (#8, locksoft) number in white (like the IMDb rating), star
+            // and the StarTrack label in gold — reads clearer and more prominent.
+            badge.innerHTML = '<span class="ir-pb-star">★</span> <span class="ir-pb-num">' + data.averageRating.toFixed(1) + '</span>'
+                + (_STARTRACK_CONFIG.compactMediaBadge ? ''
+                    : ' <span class="ir-pb-label">StarTrack' + (data.totalRatings > 1 ? ' (' + data.totalRatings + ')' : '') + '</span>');
+        } else {
+            badge.textContent = text;
+        }
         badge.setAttribute('tabindex', '0');
         badge.setAttribute('role', 'button');
         badge.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); badge.click(); } });
@@ -1556,7 +1600,7 @@
         _el = document.createElement('div');
         _el.id = 'ir-widget';
         _el.innerHTML =
-            '<div class="ir-pill" tabindex="0" role="button" aria-label="Rate">' +
+            '<div class="ir-pill focusable" tabindex="0" role="button" aria-label="Rate">' +
                 '<span class="ir-star-icon">\u2606</span>' +
                 '<span class="ir-avg-text" style="display:none"></span>' +
                 '<span class="ir-label">Rate</span>' +
@@ -1594,9 +1638,8 @@
                     '<div class="ir-list" style="display:none"></div>' +
                     '<button class="ir-lb-open-btn" title="Connect your Letterboxd account">\u2699 Letterboxd sync</button>' +
                     '<button class="ir-lang-btn" title="Change language" style="background:none;border:none;color:rgba(255,255,255,.45);cursor:pointer;padding:4px 8px;font-size:.8em;margin-left:6px">\ud83c\udf10 <span class="ir-lang-label">EN</span></button>' +
-                    // [v1.6.2] (#8, locksoft) per-device rating-size override \u2014 cycles
-                    // Default \u2192 Large \u2192 Normal, stored in localStorage, beats the admin default.
-                    '<button class="ir-size-btn" title="Rating size on this device" style="background:none;border:none;color:rgba(255,255,255,.45);cursor:pointer;padding:4px 8px;font-size:.8em;margin-left:2px">\u2922 <span class="ir-size-label"></span></button>' +
+                    // [v1.6.2] (#8, locksoft) Rating size now lives in My Ratings -> Preferences
+                    // (a single clear control matching the settings page), not a tiny footer icon.
                 '</div>' +
                 // Recent view
                 '<div class="ir-recent-panel" style="display:none">' +
@@ -6952,7 +6995,7 @@
             '<div style="font-weight:600;margin-bottom:8px;color:#f4c430">' + esc(tr('ui.pill.rate_label')) + '?</div>' +
             '<div style="margin-bottom:10px;opacity:.85;font-size:.9em">' + esc(tr('widget.your_rating_legacy') || 'Your rating:') + '</div>' +
             '<div class="ir-pp-stars" style="display:flex;gap:4px;margin-bottom:10px;cursor:pointer;font-size:1.5em">' +
-                '<span data-v="1">\u2606</span><span data-v="2">\u2606</span><span data-v="3">\u2606</span><span data-v="4">\u2606</span><span data-v="5">\u2606</span>' +
+                '<span data-v="1" tabindex="0" role="button" class="focusable ir-pp-star">\u2606</span><span data-v="2" tabindex="0" role="button" class="focusable ir-pp-star">\u2606</span><span data-v="3" tabindex="0" role="button" class="focusable ir-pp-star">\u2606</span><span data-v="4" tabindex="0" role="button" class="focusable ir-pp-star">\u2606</span><span data-v="5" tabindex="0" role="button" class="focusable ir-pp-star">\u2606</span>' +
             '</div>' +
             '<div style="display:flex;gap:8px;justify-content:flex-end">' +
                 '<button class="ir-pp-later" style="background:transparent;color:#aaa;border:none;cursor:pointer">' + esc(tr('btn.cancel')) + '</button>' +
@@ -6962,12 +7005,18 @@
 
         var selected = 0;
         var stars = prompt.querySelectorAll('.ir-pp-stars span');
+        function _ppSelect(s) {
+            selected = parseInt(s.getAttribute('data-v'), 10);
+            stars.forEach(function (ss, i) { ss.textContent = (i < selected) ? '\u2605' : '\u2606'; });
+        }
         stars.forEach(function (s) {
-            s.addEventListener('click', function () {
-                selected = parseInt(s.getAttribute('data-v'), 10);
-                stars.forEach(function (ss, i) { ss.textContent = (i < selected) ? '\u2605' : '\u2606'; });
-            });
+            s.addEventListener('click', function () { _ppSelect(s); });
+            // [v1.6.2] (#8, locksoft) TV D-pad: stars are focusable buttons; OK/Enter selects.
+            s.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _ppSelect(s); } });
         });
+        // [v1.6.2] (#8, locksoft) On TV, move focus into the popup so the remote
+        // lands on the stars \u2014 previously the popup was unreachable by D-pad.
+        if (_ST_IS_TV && stars[0]) { try { setTimeout(function () { stars[0].focus(); }, 60); } catch (e) {} }
         prompt.querySelector('.ir-pp-later').addEventListener('click', function () { prompt.remove(); });
         prompt.querySelector('.ir-pp-save').addEventListener('click', function () {
             if (!selected) { prompt.remove(); return; }
@@ -7048,6 +7097,19 @@
                     '</button>' +
                     '<div id="ir-prefs-lang-list" style="display:none;margin-top:6px;background:#0f1117;border:1px solid rgba(255,255,255,.12);border-radius:8px;overflow:hidden">' +
                         langRowsHtml +
+                    '</div>' +
+                '</div>' +
+
+                // [v1.6.2] (#8, locksoft) Per-device rating size, promoted from the tiny
+                // panel-footer icon into Preferences where users actually look for it.
+                // "Default" clears the override (follow the admin setting); Large/Normal pin it.
+                '<div class="ir-prefs-row" style="padding:14px 0;border-top:1px solid rgba(255,255,255,.08)">' +
+                    '<div style="color:#fff;font-size:.95em">' + esc(tr('prefs.size_title', null, 'Rating size on this device')) + '</div>' +
+                    '<div style="color:rgba(255,255,255,.5);font-size:.78em;margin-top:3px;margin-bottom:10px">' + esc(tr('prefs.size_sub', null, 'Overrides the server default, just for you on this device. Handy for making the ratings bigger on a TV.')) + '</div>' +
+                    '<div id="ir-prefs-size" style="display:flex;gap:8px;flex-wrap:wrap">' +
+                        '<button type="button" class="ir-prefs-size-opt focusable" data-size="normal" style="flex:1;min-width:90px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:8px;padding:10px 12px;font-size:.9em;cursor:pointer;outline:none">' + esc(tr('widget.size_normal_default', null, 'Normal (default)')) + '</button>' +
+                        '<button type="button" class="ir-prefs-size-opt focusable" data-size="large" style="flex:1;min-width:90px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:8px;padding:10px 12px;font-size:.9em;cursor:pointer;outline:none">' + esc(tr('widget.size_large', null, 'Large')) + '</button>' +
+                        '<button type="button" class="ir-prefs-size-opt focusable" data-size="largetv" style="flex:1;min-width:90px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:8px;padding:10px 12px;font-size:.9em;cursor:pointer;outline:none">' + esc(tr('widget.size_large_tv', null, 'Large (TV only)')) + '</button>' +
                     '</div>' +
                 '</div>' +
 
@@ -7161,6 +7223,26 @@
             });
         });
 
+        // [v1.6.2] (#8, locksoft) Per-device size selector — same vocabulary as the
+        // admin settings page (normal / large / largetv). Pre-selects the user's own
+        // override if set, otherwise the admin's effective default.
+        var _sizeStored = (function () { try { return localStorage.getItem('startrack_user_size'); } catch (e) { return null; } })();
+        var _sizeSel = (_sizeStored === 'normal' || _sizeStored === 'large' || _sizeStored === 'largetv')
+            ? _sizeStored
+            : (_STARTRACK_CONFIG.ratingSize || 'normal');
+        function _paintSize() {
+            modal.querySelectorAll('.ir-prefs-size-opt').forEach(function (b) {
+                var on = b.getAttribute('data-size') === _sizeSel;
+                b.style.background = on ? 'rgba(244,196,48,.16)' : 'rgba(255,255,255,.05)';
+                b.style.borderColor = on ? '#f4c430' : 'rgba(255,255,255,.15)';
+                b.style.color = on ? '#f4c430' : '#fff';
+            });
+        }
+        modal.querySelectorAll('.ir-prefs-size-opt').forEach(function (b) {
+            b.addEventListener('click', function () { _sizeSel = b.getAttribute('data-size'); _paintSize(); });
+        });
+        _paintSize();
+
         var close = function () { if (modal.parentNode) modal.remove(); };
         modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
         modal.querySelector('#ir-prefs-cancel').addEventListener('click', close);
@@ -7169,6 +7251,11 @@
             p.hideRatePill       = modal.querySelector('#ir-prefs-hidepill').checked;
             p.hidePostPlayback   = modal.querySelector('#ir-prefs-hidepostplay').checked;
             _saveUserPrefs(p);
+            // [v1.6.2] Apply the per-device rating size immediately.
+            try {
+                localStorage.setItem('startrack_user_size', _sizeSel);
+                applyRatingSize();
+            } catch (e) {}
             // Persist privacy server-side so it applies on every browser.
             var hm = !!(modal.querySelector('#ir-prefs-hidemember') && modal.querySelector('#ir-prefs-hidemember').checked);
             var hf = !!(modal.querySelector('#ir-prefs-hidefollow') && modal.querySelector('#ir-prefs-hidefollow').checked);

@@ -538,5 +538,10 @@
   "widget.size_large": "Grande",
   "widget.size_normal": "Normal",
   "cfg.mirror_native_title": "Guardar también las valoraciones en el campo de valoración nativo de Jellyfin",
-  "cfg.mirror_native_sub": "Escribe cada valoración de StarTrack en la valoración integrada por usuario de Jellyfin (0,5–5 estrellas se asignan a 0–10), de modo que aparece en la propia interfaz de Jellyfin y funciona con los filtros de biblioteca y las copias de seguridad. Desactivado por defecto; solo se escribe una valoración nativa cuando un usuario valora en StarTrack."
+  "cfg.mirror_native_sub": "Escribe cada valoración de StarTrack en la valoración integrada por usuario de Jellyfin (0,5–5 estrellas se asignan a 0–10), de modo que aparece en la propia interfaz de Jellyfin y funciona con los filtros de biblioteca y las copias de seguridad. Desactivado por defecto; solo se escribe una valoración nativa cuando un usuario valora en StarTrack.",
+  "widget.badge_rate_prompt": "☆ Valorar",
+  "prefs.size_title": "Tamaño de la valoración en este dispositivo",
+  "prefs.size_sub": "Anula el valor predeterminado del servidor, solo para ti en este dispositivo. Útil para agrandar las valoraciones en un televisor.",
+  "widget.size_normal_default": "Normal (predeterminado)",
+  "widget.size_large_tv": "Grande (solo TV)"
 }

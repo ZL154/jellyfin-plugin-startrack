@@ -538,5 +538,10 @@
   "widget.size_large": "Large",
   "widget.size_normal": "Normal",
   "cfg.mirror_native_title": "Also save ratings to Jellyfin's native rating field",
-  "cfg.mirror_native_sub": "Writes each StarTrack rating into Jellyfin's built-in per-user rating (0.5–5 stars mapped to 0–10) so it shows in Jellyfin's own UI and works with library filters and backups. Off by default; a native rating is only written when a user rates in StarTrack."
+  "cfg.mirror_native_sub": "Writes each StarTrack rating into Jellyfin's built-in per-user rating (0.5–5 stars mapped to 0–10) so it shows in Jellyfin's own UI and works with library filters and backups. Off by default; a native rating is only written when a user rates in StarTrack.",
+  "widget.badge_rate_prompt": "☆ Rate",
+  "prefs.size_title": "Rating size on this device",
+  "prefs.size_sub": "Overrides the server default, just for you on this device. Handy for making the ratings bigger on a TV.",
+  "widget.size_normal_default": "Normal (default)",
+  "widget.size_large_tv": "Large (TV only)"
 }

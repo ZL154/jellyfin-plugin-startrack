@@ -538,5 +538,10 @@
   "widget.size_large": "Grande",
   "widget.size_normal": "Normal",
   "cfg.mirror_native_title": "Guardar também as classificações no campo de classificação nativo do Jellyfin",
-  "cfg.mirror_native_sub": "Escreve cada classificação do StarTrack na classificação nativa por utilizador do Jellyfin (0,5–5 estrelas mapeadas para 0–10), para que apareça na interface do próprio Jellyfin e funcione com filtros de biblioteca e backups. Desativado por predefinição; uma classificação nativa só é escrita quando um utilizador classifica no StarTrack."
+  "cfg.mirror_native_sub": "Escreve cada classificação do StarTrack na classificação nativa por utilizador do Jellyfin (0,5–5 estrelas mapeadas para 0–10), para que apareça na interface do próprio Jellyfin e funcione com filtros de biblioteca e backups. Desativado por predefinição; uma classificação nativa só é escrita quando um utilizador classifica no StarTrack.",
+  "widget.badge_rate_prompt": "☆ Avaliar",
+  "prefs.size_title": "Tamanho da classificação neste dispositivo",
+  "prefs.size_sub": "Substitui a predefinição do servidor, apenas para si neste dispositivo. Útil para aumentar as classificações numa TV.",
+  "widget.size_normal_default": "Normal (predefinição)",
+  "widget.size_large_tv": "Grande (apenas TV)"
 }

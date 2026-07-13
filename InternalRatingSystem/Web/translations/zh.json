@@ -538,5 +538,10 @@
   "widget.size_large": "大",
   "widget.size_normal": "正常",
   "cfg.mirror_native_title": "同时将评分保存到 Jellyfin 的原生评分字段",
-  "cfg.mirror_native_sub": "将每个 StarTrack 评分写入 Jellyfin 内置的按用户评分（0.5–5 星映射为 0–10），使其显示在 Jellyfin 自己的界面中，并可用于媒体库筛选和备份。默认关闭；仅当用户在 StarTrack 中评分时才会写入原生评分。"
+  "cfg.mirror_native_sub": "将每个 StarTrack 评分写入 Jellyfin 内置的按用户评分（0.5–5 星映射为 0–10），使其显示在 Jellyfin 自己的界面中，并可用于媒体库筛选和备份。默认关闭；仅当用户在 StarTrack 中评分时才会写入原生评分。",
+  "widget.badge_rate_prompt": "☆ 评分",
+  "prefs.size_title": "此设备上的评分大小",
+  "prefs.size_sub": "仅在此设备上为您覆盖服务器默认设置。便于在电视上放大评分。",
+  "widget.size_normal_default": "正常（默认）",
+  "widget.size_large_tv": "大（仅电视）"
 }

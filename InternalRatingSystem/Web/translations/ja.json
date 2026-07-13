@@ -538,5 +538,10 @@
   "widget.size_large": "大",
   "widget.size_normal": "標準",
   "cfg.mirror_native_title": "評価をJellyfinのネイティブ評価フィールドにも保存する",
-  "cfg.mirror_native_sub": "各StarTrack評価をJellyfinの組み込みユーザー別評価（0.5〜5つ星を0〜10にマッピング）に書き込み、Jellyfin自身のUIに表示され、ライブラリフィルターやバックアップで利用できるようにします。既定ではオフです。ネイティブ評価は、ユーザーがStarTrackで評価したときにのみ書き込まれます。"
+  "cfg.mirror_native_sub": "各StarTrack評価をJellyfinの組み込みユーザー別評価（0.5〜5つ星を0〜10にマッピング）に書き込み、Jellyfin自身のUIに表示され、ライブラリフィルターやバックアップで利用できるようにします。既定ではオフです。ネイティブ評価は、ユーザーがStarTrackで評価したときにのみ書き込まれます。",
+  "widget.badge_rate_prompt": "☆ 評価",
+  "prefs.size_title": "このデバイスでの評価サイズ",
+  "prefs.size_sub": "このデバイスであなただけサーバーの既定値を上書きします。テレビで評価を大きくするのに便利です。",
+  "widget.size_normal_default": "標準（既定）",
+  "widget.size_large_tv": "大（テレビのみ）"
 }

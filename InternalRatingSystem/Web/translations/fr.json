@@ -538,5 +538,10 @@
   "widget.size_large": "Grand",
   "widget.size_normal": "Normal",
   "cfg.mirror_native_title": "Enregistrer aussi les notes dans le champ de notation natif de Jellyfin",
-  "cfg.mirror_native_sub": "Écrit chaque note StarTrack dans la note native par utilisateur de Jellyfin (0,5–5 étoiles converties en 0–10), afin qu'elle apparaisse dans l'interface de Jellyfin et fonctionne avec les filtres de médiathèque et les sauvegardes. Désactivé par défaut ; une note native n'est écrite que lorsqu'un utilisateur note dans StarTrack."
+  "cfg.mirror_native_sub": "Écrit chaque note StarTrack dans la note native par utilisateur de Jellyfin (0,5–5 étoiles converties en 0–10), afin qu'elle apparaisse dans l'interface de Jellyfin et fonctionne avec les filtres de médiathèque et les sauvegardes. Désactivé par défaut ; une note native n'est écrite que lorsqu'un utilisateur note dans StarTrack.",
+  "widget.badge_rate_prompt": "☆ Noter",
+  "prefs.size_title": "Taille des notes sur cet appareil",
+  "prefs.size_sub": "Remplace la valeur par défaut du serveur, uniquement pour vous sur cet appareil. Pratique pour agrandir les notes sur un téléviseur.",
+  "widget.size_normal_default": "Normal (par défaut)",
+  "widget.size_large_tv": "Grand (TV uniquement)"
 }
