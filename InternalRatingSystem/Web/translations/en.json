@@ -533,5 +533,10 @@
   "cfg.rating_size_normal": "Normal (default)",
   "cfg.rating_size_large": "Large",
   "cfg.rating_size_sub": "Make the poster rating badges and the floating Rate pill bigger - easier to read on a TV or 4K screen.",
-  "cfg.rating_size_largetv": "Large (TV only)"
+  "cfg.rating_size_largetv": "Large (TV only)",
+  "widget.size_default": "Default",
+  "widget.size_large": "Large",
+  "widget.size_normal": "Normal",
+  "cfg.mirror_native_title": "Also save ratings to Jellyfin's native rating field",
+  "cfg.mirror_native_sub": "Writes each StarTrack rating into Jellyfin's built-in per-user rating (0.5–5 stars mapped to 0–10) so it shows in Jellyfin's own UI and works with library filters and backups. Off by default; a native rating is only written when a user rates in StarTrack."
 }

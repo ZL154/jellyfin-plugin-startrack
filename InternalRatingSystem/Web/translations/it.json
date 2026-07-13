@@ -533,5 +533,10 @@
   "cfg.rating_size_normal": "Normale (predefinito)",
   "cfg.rating_size_large": "Grande",
   "cfg.rating_size_sub": "Ingrandisce i badge di valutazione sui poster e il pulsante flottante di valutazione — più leggibile su TV o schermi 4K.",
-  "cfg.rating_size_largetv": "Grande (solo TV)"
+  "cfg.rating_size_largetv": "Grande (solo TV)",
+  "widget.size_default": "Predefinito",
+  "widget.size_large": "Grande",
+  "widget.size_normal": "Normale",
+  "cfg.mirror_native_title": "Salva le valutazioni anche nel campo di valutazione nativo di Jellyfin",
+  "cfg.mirror_native_sub": "Scrive ogni valutazione di StarTrack nella valutazione integrata per utente di Jellyfin (0,5–5 stelle mappate su 0–10), così appare nell'interfaccia di Jellyfin e funziona con i filtri della libreria e i backup. Disattivato per impostazione predefinita; una valutazione nativa viene scritta solo quando un utente valuta in StarTrack."
 }

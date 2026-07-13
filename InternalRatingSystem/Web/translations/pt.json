@@ -533,5 +533,10 @@
   "cfg.rating_size_normal": "Normal (padrão)",
   "cfg.rating_size_large": "Grande",
   "cfg.rating_size_sub": "Aumenta os selos de avaliação nos pôsteres e o botão flutuante de avaliar — mais fácil de ler numa TV ou ecrã 4K.",
-  "cfg.rating_size_largetv": "Grande (apenas TV)"
+  "cfg.rating_size_largetv": "Grande (apenas TV)",
+  "widget.size_default": "Padrão",
+  "widget.size_large": "Grande",
+  "widget.size_normal": "Normal",
+  "cfg.mirror_native_title": "Guardar também as classificações no campo de classificação nativo do Jellyfin",
+  "cfg.mirror_native_sub": "Escreve cada classificação do StarTrack na classificação nativa por utilizador do Jellyfin (0,5–5 estrelas mapeadas para 0–10), para que apareça na interface do próprio Jellyfin e funcione com filtros de biblioteca e backups. Desativado por predefinição; uma classificação nativa só é escrita quando um utilizador classifica no StarTrack."
 }

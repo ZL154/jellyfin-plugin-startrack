@@ -533,5 +533,10 @@
   "cfg.rating_size_normal": "Normale (par défaut)",
   "cfg.rating_size_large": "Grande",
   "cfg.rating_size_sub": "Agrandit les badges de note sur les affiches et le bouton flottant de notation — plus lisible sur un téléviseur ou un écran 4K.",
-  "cfg.rating_size_largetv": "Grande (TV uniquement)"
+  "cfg.rating_size_largetv": "Grande (TV uniquement)",
+  "widget.size_default": "Par défaut",
+  "widget.size_large": "Grand",
+  "widget.size_normal": "Normal",
+  "cfg.mirror_native_title": "Enregistrer aussi les notes dans le champ de notation natif de Jellyfin",
+  "cfg.mirror_native_sub": "Écrit chaque note StarTrack dans la note native par utilisateur de Jellyfin (0,5–5 étoiles converties en 0–10), afin qu'elle apparaisse dans l'interface de Jellyfin et fonctionne avec les filtres de médiathèque et les sauvegardes. Désactivé par défaut ; une note native n'est écrite que lorsqu'un utilisateur note dans StarTrack."
 }

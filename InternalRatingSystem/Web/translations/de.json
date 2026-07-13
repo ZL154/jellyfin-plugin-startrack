@@ -533,5 +533,10 @@
   "cfg.rating_size_normal": "Normal (Standard)",
   "cfg.rating_size_large": "Groß",
   "cfg.rating_size_sub": "Macht die Poster-Bewertungs-Badges und die schwebende Bewerten-Schaltfläche größer – besser lesbar auf einem TV oder 4K-Bildschirm.",
-  "cfg.rating_size_largetv": "Groß (nur TV)"
+  "cfg.rating_size_largetv": "Groß (nur TV)",
+  "widget.size_default": "Standard",
+  "widget.size_large": "Groß",
+  "widget.size_normal": "Normal",
+  "cfg.mirror_native_title": "Bewertungen auch in Jellyfins natives Bewertungsfeld speichern",
+  "cfg.mirror_native_sub": "Schreibt jede StarTrack-Bewertung in Jellyfins integrierte benutzerbezogene Bewertung (0,5–5 Sterne werden auf 0–10 abgebildet), sodass sie in Jellyfins eigener Oberfläche erscheint und mit Bibliotheksfiltern und Backups funktioniert. Standardmäßig aus; eine native Bewertung wird nur geschrieben, wenn ein Benutzer in StarTrack bewertet."
 }

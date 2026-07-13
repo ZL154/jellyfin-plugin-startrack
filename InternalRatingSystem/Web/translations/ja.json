@@ -533,5 +533,10 @@
   "cfg.rating_size_normal": "標準（既定）",
   "cfg.rating_size_large": "大",
   "cfg.rating_size_sub": "ポスターの評価バッジとフローティングの評価ボタンを大きくします。テレビや 4K 画面で見やすくなります。",
-  "cfg.rating_size_largetv": "大（テレビのみ）"
+  "cfg.rating_size_largetv": "大（テレビのみ）",
+  "widget.size_default": "既定",
+  "widget.size_large": "大",
+  "widget.size_normal": "標準",
+  "cfg.mirror_native_title": "評価をJellyfinのネイティブ評価フィールドにも保存する",
+  "cfg.mirror_native_sub": "各StarTrack評価をJellyfinの組み込みユーザー別評価（0.5〜5つ星を0〜10にマッピング）に書き込み、Jellyfin自身のUIに表示され、ライブラリフィルターやバックアップで利用できるようにします。既定ではオフです。ネイティブ評価は、ユーザーがStarTrackで評価したときにのみ書き込まれます。"
 }
