@@ -487,13 +487,12 @@
             'html[data-st-size="large"] .ir-panel{width:390px!important;padding:22px!important;font-size:1.22em!important}',
             'html[data-st-size="large"] .ir-sw{font-size:2.1em!important}',
             'html[data-st-size="large"] .ir-submit{font-size:.95em!important;padding:9px 20px!important}',
-            // [v1.6.4] (#8, locksoft) webOS/Tizen run Chromium <86, which does NOT
-            // support :focus-visible — and one unknown pseudo-class INVALIDATES the
-            // whole rule, so the old :focus-visible-only focus rings silently vanished
-            // on TV (locksoft: "there's no feedback, I can't see it's selected"). Use
-            // plain :focus (valid everywhere) plus a box-shadow ring that TVs render.
-            '.ir-pill:focus{outline:3px solid #f4c430!important;outline-offset:2px!important;box-shadow:0 0 0 4px rgba(244,196,48,.35)!important}',
-            '#ir-page-badge:focus{outline:3px solid #f4c430!important;outline-offset:2px!important;box-shadow:0 0 0 4px rgba(244,196,48,.35)!important}',
+            // Desktop: keep the discreet ring ONLY on keyboard focus (:focus-visible),
+            // so a mouse click never draws a box. The TV rings live below under
+            // [data-st-tv] using plain :focus (webOS/Tizen Chromium <86 has no
+            // :focus-visible, and an unknown pseudo-class there would drop the rule).
+            '.ir-pill:focus-visible{outline:2px solid #f4c430!important;outline-offset:2px!important}',
+            '#ir-page-badge:focus-visible{outline:2px solid #f4c430!important;outline-offset:2px!important}',
             '.ir-star-icon{color:#f4c430!important;font-size:1.1em!important}',
             '.ir-avg-text{font-size:.95em!important;font-weight:700!important}',
             '.ir-label{color:rgba(255,255,255,.5)!important;font-size:.75em!important;text-transform:uppercase!important;letter-spacing:.05em!important}',
@@ -575,12 +574,12 @@
             '#ir-page-badge .ir-pb-star,#ir-page-badge .ir-pb-label{color:#f4c430!important}',
             '#ir-page-badge .ir-pb-num{color:#fff!important}',
             '#ir-page-badge.ir-page-badge-empty{color:rgba(255,255,255,.5)!important;border-color:rgba(255,255,255,.25)!important;background:rgba(10,10,10,.55)!important;font-weight:600!important}',
-            'html[data-st-tv="1"] #ir-page-badge:focus{outline:3px solid #f4c430!important;outline-offset:3px!important;background:rgba(45,45,45,.98)!important;box-shadow:0 0 0 5px rgba(244,196,48,.45)!important}',
+            'html[data-st-tv="1"] #ir-page-badge:focus{outline:none!important;background:rgba(45,45,45,.98)!important;box-shadow:0 0 0 3px #f4c430,0 0 14px 2px rgba(244,196,48,.55)!important}',
             // [v1.6.4] (#8, locksoft) Give EVERY focusable element inside the rating
             // widget a visible ring on TV — pill, panel buttons, star input, textarea,
             // language/size pickers — so D-pad focus is always obvious.
-            'html[data-st-tv="1"] #ir-widget :focus{outline:3px solid #f4c430!important;outline-offset:2px!important;box-shadow:0 0 0 4px rgba(244,196,48,.35)!important}',
-            'html[data-st-tv="1"] #ir-widget .ir-sw:focus{outline:3px solid #f4c430!important;outline-offset:3px!important;transform:scale(1.25)!important}',
+            'html[data-st-tv="1"] #ir-widget :focus{outline:none!important;border-radius:8px!important;box-shadow:0 0 0 3px #f4c430,0 0 12px 2px rgba(244,196,48,.45)!important}',
+            'html[data-st-tv="1"] #ir-widget .ir-sw:focus{outline:none!important;box-shadow:none!important;transform:scale(1.3)!important;filter:drop-shadow(0 0 6px rgba(244,196,48,.9))!important}',
             'html[data-st-tv="1"][data-st-size="large"] .ir-pill{padding:14px 28px!important;font-size:26px!important}',
             'html[data-st-tv="1"][data-st-size="large"] #ir-page-badge{font-size:24px!important;padding:8px 18px!important}',
             // [v1.6.2] (#8, locksoft) TV: post-playback popup stars are focusable; show a focus ring.
