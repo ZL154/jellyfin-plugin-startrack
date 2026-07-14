@@ -543,5 +543,11 @@
   "prefs.size_title": "此设备上的评分大小",
   "prefs.size_sub": "仅在此设备上为您覆盖服务器默认设置。便于在电视上放大评分。",
   "widget.size_normal_default": "正常（默认）",
-  "widget.size_large_tv": "大（仅电视）"
+  "widget.size_large_tv": "大（仅电视）",
+  "cfg.backfill_title": "回填现有评分",
+  "cfg.backfill_sub": "上面的设置仅从现在起同步新评分。点击可将所有现有的 StarTrack 评分一次性写入原生字段。可多次运行。",
+  "cfg.backfill_btn": "立即回填",
+  "cfg.backfill_running": "正在回填…",
+  "cfg.backfill_done": "条评分已写入原生字段",
+  "cfg.backfill_no_auth": "未登录"
 }

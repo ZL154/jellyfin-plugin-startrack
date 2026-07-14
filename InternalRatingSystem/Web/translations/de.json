@@ -543,5 +543,11 @@
   "prefs.size_title": "Bewertungsgröße auf diesem Gerät",
   "prefs.size_sub": "Überschreibt die Servervorgabe, nur für Sie auf diesem Gerät. Praktisch, um die Bewertungen auf einem TV größer zu machen.",
   "widget.size_normal_default": "Normal (Standard)",
-  "widget.size_large_tv": "Groß (nur TV)"
+  "widget.size_large_tv": "Groß (nur TV)",
+  "cfg.backfill_title": "Vorhandene Bewertungen übertragen",
+  "cfg.backfill_sub": "Die Einstellung oben überträgt ab jetzt nur neue Bewertungen. Klicken Sie, um alle vorhandenen StarTrack-Bewertungen auf einmal in das native Feld zu schreiben. Kann mehrfach ausgeführt werden.",
+  "cfg.backfill_btn": "Jetzt übertragen",
+  "cfg.backfill_running": "Wird übertragen…",
+  "cfg.backfill_done": "Bewertungen in das native Feld geschrieben",
+  "cfg.backfill_no_auth": "Nicht angemeldet"
 }

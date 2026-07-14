@@ -543,5 +543,11 @@
   "prefs.size_title": "このデバイスでの評価サイズ",
   "prefs.size_sub": "このデバイスであなただけサーバーの既定値を上書きします。テレビで評価を大きくするのに便利です。",
   "widget.size_normal_default": "標準（既定）",
-  "widget.size_large_tv": "大（テレビのみ）"
+  "widget.size_large_tv": "大（テレビのみ）",
+  "cfg.backfill_title": "既存の評価を反映",
+  "cfg.backfill_sub": "上の設定は今後の新しい評価のみ反映します。クリックすると、既存のすべてのStarTrack評価を一度にネイティブフィールドへ書き込みます。複数回実行しても問題ありません。",
+  "cfg.backfill_btn": "今すぐ反映",
+  "cfg.backfill_running": "反映中…",
+  "cfg.backfill_done": "件の評価をネイティブフィールドに書き込みました",
+  "cfg.backfill_no_auth": "サインインしていません"
 }

@@ -543,5 +543,11 @@
   "prefs.size_title": "Rating size on this device",
   "prefs.size_sub": "Overrides the server default, just for you on this device. Handy for making the ratings bigger on a TV.",
   "widget.size_normal_default": "Normal (default)",
-  "widget.size_large_tv": "Large (TV only)"
+  "widget.size_large_tv": "Large (TV only)",
+  "cfg.backfill_title": "Backfill existing ratings",
+  "cfg.backfill_sub": "The setting above only mirrors new ratings from now on. Click to write every existing StarTrack rating into the native field in one go. Safe to run more than once.",
+  "cfg.backfill_btn": "Backfill now",
+  "cfg.backfill_running": "Backfilling…",
+  "cfg.backfill_done": "ratings written to the native field",
+  "cfg.backfill_no_auth": "Not signed in"
 }

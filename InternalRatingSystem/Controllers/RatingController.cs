@@ -63,22 +63,33 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         private void MirrorNativeRating(Guid userId, string itemId, double? stars)
         {
             if (!(Plugin.Instance?.Configuration?.MirrorToNativeRating ?? false)) return;
+            if (WriteNativeRating(userId, itemId, stars))
+                _logger.LogInformation("[StarTrack] Mirrored rating to native field: item {Item} = {Rating}", itemId, stars.HasValue ? stars.Value * 2.0 : (double?)null);
+        }
+
+        /// <summary>[v1.6.4] Core write of a StarTrack rating into Jellyfin's native
+        /// per-user rating field, WITHOUT the opt-in config gate. Used by the gated
+        /// live mirror (<see cref="MirrorNativeRating"/>) and by the explicit admin
+        /// backfill. Best-effort; returns true only when the native field was written.</summary>
+        private bool WriteNativeRating(Guid userId, string itemId, double? stars)
+        {
             try
             {
-                if (!Guid.TryParse(itemId, out var itemGuid)) return;
+                if (!Guid.TryParse(itemId, out var itemGuid)) return false;
                 var item = _libraryManager.GetItemById(itemGuid);
-                if (item == null) return;
+                if (item == null) return false;
                 var user = _userManager.GetUserById(userId);
-                if (user == null) return;
+                if (user == null) return false;
                 var data = _userDataManager.GetUserData(user, item);
-                if (data == null) return;
+                if (data == null) return false;
                 data.Rating = stars.HasValue ? stars.Value * 2.0 : (double?)null;
                 _userDataManager.SaveUserData(user, item, data, UserDataSaveReason.UpdateUserRating, CancellationToken.None);
-                _logger.LogInformation("[StarTrack] Mirrored rating to native field: item {Item} = {Rating}", itemId, data.Rating);
+                return true;
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "[StarTrack] Failed to mirror rating to native field for item {Item}", itemId);
+                _logger.LogWarning(ex, "[StarTrack] Failed to write native rating for item {Item}", itemId);
+                return false;
             }
         }
 
@@ -146,6 +157,33 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
 
             MirrorNativeRating(userId.Value, itemId, null);
             return Ok();
+        }
+
+        /// <summary>[v1.6.4] (#12, damientkyt) One-shot admin backfill: writes every
+        /// existing StarTrack rating into each user's native Jellyfin rating field.
+        /// The live mirror only covers ratings made AFTER the toggle is enabled, so
+        /// this catches up historical ratings. Runs regardless of the toggle (explicit
+        /// admin action) and is idempotent — re-running just rewrites the same values.</summary>
+        // POST /Plugins/StarTrack/BackfillNativeRatings
+        [HttpPost("BackfillNativeRatings")]
+        [Authorize(Policy = "RequiresElevation")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> BackfillNativeRatings()
+        {
+            int written = 0, skipped = 0;
+            var userIds = await _repository.GetUserIdsWithRatingsAsync().ConfigureAwait(false);
+            foreach (var uidStr in userIds)
+            {
+                if (!Guid.TryParse(uidStr, out var uid)) { continue; }
+                var ratings = await _repository.GetUserRatingsAsync(uidStr, 10000).ConfigureAwait(false);
+                foreach (var r in ratings)
+                {
+                    if (WriteNativeRating(uid, r.ItemId, r.Stars)) written++;
+                    else skipped++;
+                }
+            }
+            _logger.LogInformation("[StarTrack] Native-rating backfill complete: {Written} written, {Skipped} skipped", written, skipped);
+            return Ok(new { written, skipped });
         }
 
         /// <summary>Serves the embedded widget.js (no auth needed).</summary>

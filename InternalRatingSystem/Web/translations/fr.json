@@ -543,5 +543,11 @@
   "prefs.size_title": "Taille des notes sur cet appareil",
   "prefs.size_sub": "Remplace la valeur par défaut du serveur, uniquement pour vous sur cet appareil. Pratique pour agrandir les notes sur un téléviseur.",
   "widget.size_normal_default": "Normal (par défaut)",
-  "widget.size_large_tv": "Grand (TV uniquement)"
+  "widget.size_large_tv": "Grand (TV uniquement)",
+  "cfg.backfill_title": "Reporter les notes existantes",
+  "cfg.backfill_sub": "Le réglage ci-dessus ne reporte que les nouvelles notes à partir de maintenant. Cliquez pour écrire toutes les notes StarTrack existantes dans le champ natif en une fois. Peut être exécuté plusieurs fois.",
+  "cfg.backfill_btn": "Reporter maintenant",
+  "cfg.backfill_running": "Report en cours…",
+  "cfg.backfill_done": "notes écrites dans le champ natif",
+  "cfg.backfill_no_auth": "Non connecté"
 }

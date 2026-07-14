@@ -543,5 +543,11 @@
   "prefs.size_title": "Tamaño de la valoración en este dispositivo",
   "prefs.size_sub": "Anula el valor predeterminado del servidor, solo para ti en este dispositivo. Útil para agrandar las valoraciones en un televisor.",
   "widget.size_normal_default": "Normal (predeterminado)",
-  "widget.size_large_tv": "Grande (solo TV)"
+  "widget.size_large_tv": "Grande (solo TV)",
+  "cfg.backfill_title": "Rellenar valoraciones existentes",
+  "cfg.backfill_sub": "La opción anterior solo refleja las nuevas valoraciones a partir de ahora. Haz clic para escribir todas las valoraciones de StarTrack existentes en el campo nativo de una vez. Se puede ejecutar varias veces.",
+  "cfg.backfill_btn": "Rellenar ahora",
+  "cfg.backfill_running": "Rellenando…",
+  "cfg.backfill_done": "valoraciones escritas en el campo nativo",
+  "cfg.backfill_no_auth": "No has iniciado sesión"
 }

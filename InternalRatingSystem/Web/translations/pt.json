@@ -543,5 +543,11 @@
   "prefs.size_title": "Tamanho da classificação neste dispositivo",
   "prefs.size_sub": "Substitui a predefinição do servidor, apenas para si neste dispositivo. Útil para aumentar as classificações numa TV.",
   "widget.size_normal_default": "Normal (predefinição)",
-  "widget.size_large_tv": "Grande (apenas TV)"
+  "widget.size_large_tv": "Grande (apenas TV)",
+  "cfg.backfill_title": "Preencher classificações existentes",
+  "cfg.backfill_sub": "A definição acima só reflete novas classificações a partir de agora. Clique para escrever todas as classificações StarTrack existentes no campo nativo de uma só vez. Pode ser executado várias vezes.",
+  "cfg.backfill_btn": "Preencher agora",
+  "cfg.backfill_running": "A preencher…",
+  "cfg.backfill_done": "classificações escritas no campo nativo",
+  "cfg.backfill_no_auth": "Sessão não iniciada"
 }

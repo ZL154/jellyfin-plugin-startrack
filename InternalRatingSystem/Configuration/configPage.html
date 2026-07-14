@@ -204,6 +204,15 @@
 
                         <div class="st-row" style="cursor:default">
                             <span class="st-row-body">
+                                <span class="st-row-title" data-tr="Backfill existing ratings">Backfill existing ratings</span>
+                                <span class="st-row-sub" data-tr="The setting above only mirrors new ratings from now on. Click to write every existing StarTrack rating into the native field in one go. Safe to run more than once.">The setting above only mirrors new ratings from now on. Click to write every existing StarTrack rating into the native field in one go. Safe to run more than once.</span>
+                                <button type="button" id="stBackfillNative" is="emby-button" class="raised" style="margin-top:10px;align-self:flex-start"><span data-tr="Backfill now">Backfill now</span></button>
+                                <span id="stBackfillStatus" style="margin-left:10px;font-weight:600;opacity:0;transition:opacity .25s"></span>
+                            </span>
+                        </div>
+
+                        <div class="st-row" style="cursor:default">
+                            <span class="st-row-body">
                                 <label class="st-row-title" for="stRatingSize" data-tr="Rating badge size">Rating badge size</label>
                                 <select id="stRatingSize" style="margin-top:6px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:6px;padding:8px 12px;font-size:.9em;outline:none;display:block">
                                     <option value="normal" data-tr="Normal (default)">Normal (default)</option>

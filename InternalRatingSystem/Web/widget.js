@@ -7565,6 +7565,28 @@
                 _adminLoadTranslations(langSel.value).then(_adminTranslatePage);
             });
         }
+
+        // [v1.6.4] (#12, damientkyt) One-shot backfill of existing ratings into the
+        // native field. Explicit admin action; independent of the mirror toggle.
+        var backfillBtn = page.querySelector('#stBackfillNative');
+        if (backfillBtn) {
+            backfillBtn.addEventListener('click', function () {
+                var st = page.querySelector('#stBackfillStatus');
+                var show = function (msg, ok) { if (st) { st.style.opacity = '1'; st.style.color = ok ? '#52b54b' : '#ff8080'; st.textContent = msg; } };
+                var auth = getAuth();
+                if (!auth) { show('✗ ' + tr('cfg.backfill_no_auth', null, 'Not signed in'), false); return; }
+                backfillBtn.disabled = true;
+                show(tr('cfg.backfill_running', null, 'Backfilling…'), true);
+                fetch(_ST_BASE + '/Plugins/StarTrack/BackfillNativeRatings', { method: 'POST', headers: { Authorization: auth } })
+                    .then(function (r) { return r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)); })
+                    .then(function (res) {
+                        var n = (res && res.written) || 0;
+                        show('✓ ' + n + ' ' + tr('cfg.backfill_done', null, 'ratings written to the native field'), true);
+                    })
+                    .catch(function (e) { show('✗ ' + (e && e.message || 'Failed'), false); })
+                    .finally(function () { backfillBtn.disabled = false; });
+            });
+        }
     }
 
     function _adminTick() {
