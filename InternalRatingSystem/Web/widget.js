@@ -381,7 +381,7 @@
     function getItemType(id) {
         var auth = getAuth(), uid = getUserId();
         if (!auth || !uid) return Promise.resolve(null);
-        return fetch('/Users/' + uid + '/Items/' + id, { headers: { Authorization: auth } })
+        return fetch(_ST_BASE + '/Users/' + uid + '/Items/' + id, { headers: { Authorization: auth } })
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(function (item) { return item ? item.Type : null; })
             .catch(function () { return null; });
@@ -411,7 +411,7 @@
         for (var i = 0; i < needed.length; i += bs) batches.push(needed.slice(i, i + bs));
         return Promise.all(batches.map(function (batch) {
             return fetch(
-                '/Users/' + uid + '/Items?Ids=' + batch.join(',') +
+                _ST_BASE + '/Users/' + uid + '/Items?Ids=' + batch.join(',') +
                 '&Fields=RunTimeTicks,ProductionYear,CommunityRating,Genres,Tags&Limit=' + batch.length,
                 { headers: { Authorization: auth } }
             ).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
@@ -2723,7 +2723,7 @@
         card.dataset.id = item.itemId;
 
         var posterSrc = item.imageTag
-            ? '/Items/' + item.itemId + '/Images/Primary?fillHeight=450&fillWidth=300&quality=90&tag=' + item.imageTag
+            ? _ST_BASE + '/Items/' + item.itemId + '/Images/Primary?fillHeight=450&fillWidth=300&quality=90&tag=' + item.imageTag
             : '';
 
         var metaParts = [];
@@ -3098,7 +3098,7 @@
             var row = document.createElement('div');
             row.className = 'ir-ov-diary-row';
             var poster = item.imageTag
-                ? '<img class="ir-ov-diary-poster" src="' + esc('/Items/' + item.itemId + '/Images/Primary?fillHeight=135&fillWidth=90&quality=90&tag=' + item.imageTag) + '" loading="lazy" alt="">'
+                ? '<img class="ir-ov-diary-poster" src="' + esc(_ST_BASE + '/Items/' + item.itemId + '/Images/Primary?fillHeight=135&fillWidth=90&quality=90&tag=' + item.imageTag) + '" loading="lazy" alt="">'
                 : '<div class="ir-ov-diary-poster"></div>';
 
             var dateStr = d ? d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' }) : '';
@@ -3369,7 +3369,7 @@
                     var d = r.ratedAt ? new Date(r.ratedAt) : null;
                     var dateStr = d ? d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
                     var posterSrc = m.imageTag
-                        ? '/Items/' + r.itemId + '/Images/Primary?fillHeight=180&fillWidth=120&quality=90&tag=' + m.imageTag
+                        ? _ST_BASE + '/Items/' + r.itemId + '/Images/Primary?fillHeight=180&fillWidth=120&quality=90&tag=' + m.imageTag
                         : '';
                     var stars = renderStarBar(r.stars);
 
@@ -3728,7 +3728,7 @@
 
         filtered.forEach(function (m) {
             var img = m.hasImage
-                ? '/Users/' + encodeURIComponent(m.id) + '/Images/Primary?fillHeight=200&fillWidth=200&quality=90'
+                ? _ST_BASE + '/Users/' + encodeURIComponent(m.id) + '/Images/Primary?fillHeight=200&fillWidth=200&quality=90'
                 : null;
             var avatar = img
                 ? '<img class="ir-mem-avatar-img" src="' + esc(img) + '" alt="" loading="lazy" />'
@@ -3754,7 +3754,7 @@
             for (var ti = 0; ti < 4; ti++) {
                 var iid = (m.top4Ids || [])[ti];
                 if (iid) {
-                    var initialSrc = '/Items/' + iid + '/Images/Primary?fillHeight=180&fillWidth=120&quality=90';
+                    var initialSrc = _ST_BASE + '/Items/' + iid + '/Images/Primary?fillHeight=180&fillWidth=120&quality=90';
                     topSlots +=
                         '<span class="ir-mem-card-top4-slot" data-iid="' + esc(iid) + '">' +
                             '<img class="ir-mem-card-top4-img" src="' + esc(initialSrc) + '" loading="lazy" alt="" ' +
@@ -3855,7 +3855,7 @@
                 var m = meta[itemId];
                 if (m && m.imageTag) {
                     return '<img class="ir-act-poster-img" loading="lazy" src="' +
-                        esc('/Items/' + itemId + '/Images/Primary?fillHeight=180&fillWidth=120&quality=90&tag=' + m.imageTag) +
+                        esc(_ST_BASE + '/Items/' + itemId + '/Images/Primary?fillHeight=180&fillWidth=120&quality=90&tag=' + m.imageTag) +
                         '" alt="" />';
                 }
                 return '<span class="ir-mem-poster-empty">' + esc((m && m.name) ? m.name.charAt(0) : '?') + '</span>';
@@ -3863,7 +3863,7 @@
             function titleOf(id) { var m = meta[id]; return m && m.name ? m.name : '—'; }
             function userAvatar(e) {
                 if (e.hasImage) {
-                    return '<img class="ir-act-avatar-img" src="' + esc('/Users/' + encodeURIComponent(e.userId) + '/Images/Primary?fillHeight=120&fillWidth=120&quality=90') + '" alt="" />';
+                    return '<img class="ir-act-avatar-img" src="' + esc(_ST_BASE + '/Users/' + encodeURIComponent(e.userId) + '/Images/Primary?fillHeight=120&fillWidth=120&quality=90') + '" alt="" />';
                 }
                 return '<span class="ir-mem-avatar-fallback">' + esc((e.userName || '?').charAt(0).toUpperCase()) + '</span>';
             }
@@ -3947,7 +3947,7 @@
                 h = h || 180; w = w || 120;
                 if (m && m.imageTag) {
                     return '<img class="ir-mem-poster-img" loading="lazy" src="' +
-                        esc('/Items/' + itemId + '/Images/Primary?fillHeight=' + h + '&fillWidth=' + w + '&quality=90&tag=' + m.imageTag) +
+                        esc(_ST_BASE + '/Items/' + itemId + '/Images/Primary?fillHeight=' + h + '&fillWidth=' + w + '&quality=90&tag=' + m.imageTag) +
                         '" alt="" />';
                 }
                 return '<span class="ir-mem-poster-empty">' + esc((m && m.name) ? m.name.charAt(0) : '?') + '</span>';
@@ -3966,7 +3966,7 @@
             function userAvatar(uid, name, side) {
                 var initial = (name || '?').charAt(0).toUpperCase();
                 return '<span class="ir-mem-cmp-avatar ir-mem-cmp-avatar-' + side + '">' +
-                    '<img loading="lazy" src="/Users/' + encodeURIComponent(uid) + '/Images/Primary?fillHeight=120&fillWidth=120&quality=90" alt="" onerror="this.remove()" />' +
+                    '<img loading="lazy" src="' + _ST_BASE + '/Users/' + encodeURIComponent(uid) + '/Images/Primary?fillHeight=120&fillWidth=120&quality=90" alt="" onerror="this.remove()" />' +
                     '<span class="ir-mem-cmp-avatar-letter">' + esc(initial) + '</span>' +
                 '</span>';
             }
@@ -4415,7 +4415,7 @@
                            s === 's' ? 'fillHeight=240&fillWidth=160' :
                                        'fillHeight=180&fillWidth=120'; // xs
                 return '<img class="ir-mem-poster-img" loading="lazy" src="' +
-                    esc('/Items/' + itemId + '/Images/Primary?' + dims + '&quality=90&tag=' + m.imageTag) +
+                    esc(_ST_BASE + '/Items/' + itemId + '/Images/Primary?' + dims + '&quality=90&tag=' + m.imageTag) +
                     '" alt="" />';
             }
             return '<span class="ir-mem-poster-empty">' + esc((m && m.name) ? m.name.charAt(0) : '?') + '</span>';
@@ -4423,7 +4423,7 @@
         function titleOf(id) { var m = meta[id]; return m && m.name ? m.name : '—'; }
 
         var avatar = p.hasImage
-            ? '<img class="ir-mem-prof-img" src="' + esc('/Users/' + encodeURIComponent(p.id) + '/Images/Primary?fillHeight=240&fillWidth=240&quality=90') + '" alt="" />'
+            ? '<img class="ir-mem-prof-img" src="' + esc(_ST_BASE + '/Users/' + encodeURIComponent(p.id) + '/Images/Primary?fillHeight=240&fillWidth=240&quality=90') + '" alt="" />'
             : '<span class="ir-mem-prof-fallback">' + esc((p.name || '?').charAt(0).toUpperCase()) + '</span>';
 
         // Follow button on the head — hidden when viewing your own profile.
@@ -4820,7 +4820,7 @@
             // fallback initial behind it. Both are stacked in the same
             // circle so layout stays consistent.
             var imgUrl = p.personId
-                ? '/Items/' + encodeURIComponent(p.personId) + '/Images/Primary?fillHeight=160&fillWidth=160&quality=90'
+                ? _ST_BASE + '/Items/' + encodeURIComponent(p.personId) + '/Images/Primary?fillHeight=160&fillWidth=160&quality=90'
                 : '';
             var avatar = '<span class="ir-mem-pp-circle">' +
                 '<span class="ir-mem-pp-fb">' + initial + '</span>' +
@@ -4970,7 +4970,7 @@
                     return '<div class="ir-mem-otd-card" data-iid="' + esc(o.itemId) + '">' +
                         '<span class="ir-mem-poster ir-mem-poster-s" data-iid="' + esc(o.itemId) + '">' +
                             (function(){
-                                var src = '/Items/' + o.itemId + '/Images/Primary?fillHeight=240&fillWidth=160&quality=90';
+                                var src = _ST_BASE + '/Items/' + o.itemId + '/Images/Primary?fillHeight=240&fillWidth=160&quality=90';
                                 return '<img class="ir-mem-poster-img" loading="lazy" src="' + esc(src) + '" alt="" onerror="this.style.display=\'none\'" />';
                             })() +
                         '</span>' +
@@ -4986,7 +4986,7 @@
                 '<div class="ir-mem-rewatch-strip">' + extra.rewatchTop.map(function (r) {
                     return '<div class="ir-mem-rewatch-card" data-iid="' + esc(r.itemId) + '">' +
                         '<span class="ir-mem-poster ir-mem-poster-s" data-iid="' + esc(r.itemId) + '">' +
-                            '<img class="ir-mem-poster-img" loading="lazy" src="' + esc('/Items/' + r.itemId + '/Images/Primary?fillHeight=240&fillWidth=160&quality=90') + '" alt="" onerror="this.style.display=\'none\'" />' +
+                            '<img class="ir-mem-poster-img" loading="lazy" src="' + esc(_ST_BASE + '/Items/' + r.itemId + '/Images/Primary?fillHeight=240&fillWidth=160&quality=90') + '" alt="" onerror="this.style.display=\'none\'" />' +
                         '</span>' +
                         '<span class="ir-mem-rewatch-count">' + (r.rewatchCount|0) + '×</span>' +
                     '</div>';
@@ -5014,7 +5014,7 @@
             var m = meta[itemId];
             if (m && m.imageTag) {
                 return '<img class="ir-mem-poster-img" loading="lazy" src="' +
-                    esc('/Items/' + itemId + '/Images/Primary?fillHeight=360&fillWidth=240&quality=90&tag=' + m.imageTag) +
+                    esc(_ST_BASE + '/Items/' + itemId + '/Images/Primary?fillHeight=360&fillWidth=240&quality=90&tag=' + m.imageTag) +
                     '" alt="" />';
             }
             return '<span class="ir-mem-poster-empty">' + esc((m && m.name) ? m.name.charAt(0) : '?') + '</span>';
@@ -5111,7 +5111,7 @@
             var m = meta[itemId];
             if (m && m.imageTag) {
                 return '<img class="ir-mem-poster-img" loading="lazy" src="' +
-                    esc('/Items/' + itemId + '/Images/Primary?fillHeight=360&fillWidth=240&quality=90&tag=' + m.imageTag) +
+                    esc(_ST_BASE + '/Items/' + itemId + '/Images/Primary?fillHeight=360&fillWidth=240&quality=90&tag=' + m.imageTag) +
                     '" alt="" />';
             }
             return '<span class="ir-mem-poster-empty">' + esc((m && m.name) ? m.name.charAt(0) : '?') + '</span>';
@@ -5148,7 +5148,7 @@
             var m = meta[itemId];
             if (m && m.imageTag) {
                 return '<img class="ir-mem-poster-img" loading="lazy" src="' +
-                    esc('/Items/' + itemId + '/Images/Primary?fillHeight=180&fillWidth=120&quality=90&tag=' + m.imageTag) +
+                    esc(_ST_BASE + '/Items/' + itemId + '/Images/Primary?fillHeight=180&fillWidth=120&quality=90&tag=' + m.imageTag) +
                     '" alt="" />';
             }
             return '<span class="ir-mem-poster-empty">' + esc((m && m.name) ? m.name.charAt(0) : '?') + '</span>';
@@ -5281,7 +5281,7 @@
             var m = meta[itemId];
             if (m && m.imageTag) {
                 return '<img class="ir-mem-poster-img" loading="lazy" src="' +
-                    esc('/Items/' + itemId + '/Images/Primary?fillHeight=180&fillWidth=120&quality=90&tag=' + m.imageTag) +
+                    esc(_ST_BASE + '/Items/' + itemId + '/Images/Primary?fillHeight=180&fillWidth=120&quality=90&tag=' + m.imageTag) +
                     '" alt="" />';
             }
             return '<span class="ir-mem-poster-empty">' + esc((m && m.name) ? m.name.charAt(0) : '?') + '</span>';
@@ -5348,7 +5348,7 @@
             return '<div class="ir-mem-people">' + items.slice(0, max||8).map(function (pp) {
                 var initial = esc((pp.name || '?').charAt(0).toUpperCase());
                 var imgUrl = pp.personId
-                    ? '/Items/' + encodeURIComponent(pp.personId) + '/Images/Primary?fillHeight=160&fillWidth=160&quality=90'
+                    ? _ST_BASE + '/Items/' + encodeURIComponent(pp.personId) + '/Images/Primary?fillHeight=160&fillWidth=160&quality=90'
                     : '';
                 var av = '<span class="ir-mem-pp-circle">' +
                     '<span class="ir-mem-pp-fb">' + initial + '</span>' +
@@ -5435,7 +5435,7 @@
         if (!rows.length) return '<div class="ir-ov-empty">Nobody yet.</div>';
         return '<div class="ir-mem-grid">' + rows.map(function (m) {
             var img = m.hasImage
-                ? '/Users/' + encodeURIComponent(m.id) + '/Images/Primary?fillHeight=240&fillWidth=240&quality=90'
+                ? _ST_BASE + '/Users/' + encodeURIComponent(m.id) + '/Images/Primary?fillHeight=240&fillWidth=240&quality=90'
                 : null;
             var avatar = img
                 ? '<img class="ir-mem-avatar-img" src="' + esc(img) + '" alt="" loading="lazy" />'
