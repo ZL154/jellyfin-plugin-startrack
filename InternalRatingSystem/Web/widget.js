@@ -487,8 +487,13 @@
             'html[data-st-size="large"] .ir-panel{width:390px!important;padding:22px!important;font-size:1.22em!important}',
             'html[data-st-size="large"] .ir-sw{font-size:2.1em!important}',
             'html[data-st-size="large"] .ir-submit{font-size:.95em!important;padding:9px 20px!important}',
-            '.ir-pill:focus-visible{outline:2px solid #f4c430!important;outline-offset:2px!important}',
-            '#ir-page-badge:focus-visible{outline:2px solid #f4c430!important;outline-offset:2px!important}',
+            // [v1.6.4] (#8, locksoft) webOS/Tizen run Chromium <86, which does NOT
+            // support :focus-visible — and one unknown pseudo-class INVALIDATES the
+            // whole rule, so the old :focus-visible-only focus rings silently vanished
+            // on TV (locksoft: "there's no feedback, I can't see it's selected"). Use
+            // plain :focus (valid everywhere) plus a box-shadow ring that TVs render.
+            '.ir-pill:focus{outline:3px solid #f4c430!important;outline-offset:2px!important;box-shadow:0 0 0 4px rgba(244,196,48,.35)!important}',
+            '#ir-page-badge:focus{outline:3px solid #f4c430!important;outline-offset:2px!important;box-shadow:0 0 0 4px rgba(244,196,48,.35)!important}',
             '.ir-star-icon{color:#f4c430!important;font-size:1.1em!important}',
             '.ir-avg-text{font-size:.95em!important;font-weight:700!important}',
             '.ir-label{color:rgba(255,255,255,.5)!important;font-size:.75em!important;text-transform:uppercase!important;letter-spacing:.05em!important}',
@@ -570,12 +575,17 @@
             '#ir-page-badge .ir-pb-star,#ir-page-badge .ir-pb-label{color:#f4c430!important}',
             '#ir-page-badge .ir-pb-num{color:#fff!important}',
             '#ir-page-badge.ir-page-badge-empty{color:rgba(255,255,255,.5)!important;border-color:rgba(255,255,255,.25)!important;background:rgba(10,10,10,.55)!important;font-weight:600!important}',
-            'html[data-st-tv="1"] #ir-page-badge:focus,html[data-st-tv="1"] #ir-page-badge:focus-visible{outline:3px solid #f4c430!important;outline-offset:3px!important;background:rgba(45,45,45,.98)!important}',
+            'html[data-st-tv="1"] #ir-page-badge:focus{outline:3px solid #f4c430!important;outline-offset:3px!important;background:rgba(45,45,45,.98)!important;box-shadow:0 0 0 5px rgba(244,196,48,.45)!important}',
+            // [v1.6.4] (#8, locksoft) Give EVERY focusable element inside the rating
+            // widget a visible ring on TV — pill, panel buttons, star input, textarea,
+            // language/size pickers — so D-pad focus is always obvious.
+            'html[data-st-tv="1"] #ir-widget :focus{outline:3px solid #f4c430!important;outline-offset:2px!important;box-shadow:0 0 0 4px rgba(244,196,48,.35)!important}',
+            'html[data-st-tv="1"] #ir-widget .ir-sw:focus{outline:3px solid #f4c430!important;outline-offset:3px!important;transform:scale(1.25)!important}',
             'html[data-st-tv="1"][data-st-size="large"] .ir-pill{padding:14px 28px!important;font-size:26px!important}',
             'html[data-st-tv="1"][data-st-size="large"] #ir-page-badge{font-size:24px!important;padding:8px 18px!important}',
             // [v1.6.2] (#8, locksoft) TV: post-playback popup stars are focusable; show a focus ring.
             '#ir-pp-prompt .ir-pp-star{border-radius:6px;outline:none}',
-            'html[data-st-tv="1"] #ir-pp-prompt .ir-pp-star:focus,html[data-st-tv="1"] #ir-pp-prompt .ir-pp-star:focus-visible{outline:3px solid #f4c430!important;outline-offset:2px!important}',
+            'html[data-st-tv="1"] #ir-pp-prompt .ir-pp-star:focus{outline:3px solid #f4c430!important;outline-offset:2px!important}',
             'html[data-st-tv="1"] #ir-pp-prompt .ir-pp-later:focus,html[data-st-tv="1"] #ir-pp-prompt .ir-pp-save:focus{outline:3px solid #f4c430!important;outline-offset:2px!important}',
             // ── My Ratings overlay — red/black theme ──────────────────────
             '#ir-overlay{position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:0!important;width:100vw!important;height:100vh!important;height:100dvh!important;max-width:100vw!important;max-height:100vh!important;z-index:2147483646!important;background:#080808!important;display:none!important;flex-direction:column!important;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif!important;color:#fff!important;margin:0!important;padding:0!important;transform:none!important;box-sizing:border-box!important;overflow:hidden!important}',
@@ -970,7 +980,7 @@
             '.ir-toggle-thumb{position:absolute!important;top:3px!important;left:3px!important;width:20px!important;height:20px!important;background:#fff!important;border-radius:50%!important;transition:transform .18s ease!important;box-shadow:0 1px 3px rgba(0,0,0,.4)!important;display:block!important}',
             '.ir-toggle input:checked + .ir-toggle-track{background:#f4c430!important}',
             '.ir-toggle input:checked + .ir-toggle-track .ir-toggle-thumb{transform:translateX(20px)!important}',
-            '.ir-toggle input:focus-visible + .ir-toggle-track{box-shadow:0 0 0 3px rgba(244,196,48,.4)!important}',
+            '.ir-toggle input:focus + .ir-toggle-track{box-shadow:0 0 0 3px rgba(244,196,48,.4)!important}',
             '.ir-prefs-row:hover .ir-toggle-track{background:rgba(255,255,255,.28)!important}',
             '.ir-prefs-row:hover .ir-toggle input:checked + .ir-toggle-track{background:#ffce4d!important}',
             // Members tab + per-user profile view ----------------------------
@@ -1482,16 +1492,35 @@
     function _stripOldPageBadges() {
         var marked = document.querySelectorAll('#ir-page-badge, .ir-page-badge, [data-st-page-badge]');
         for (var i = 0; i < marked.length; i++) marked[i].remove();
-        var rows = document.querySelectorAll('.itemMiscInfo, .mediaInfoItems');
-        for (var r = 0; r < rows.length; r++) {
-            var kids = rows[r].querySelectorAll('span, div');
-            for (var k = 0; k < kids.length; k++) {
-                var t = kids[k].textContent.trim();
-                if (kids[k].childElementCount !== 0) continue;
-                if ((t.charAt(0) === '★' && t.indexOf('StarTrack') !== -1) ||
-                    (_lastBadgeText && t === _lastBadgeText)) {
-                    kids[k].remove();
-                }
+        // [v1.6.4] (#8, locksoft) Ghost sweep for attribute-stripped clones. Jellyfin
+        // duplicates the detail header across webOS/Tizen view transitions and drops
+        // our id/class, so copies pile up (locksoft: "two old ghosts of buttons").
+        // TWO fixes over v1.6.x:
+        //   1) DON'T require a leaf node — the badge now wraps child spans
+        //      (star/number/label since the white-number change), so clones have
+        //      childElementCount > 0 and the old `=== 0` guard skipped every one.
+        //   2) Sweep the WHOLE document, not just the desktop meta-row classes, since
+        //      webOS can re-home the clone under different containers.
+        // Signature kept tight (short text, leads with a star glyph and contains
+        // "StarTrack", or exactly equals the last badge) so a real ★ rating is safe.
+        // Only exact-match against the last badge when that text is unmistakably ours
+        // (contains "StarTrack" or is the "☆ Rate" prompt) — in compact mode the badge
+        // is a bare "★ 5.0" that could collide with a native rating, so we never nuke
+        // by exact text there and rely on the id/class/data-attr sweep above instead.
+        var lb = _lastBadgeText;
+        var lbSafe = lb && (lb.indexOf('StarTrack') !== -1 || lb.charAt(0) === '☆');
+        var all = document.querySelectorAll('span, div, button, a');
+        for (var k = 0; k < all.length; k++) {
+            var el = all[k];
+            if (el.id === 'ir-page-badge') continue;
+            if (el.childElementCount > 3) continue;           // never a big container
+            var t = (el.textContent || '').trim();
+            if (!t || t.length > 40) continue;
+            var c = t.charAt(0);
+            var star = (c === '★' || c === '☆');
+            if ((star && t.indexOf('StarTrack') !== -1) ||
+                (lbSafe && t === lb)) {
+                el.remove();
             }
         }
     }
@@ -1586,7 +1615,10 @@
     function buildStarInputHtml() {
         var h = '';
         for (var i = 1; i <= 5; i++) {
-            h += '<span class="ir-sw" data-i="' + i + '">' +
+            // [v1.6.4] (#8, locksoft) Each whole star is focusable so a TV D-pad can
+            // land on it; OK/Enter picks that many WHOLE stars (half-stars stay a
+            // mouse/touch nicety). This is the "just 1–5 stars" flow he asked for.
+            h += '<span class="ir-sw focusable" data-i="' + i + '" tabindex="0" role="button" aria-label="' + i + ' stars">' +
                     '<span class="ir-sl" data-v="' + (i - 0.5) + '"></span>' +
                     '<span class="ir-sr" data-v="' + i + '"></span>' +
                  '</span>';
@@ -5858,6 +5890,25 @@
                 setStarDisplay(v);
                 yc.textContent = v.toFixed(1) + ' \u2605 selected';
                 submit.classList.add('ir-ready');
+            });
+        });
+
+        // [v1.6.4] (#8, locksoft) TV D-pad rating: each whole star is focusable, so the
+        // remote can move across them (display fills as focus lands) and OK/Enter picks
+        // that many stars. Fixes "there's no way to select the stars" on webOS \u2014 the
+        // half-star zones above are mouse/touch-only and unreachable by a D-pad.
+        el.querySelectorAll('.ir-sw').forEach(function (sw) {
+            var full = parseFloat(sw.dataset.i);
+            sw.addEventListener('focus', function () { setStarDisplay(full); });
+            sw.addEventListener('blur',  function () { setStarDisplay(_pendingStars); });
+            sw.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault(); e.stopPropagation();
+                    _pendingStars = full;
+                    setStarDisplay(full);
+                    yc.textContent = full.toFixed(1) + ' \u2605 selected';
+                    submit.classList.add('ir-ready');
+                }
             });
         });
 
