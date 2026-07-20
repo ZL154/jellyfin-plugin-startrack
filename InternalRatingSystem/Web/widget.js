@@ -574,6 +574,7 @@
             '#ir-page-badge .ir-pb-star,#ir-page-badge .ir-pb-label{color:#f4c430!important}',
             '#ir-page-badge .ir-pb-num{color:#fff!important}',
             '#ir-page-badge.ir-page-badge-empty{color:rgba(255,255,255,.5)!important;border-color:rgba(255,255,255,.25)!important;background:rgba(10,10,10,.55)!important;font-weight:600!important}',
+            '.ir-native-rating-hidden{display:none!important}',
             'html[data-st-tv="1"] #ir-page-badge:focus{outline:none!important;background:rgba(45,45,45,.98)!important;box-shadow:0 0 0 3px #f4c430,0 0 14px 2px rgba(244,196,48,.55)!important}',
             // [v1.6.4] (#8, locksoft) Give EVERY focusable element inside the rating
             // widget a visible ring on TV — pill, panel buttons, star input, textarea,
@@ -1489,7 +1490,7 @@
     // equals the last compact badge we wrote). Scoped to meta rows so a native
     // ★ rating is never touched.
     function _stripOldPageBadges() {
-        var marked = document.querySelectorAll('#ir-page-badge, .ir-page-badge, [data-st-page-badge]');
+        var marked = document.querySelectorAll('#ir-page-badge, .ir-page-badge, [data-st-page-badge], .ir-detail-st');
         for (var i = 0; i < marked.length; i++) marked[i].remove();
         // [v1.6.4] (#8, locksoft) Ghost sweep for attribute-stripped clones. Jellyfin
         // duplicates the detail header across webOS/Tizen view transitions and drops
@@ -1537,9 +1538,34 @@
         return document;
     }
 
+    // The clickable page badge is the sole StarTrack rating owner on detail pages.
+    // When the admin enables native-rating replacement, hide Jellyfin's native
+    // community-rating container only while a StarTrack average exists. Toggling a
+    // class instead of mutating inline styles lets Jellyfin restore its own layout.
+    function _syncNativeDetailRating(scope, replace) {
+        var nativeRatings = scope.querySelectorAll('.starRatingContainer');
+        for (var i = 0; i < nativeRatings.length; i++) {
+            nativeRatings[i].classList.toggle('ir-native-rating-hidden', !!replace);
+        }
+    }
+
+    // Jellyfin can add/replace its native community-rating node several seconds
+    // after StarTrack has rendered the detail badge. Re-apply the hide state from
+    // the navigation heartbeat so a late native node cannot escape replacement.
+    // This only manages Jellyfin's node; the canonical StarTrack badge remains
+    // owned by upsertPageBadge(), avoiding the duplicate-renderer bug from #11.
+    function _refreshNativeDetailRating() {
+        var scope = _visiblePageScope();
+        var badge = scope.querySelector('#ir-page-badge, .ir-page-badge, [data-st-page-badge]');
+        var hasRatings = !!(badge && !badge.classList.contains('ir-page-badge-empty'));
+        _syncNativeDetailRating(scope, hasRatings && _STARTRACK_CONFIG.replaceMediaDetailsRating);
+    }
+
     function upsertPageBadge(data) {
         _stripOldPageBadges();
         var hasRatings = !!(data && data.totalRatings > 0);
+        var scope = _visiblePageScope();
+        _syncNativeDetailRating(scope, hasRatings && _STARTRACK_CONFIG.replaceMediaDetailsRating);
         // [v1.6.2] (#8, locksoft) On TV, ALWAYS show a focusable badge next to the
         // title (dimmed when there are no ratings yet) so the remote D-pad has a
         // rate target — the floating pill can't be reached with a remote. On
@@ -1584,8 +1610,6 @@
             if (e && e.stopPropagation) e.stopPropagation();
             if (_el) { var p = _el.querySelector('.ir-pill'); if (p) p.click(); }
         });
-
-        var scope = _visiblePageScope();
 
         // #11 (locksoft): sit right before the native community rating so StarTrack
         // reads first. Scoped to the visible detail-header meta row so it can't latch
@@ -6662,6 +6686,11 @@
         var idStr = id || '';
         var hash  = window.location.hash + window.location.search;
 
+        // Keep replacement correct even when Jellyfin mounts its native rating
+        // after the initial StarTrack render. This intentionally runs before the
+        // unchanged-route fast path below.
+        if (id) _refreshNativeDetailRating();
+
         if (idStr === _lastId && hash === _lastHash) return;
         _lastId = idStr; _lastHash = hash;
 
@@ -6699,8 +6728,6 @@
                 _STARTRACK_READY = true;
                 startI18nWatchdog();
                 applyConfigVisibility();
-                // Replace native ratings on media details
-                try { startMediaDetailsReplace(); } catch (e) {}
                 try { startPosterBadges(); } catch (e) {}
                 try { startMediaBarReplace(); } catch (e) {}
                 try { startPostPlaybackPopup(); } catch (e) {}
@@ -6824,41 +6851,6 @@
         if (ov) {
             ov.querySelectorAll('.ir-ov-es').forEach(function (b) { b.style.display = _STARTRACK_CONFIG.hideExternalSyncButton ? 'none' : ''; });
         }
-    }
-
-    // ── StarTrack rating swap into Media Details page ────────────────────
-    // Jellyfin renders the native community rating in the detail page
-    // "itemMiscInfo" / ".starRatingContainer" area. Swap it with the
-    // StarTrack average when one is available.
-
-    function startMediaDetailsReplace() {
-        if (!_STARTRACK_CONFIG.replaceMediaDetailsRating) return;
-        var lastId = '';
-        setInterval(function () {
-            try {
-                var id = getItemId();
-                if (!id || id === lastId) return;
-                // Only when on a details page, not an overlay/play view
-                var page = document.querySelector('.itemDetailPage:not(.hide), .detailPage:not(.hide)');
-                if (!page) return;
-                lastId = id;
-                apiGet(id).then(function (d) {
-                    if (!d || !d.totalRatings) return;
-                    // Find the community rating cluster Jellyfin uses.
-                    var hosts = page.querySelectorAll('.starRatingContainer, .itemMiscInfo, .starRating');
-                    hosts.forEach(function (host) {
-                        // Remove any prior StarTrack badge on this host
-                        var prev = host.querySelector('.ir-detail-st'); if (prev) prev.remove();
-                        var badge = document.createElement('span');
-                        badge.className = 'ir-detail-st';
-                        badge.style.cssText = 'display:inline-flex;align-items:center;gap:.3em;margin-left:.6em;padding:.15em .5em;border-radius:999px;background:rgba(244,196,48,.15);color:#f4c430;font-weight:600';
-                        badge.textContent = '\u2605 ' + d.averageRating.toFixed(1) + ' StarTrack (' + d.totalRatings + ')';
-                        badge.title = 'StarTrack community rating';
-                        host.appendChild(badge);
-                    });
-                });
-            } catch (e) {}
-        }, 1200);
     }
 
     // ── Poster-overlay rating badges ─────────────────────────────────────
