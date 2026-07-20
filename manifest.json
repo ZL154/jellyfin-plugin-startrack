@@ -9,6 +9,14 @@
     "imageUrl": "https://cdn.jsdelivr.net/gh/ZL154/jellyfin-plugin-startrack@main/assets/logo.svg",
     "versions": [
       {
+        "version": "1.6.4.0",
+        "changelog": "Media-page and TV/webOS fixes plus native-rating and BaseURL follow-ups. Issue #11/#8: keeps one canonical clickable StarTrack badge, removes legacy and attribute-stripped ghost copies, and reliably hides Jellyfin's delayed native community-rating node when replacement is enabled. Issue #8: whole-star controls are D-pad focusable/selectable with webOS-compatible focus feedback. Issue #12: adds an elevation-gated, idempotent admin backfill for existing ratings into Jellyfin's native per-user rating field. Issue #13: native item, poster, and avatar requests consistently respect Jellyfin's BaseURL sub-path. Release workflow now uses .NET 9. In-place upgrade; no StarTrack data migration.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/ZL154/jellyfin-plugin-startrack/releases/download/v1.6.4/Jellyfin.Plugin.InternalRating_1.6.4.zip",
+        "checksum": "CDC8CA98E8769C47B561FDD686ECB292",
+        "timestamp": "2026-07-20T00:34:58Z"
+      },
+      {
         "version": "1.6.3.0",
         "changelog": "TV/webOS accessibility, reverse-proxy sub-path support, native-rating mirror, and media-page badge fixes. TV / webOS (#8, locksoft): the media-page rating badge is now a focusable button the TV remote's D-pad can reach, is always shown on TV (dimmed when an item has no ratings yet) so there's always something to select, and shows the rating number in white (IMDb-style). The floating Rate pill is reachable by the D-pad, the post-playback rating popup is usable with a remote, and Large / Large (TV only) sizes now apply correctly on a TV. A per-device rating size (Normal / Large / Large (TV only)) can be set from My Ratings -> Preferences. Reverse-proxy sub-path (#13, LinkdxTTV): the widget and all its API calls now respect Jellyfin's BaseURL sub-path setting, so StarTrack works when Jellyfin is served under a path like /jelly behind nginx. Native rating mirror (#12, damientkyt): an optional 'Also save ratings to Jellyfin's native rating field' setting (off by default) mirrors each StarTrack rating into Jellyfin's built-in per-user rating (0.5-5 stars mapped to 0-10), so it shows in Jellyfin's own UI and works with library filters and backups; it is cleared when you remove the rating. Media-page badge (#11 / #8, khutede / locksoft): the badge no longer duplicates, goes stale, or disappears on web and iPad. In-place upgrade, no data migration.",
         "targetAbi": "10.11.0.0",
