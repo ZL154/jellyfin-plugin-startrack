@@ -303,13 +303,11 @@ You should see `Plugin loaded: YES`. Then open any Movie, TV Show, or Episode de
 ## How to use
 
 ### Rating controls (detail page)
-A floating pill appears at the bottom-right of every Movie / Series / Episode detail page. StarTrack also places one clickable badge alongside Jellyfin's native ratings. Use either control to:
+A floating pill appears at the bottom-right of every Movie / Series / Episode detail page. StarTrack also places one clickable badge alongside Jellyfin's native ratings. Click either control - or focus it with a keyboard/TV D-pad and press Enter/OK - to:
 - Set your rating (half-star precision)
 - Optionally write a review
 - See the community average and per-user breakdown
 - One-click **❤ like**, **☆ watchlist**, or **★ pin to Top 4**
-
-Keyboard and TV users can focus either control with the D-pad and press Enter/OK to open it.
 
 Admins can use a compact rating-only badge, move poster badges to any corner and choose Normal, Large or Large (TV only) sizing. Users can override the size for their current device from **My Ratings → ⚙ Preferences**. On TV, unrated media keeps a dimmed `☆ Rate` badge so the remote always has a focus target.
 
