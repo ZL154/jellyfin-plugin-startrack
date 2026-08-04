@@ -37,6 +37,19 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         public Dictionary<string, LetterboxdUserSettings> Users { get; set; } = new();
     }
 
+    /// <summary>
+    /// One row of the Letterboxd sync admin panel: a Jellyfin user joined
+    /// with their current Letterboxd link, if any.
+    /// </summary>
+    public sealed class AdminUserLetterboxdDto
+    {
+        [JsonPropertyName("userId")]         public string  UserId         { get; set; } = string.Empty;
+        [JsonPropertyName("userName")]       public string  UserName       { get; set; } = string.Empty;
+        [JsonPropertyName("username")]       public string  Username       { get; set; } = string.Empty;
+        [JsonPropertyName("enableAutoSync")] public bool    EnableAutoSync { get; set; }
+        [JsonPropertyName("lastSyncedAt")]   public DateTime? LastSyncedAt { get; set; }
+    }
+
     /// <summary>Report returned by CSV import and RSS sync operations.</summary>
     public sealed class LetterboxdImportResult
     {

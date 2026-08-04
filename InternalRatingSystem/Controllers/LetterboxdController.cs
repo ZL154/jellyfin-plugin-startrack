@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net.Mime;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.InternalRating.Letterboxd;
+using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -14,9 +16,11 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.InternalRating.Controllers
 {
     /// <summary>
-    /// Letterboxd sync endpoints. All routes are scoped to the current
-    /// authenticated user — users can only view or modify their own settings,
-    /// import their own CSV, and trigger sync for themselves.
+    /// Letterboxd sync endpoints. Most routes are scoped to the current
+    /// authenticated user — users can view or modify their own settings,
+    /// import their own CSV, and trigger sync for themselves. The
+    /// <c>AdminUsers</c>/<c>AdminSettings</c> pair below is the exception:
+    /// elevated admins can link a Letterboxd username on behalf of any user.
     /// </summary>
     [ApiController]
     [Authorize]
@@ -27,16 +31,19 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         private readonly LetterboxdSettingsRepository _settings;
         private readonly LetterboxdSyncService _sync;
         private readonly IAuthorizationContext _authContext;
+        private readonly IUserManager _userManager;
         private readonly ILogger<LetterboxdController> _logger;
 
         public LetterboxdController(
             LetterboxdSyncService syncService,
             IAuthorizationContext authContext,
+            IUserManager userManager,
             ILogger<LetterboxdController> logger)
         {
             _settings    = Plugin.Instance!.LetterboxdSettings;
             _sync        = syncService;
             _authContext = authContext;
+            _userManager = userManager;
             _logger      = logger;
         }
 
@@ -68,6 +75,72 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             await _settings.SetConfigAsync(userId.Value.ToString("N"), username, req.EnableAutoSync).ConfigureAwait(false);
             _logger.LogInformation("[StarTrack] {User} set Letterboxd username={Name} autosync={Auto}", userId.Value, username, req.EnableAutoSync);
             return Ok();
+        }
+
+        /// <summary>
+        /// Admin-only: every Jellyfin user on the server plus their current
+        /// Letterboxd link (if any), for the Letterboxd sync admin panel.
+        /// </summary>
+        [HttpGet("AdminUsers")]
+        [Authorize(Policy = "RequiresElevation")]
+        [ProducesResponseType(typeof(List<AdminUserLetterboxdDto>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetAdminUsers()
+        {
+            var list = new List<AdminUserLetterboxdDto>();
+            var users = _userManager.EnumerateAll();
+            if (users == null) return Ok(list);
+
+            var all = await _settings.GetAllAsync().ConfigureAwait(false);
+
+            foreach (var u in users)
+            {
+                if (u == null) continue;
+                var idStr = u.Id.ToString("N");
+                all.TryGetValue(idStr, out var s);
+                s ??= new LetterboxdUserSettings();
+                list.Add(new AdminUserLetterboxdDto
+                {
+                    UserId         = idStr,
+                    UserName       = u.Username,
+                    Username       = s.Username,
+                    EnableAutoSync = s.EnableAutoSync,
+                    LastSyncedAt   = s.LastSyncedAt
+                });
+            }
+
+            return Ok(list);
+        }
+
+        /// <summary>
+        /// Admin-only: sets a target user's Letterboxd username + auto-sync
+        /// toggle, then runs an immediate sync so the admin gets the same
+        /// "N ratings imported" feedback the user's own Sync Now button gives.
+        /// </summary>
+        [HttpPost("AdminSettings/{userId}")]
+        [Authorize(Policy = "RequiresElevation")]
+        [ProducesResponseType(typeof(LetterboxdImportResult), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> SetAdminSettings([FromRoute] string userId, [FromBody] SetSettingsRequest req)
+        {
+            if (!Guid.TryParse(userId, out var targetId)) return NotFound();
+            var target = _userManager.GetUserById(targetId);
+            if (target == null) return NotFound();
+
+            var username = (req.Username ?? string.Empty).Trim();
+            if (username.Length > 0 && !System.Text.RegularExpressions.Regex.IsMatch(username, "^[a-zA-Z0-9_-]{1,32}$"))
+                return BadRequest("Letterboxd username contains invalid characters.");
+
+            var idStr = targetId.ToString("N");
+            await _settings.SetConfigAsync(idStr, username, req.EnableAutoSync).ConfigureAwait(false);
+            _logger.LogInformation("[StarTrack] Admin set Letterboxd username for {User}: {Name} autosync={Auto}",
+                target.Username, username, req.EnableAutoSync);
+
+            if (string.IsNullOrEmpty(username))
+                return Ok(new LetterboxdImportResult());
+
+            var result = await _sync.SyncRssAsync(idStr, target.Username).ConfigureAwait(false);
+            return Ok(result);
         }
 
         /// <summary>
