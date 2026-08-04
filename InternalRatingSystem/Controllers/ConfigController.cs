@@ -40,22 +40,23 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
             return Ok(new
             {
-                language                     = cfg.Language ?? "en",
-                hideRecentButton             = cfg.HideRecentButton,
-                hideLetterboxdButton         = cfg.HideLetterboxdButton,
-                hideExternalSyncButton       = cfg.HideExternalSyncButton,
-                rateButtonOnlyInMediaItem    = cfg.RateButtonOnlyInMediaItem,
-                replaceMediaDetailsRating    = cfg.ReplaceMediaDetailsRating,
-                replaceMediaBarRating        = cfg.ReplaceMediaBarRating,
-                showRatingsOnPosters         = cfg.ShowRatingsOnPosters,
-                posterRatingPosition         = cfg.PosterRatingPosition ?? "top-right",
-                postPlaybackRatingPopup      = cfg.PostPlaybackRatingPopup,
-                communityRecentMode          = cfg.CommunityRecentMode,
-                maxReviewLength              = (cfg.MaxReviewLength <= 0 ? 10000 : (cfg.MaxReviewLength > 10000 ? 10000 : cfg.MaxReviewLength)),
-                compactMediaBadge            = cfg.CompactMediaBadge,
-                ratingSize                   = (cfg.RatingSize == "large" || cfg.RatingSize == "largetv" ? cfg.RatingSize : "normal"),
-                hiddenOverlayViews           = hiddenViews,
-                supportedLanguages           = SupportedLanguages
+                language                      = cfg.Language ?? "en",
+                hideRecentButton              = cfg.HideRecentButton,
+                hideLetterboxdButton          = cfg.HideLetterboxdButton,
+                hideExternalSyncButton        = cfg.HideExternalSyncButton,
+                rateButtonOnlyInMediaItem     = cfg.RateButtonOnlyInMediaItem,
+                replaceMediaDetailsRating     = cfg.ReplaceMediaDetailsRating,
+                replaceMediaBarRating         = cfg.ReplaceMediaBarRating,
+                replaceMediaBarEnhancedRating = cfg.ReplaceMediaBarEnhancedRating,
+                showRatingsOnPosters          = cfg.ShowRatingsOnPosters,
+                posterRatingPosition          = cfg.PosterRatingPosition ?? "top-right",
+                postPlaybackRatingPopup       = cfg.PostPlaybackRatingPopup,
+                communityRecentMode           = cfg.CommunityRecentMode,
+                maxReviewLength               = (cfg.MaxReviewLength <= 0 ? 10000 : (cfg.MaxReviewLength > 10000 ? 10000 : cfg.MaxReviewLength)),
+                compactMediaBadge             = cfg.CompactMediaBadge,
+                ratingSize                    = (cfg.RatingSize == "large" || cfg.RatingSize == "largetv" ? cfg.RatingSize : "normal"),
+                hiddenOverlayViews            = hiddenViews,
+                supportedLanguages            = SupportedLanguages
             });
         }
 
