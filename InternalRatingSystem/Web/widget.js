@@ -6953,41 +6953,108 @@
         }, 2000);
     }
 
+    // \u2500\u2500 Media Bar Enhanced rating replacement \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
     // `.star-rating-container` has no id of its own \u2014 the item id lives on
     // the ancestor `.slide[data-item-id]`. Only rendered when the item
     // already has a native CommunityRating; StarTrack takes over that slot
     // when it has a rating. When it doesn't, MBE's native value is left
     // showing rather than replaced.
+
+    // Read/write ONLY the direct text-node children, leaving element children
+    // (MBE's \u2605 icon) alone. Using textContent here would swallow the icon and,
+    // worse, capture the icon's ligature text ("star") as if it were the
+    // rating when we snapshot the native value.
+    function _mbeText(c, next) {
+        var out = '', n, i;
+        for (i = c.childNodes.length - 1; i >= 0; i--) {
+            n = c.childNodes[i];
+            if (n.nodeType !== 3) continue;          // 3 = text node
+            out = n.nodeValue + out;
+            if (next !== undefined) c.removeChild(n);
+        }
+        if (next !== undefined) c.appendChild(document.createTextNode(next));
+        return out;
+    }
+
+    function _mbeSweep() {
+        try {
+            var stars = document.querySelectorAll('.slide[data-item-id] .star-rating-container');
+            stars.forEach(function (c) {
+                var slide = c.closest('.slide[data-item-id]');
+                var id = slide && slide.getAttribute('data-item-id');
+                if (!id) return;
+
+                // The marker carries the ITEM ID, not just "handled". MBE
+                // recycles the same container between carousel slides, so a
+                // boolean marker pinned the first item's rating onto every
+                // later item that reused the node.
+                if (c.getAttribute('data-ir-mbe') === id) return;
+                c.setAttribute('data-ir-mbe', id);
+
+                // Snapshot MBE's own value once, so an unrated item can restore
+                // it instead of inheriting the previous item's StarTrack number.
+                if (!c.hasAttribute('data-ir-mbe-native'))
+                    c.setAttribute('data-ir-mbe-native', _mbeText(c).trim());
+
+                // Hidden while the lookup is in flight: MBE renders its native
+                // rating synchronously, so a slow swap flashes the wrong number.
+                c.style.visibility = 'hidden';
+
+                apiGet(id).then(function (d) {
+                    // The slide may have been recycled again mid-flight; if so
+                    // this response is for the wrong item, so drop it.
+                    if (c.getAttribute('data-ir-mbe') !== id) return;
+
+                    var sep = c.nextElementSibling;
+                    if (sep && !sep.classList.contains('separator-icon')) sep = null;
+                    var rated = !!(d && d.totalRatings && typeof d.averageRating === 'number');
+
+                    // Toggle, never one-way add \u2014 the class has to come back off
+                    // when a recycled node lands on a rated item, or an admin's
+                    // `.ir-mbe-unrated{display:none}` rule would hide it forever.
+                    c.classList.toggle('ir-mbe-unrated', !rated);
+                    if (sep) sep.classList.toggle('ir-mbe-unrated', !rated);
+
+                    _mbeText(c, rated ? d.averageRating.toFixed(1)
+                                      : (c.getAttribute('data-ir-mbe-native') || ''));
+                    if (rated) c.title = tr('widget.startrack_count', { n: d.totalRatings },
+                                            'StarTrack (' + d.totalRatings + ')');
+                    else       c.removeAttribute('title');
+                }).catch(function () {
+                    // Leave MBE's own value in place on failure.
+                    if (c.getAttribute('data-ir-mbe') === id) c.removeAttribute('data-ir-mbe');
+                }).finally(function () { c.style.visibility = ''; });
+            });
+        } catch (e) {}
+    }
+
+    var _mbeStarted = false, _mbePending = null;
     function startMediaBarEnhancedReplace() {
         if (!_STARTRACK_CONFIG.replaceMediaBarEnhancedRating) return;
-        setInterval(function () {
-            try {
-                // Polled faster than the loop above (300ms vs 2000ms) and hidden
-                // while in flight: MBE renders the native rating synchronously,
-                // so a slow swap flashes the wrong number first.
-                var stars = document.querySelectorAll('.slide[data-item-id] .star-rating-container:not([data-ir-mbe])');
-                stars.forEach(function (c) {
-                    c.setAttribute('data-ir-mbe', '1');
-                    var slide = c.closest('.slide[data-item-id]');
-                    var id = slide && slide.getAttribute('data-item-id');
-                    if (!id) return;
-                    c.style.visibility = 'hidden';
-                    apiGet(id).then(function (d) {
-                        if (!d || !d.totalRatings) {
-                            c.classList.add('ir-mbe-unrated');
-                            var sep = c.nextElementSibling;
-                            if (sep && sep.classList.contains('separator-icon')) sep.classList.add('ir-mbe-unrated');
-                            return;
-                        }
-                        var icon = c.querySelector('.community-rating-star');
-                        c.textContent = '';
-                        if (icon) c.appendChild(icon);
-                        c.appendChild(document.createTextNode(d.averageRating.toFixed(1)));
-                        c.title = 'StarTrack (' + d.totalRatings + ')';
-                    }).catch(function () {}).finally(function () { c.style.visibility = ''; });
-                });
-            } catch (e) {}
-        }, 300);
+        if (_mbeStarted) return;                 // config reloads must not stack timers
+        _mbeStarted = true;
+
+        // A permanent 300ms poll costs ~3 sweeps/sec forever on every page,
+        // including TV and mobile where that is a real battery cost. A
+        // MutationObserver fires exactly when MBE re-renders a slide, so it is
+        // both cheaper AND faster to react than the poll was. The slow interval
+        // is only a safety net for changes the observer can't see.
+        var schedule = function () {
+            if (_mbePending) return;
+            _mbePending = setTimeout(function () { _mbePending = null; _mbeSweep(); }, 50);
+        };
+
+        try {
+            new MutationObserver(schedule).observe(document.body, {
+                childList: true,
+                subtree: true,
+                attributes: true,
+                attributeFilter: ['data-item-id']
+            });
+        } catch (e) {}
+
+        setInterval(_mbeSweep, 2000);
+        _mbeSweep();
     }
 
     // ── Post-playback rating popup ───────────────────────────────────────

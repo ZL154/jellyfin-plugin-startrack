@@ -562,5 +562,6 @@
   "cfg.backfill_btn": "Backfill now",
   "cfg.backfill_running": "Backfilling…",
   "cfg.backfill_done": "ratings written to the native field",
-  "cfg.backfill_no_auth": "Not signed in"
+  "cfg.backfill_no_auth": "Not signed in",
+  "widget.startrack_count": "StarTrack ({n})"
 }

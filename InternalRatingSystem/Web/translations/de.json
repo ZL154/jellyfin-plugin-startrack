@@ -549,5 +549,19 @@
   "cfg.backfill_btn": "Jetzt übertragen",
   "cfg.backfill_running": "Wird übertragen…",
   "cfg.backfill_done": "Bewertungen in das native Feld geschrieben",
-  "cfg.backfill_no_auth": "Nicht angemeldet"
+  "cfg.backfill_no_auth": "Nicht angemeldet",
+  "admin.letterboxd_admin_heading": "Letterboxd-Sync – Administratorkonfiguration",
+  "admin.letterboxd_admin_intro": "Verknüpfen Sie einen Letterboxd-Benutzernamen mit einem beliebigen Benutzer und klicken Sie auf „Speichern & synchronisieren“, um sofort zu synchronisieren. Optionaler Schalter für die stündliche automatische Synchronisierung.",
+  "admin.letterboxd_admin_loading": "Benutzer werden geladen…",
+  "cfg.lb_users_load_failed": "Benutzer konnten nicht geladen werden.",
+  "cfg.lb_no_users": "Keine Benutzer gefunden.",
+  "cfg.lb_save_sync": "Speichern & synchronisieren",
+  "cfg.lb_col_user": "Benutzer",
+  "cfg.lb_col_username": "Letterboxd-Benutzername",
+  "cfg.lb_col_autosync": "Auto-Sync",
+  "cfg.lb_saving": "Wird gespeichert…",
+  "cfg.lb_cleared": "Gelöscht",
+  "cfg.lb_synced": "Bewertungen synchronisiert",
+  "admin.toggle.replace_mediabar_enhanced": "Bewertungen im Plugin „Media Bar Enhanced“ durch den StarTrack-Durchschnitt ersetzen",
+  "widget.startrack_count": "StarTrack ({n})"
 }

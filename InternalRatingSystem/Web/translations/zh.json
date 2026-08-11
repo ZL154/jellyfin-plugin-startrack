@@ -549,5 +549,19 @@
   "cfg.backfill_btn": "立即回填",
   "cfg.backfill_running": "正在回填…",
   "cfg.backfill_done": "条评分已写入原生字段",
-  "cfg.backfill_no_auth": "未登录"
+  "cfg.backfill_no_auth": "未登录",
+  "admin.letterboxd_admin_heading": "Letterboxd 同步 – 管理员配置",
+  "admin.letterboxd_admin_intro": "为任意用户关联 Letterboxd 用户名，然后点击「保存并同步」立即同步。可选择开启每小时自动同步。",
+  "admin.letterboxd_admin_loading": "正在加载用户…",
+  "cfg.lb_users_load_failed": "无法加载用户。",
+  "cfg.lb_no_users": "未找到用户。",
+  "cfg.lb_save_sync": "保存并同步",
+  "cfg.lb_col_user": "用户",
+  "cfg.lb_col_username": "Letterboxd 用户名",
+  "cfg.lb_col_autosync": "自动同步",
+  "cfg.lb_saving": "正在保存…",
+  "cfg.lb_cleared": "已清除",
+  "cfg.lb_synced": "条评分已同步",
+  "admin.toggle.replace_mediabar_enhanced": "将 Media Bar Enhanced 插件中的评分替换为 StarTrack 平均分",
+  "widget.startrack_count": "StarTrack ({n})"
 }

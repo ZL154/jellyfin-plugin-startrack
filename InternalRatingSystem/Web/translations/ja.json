@@ -549,5 +549,19 @@
   "cfg.backfill_btn": "今すぐ反映",
   "cfg.backfill_running": "反映中…",
   "cfg.backfill_done": "件の評価をネイティブフィールドに書き込みました",
-  "cfg.backfill_no_auth": "サインインしていません"
+  "cfg.backfill_no_auth": "サインインしていません",
+  "admin.letterboxd_admin_heading": "Letterboxd 同期 – 管理者設定",
+  "admin.letterboxd_admin_intro": "任意のユーザーに Letterboxd のユーザー名を紐付け、「保存して同期」を押すとすぐに同期します。1 時間ごとの自動同期は任意で切り替えられます。",
+  "admin.letterboxd_admin_loading": "ユーザーを読み込み中…",
+  "cfg.lb_users_load_failed": "ユーザーを読み込めませんでした。",
+  "cfg.lb_no_users": "ユーザーが見つかりません。",
+  "cfg.lb_save_sync": "保存して同期",
+  "cfg.lb_col_user": "ユーザー",
+  "cfg.lb_col_username": "Letterboxd ユーザー名",
+  "cfg.lb_col_autosync": "自動同期",
+  "cfg.lb_saving": "保存中…",
+  "cfg.lb_cleared": "クリアしました",
+  "cfg.lb_synced": "件の評価を同期しました",
+  "admin.toggle.replace_mediabar_enhanced": "Media Bar Enhanced プラグインの評価を StarTrack の平均値に置き換える",
+  "widget.startrack_count": "StarTrack ({n})"
 }

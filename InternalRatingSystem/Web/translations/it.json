@@ -549,5 +549,19 @@
   "cfg.backfill_btn": "Riporta ora",
   "cfg.backfill_running": "Riporto in corso…",
   "cfg.backfill_done": "valutazioni scritte nel campo nativo",
-  "cfg.backfill_no_auth": "Non hai effettuato l'accesso"
+  "cfg.backfill_no_auth": "Non hai effettuato l'accesso",
+  "admin.letterboxd_admin_heading": "Sincronizzazione Letterboxd – Configurazione amministratore",
+  "admin.letterboxd_admin_intro": "Collega un nome utente Letterboxd a qualsiasi utente, quindi premi Salva e sincronizza per sincronizzare subito. Interruttore opzionale per la sincronizzazione automatica oraria.",
+  "admin.letterboxd_admin_loading": "Caricamento utenti…",
+  "cfg.lb_users_load_failed": "Impossibile caricare gli utenti.",
+  "cfg.lb_no_users": "Nessun utente trovato.",
+  "cfg.lb_save_sync": "Salva e sincronizza",
+  "cfg.lb_col_user": "Utente",
+  "cfg.lb_col_username": "Nome utente Letterboxd",
+  "cfg.lb_col_autosync": "Sincronizzazione automatica",
+  "cfg.lb_saving": "Salvataggio…",
+  "cfg.lb_cleared": "Cancellato",
+  "cfg.lb_synced": "valutazioni sincronizzate",
+  "admin.toggle.replace_mediabar_enhanced": "Sostituisci le valutazioni del plugin Media Bar Enhanced con la media di StarTrack",
+  "widget.startrack_count": "StarTrack ({n})"
 }
