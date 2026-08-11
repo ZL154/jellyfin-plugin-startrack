@@ -15,11 +15,35 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync.Providers
     // Simkl-specific JSON DTOs (internal — not part of the public API surface)
     // -------------------------------------------------------------------------
 
+    // NOTE (v1.6.5, issue #19): the shapes below are transcribed from Simkl's
+    // published apiary spec ("Get Ratings" — /sync/ratings/{type}/{rating}),
+    // NOT from what the push side sends. The two are deliberately different and
+    // getting them confused is exactly what broke the pull:
+    //
+    //   POST /sync/ratings  (push)  -> { "rating": 8,      "rated_at": "..."      }
+    //   GET  /sync/ratings  (pull)  -> { "user_rating": 8, "user_rated_at": "..." }
+    //
+    // and Simkl serialises tmdb/tvdb ids as JSON *strings* ("102651"), while
+    // simkl's own id is a number. Declaring those as int? made
+    // System.Text.Json throw on the very first movie, which the old catch
+    // swallowed into an empty list — so every pull reported 0.
+
     internal sealed class SimklIds
     {
-        [JsonPropertyName("imdb")]  public string? Imdb  { get; set; }
-        [JsonPropertyName("tmdb")]  public int?    Tmdb  { get; set; }
-        // VERIFY at smoke-test: Simkl may also return simkl/mal/anidb ids — tolerated by ignoring unknown fields
+        [JsonPropertyName("imdb")] public string? Imdb { get; set; }
+
+        // AllowReadingFromString: Simkl sends these as strings in GET responses
+        // ("tmdb": "102651") but as numbers elsewhere. Accept both.
+        [JsonPropertyName("tmdb")]
+        [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+        public int? Tmdb { get; set; }
+
+        [JsonPropertyName("tvdb")]
+        [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+        public int? Tvdb { get; set; }
+
+        // simkl / mal / anidb ids are returned too but unused — unknown and
+        // unmapped fields are ignored by the deserialiser.
     }
 
     internal sealed class SimklMovieItem
@@ -36,30 +60,48 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync.Providers
         [JsonPropertyName("ids")]   public SimklIds? Ids   { get; set; }
     }
 
-    internal sealed class SimklRatedMovie
+    /// <summary>
+    /// Common rating/date fields shared by the movie, show and anime buckets.
+    /// <c>user_rating</c>/<c>user_rated_at</c> are what GET actually returns;
+    /// <c>rating</c>/<c>rated_at</c> are kept as a fallback so a future Simkl
+    /// change back to the POST-style naming degrades instead of silently
+    /// importing everything as 0.5 stars.
+    /// </summary>
+    internal abstract class SimklRatedBase
     {
-        [JsonPropertyName("rating")]   public int     Rating   { get; set; }
-        [JsonPropertyName("rated_at")] public string? RatedAt  { get; set; }
-        [JsonPropertyName("movie")]    public SimklMovieItem? Movie { get; set; }
+        [JsonPropertyName("user_rating")]    public int?    UserRating   { get; set; }
+        [JsonPropertyName("user_rated_at")]  public string? UserRatedAt  { get; set; }
+        [JsonPropertyName("rating")]         public int?    Rating       { get; set; }
+        [JsonPropertyName("rated_at")]       public string? RatedAt      { get; set; }
+
+        /// <summary>Effective 1–10 score, or null when the item carries no rating.</summary>
+        public int? Score => UserRating ?? Rating;
+
+        /// <summary>Effective rating timestamp, whichever field carried it.</summary>
+        public string? ScoredAt => UserRatedAt ?? RatedAt;
     }
 
-    internal sealed class SimklRatedShow
+    internal sealed class SimklRatedMovie : SimklRatedBase
     {
-        [JsonPropertyName("rating")]   public int     Rating   { get; set; }
-        [JsonPropertyName("rated_at")] public string? RatedAt  { get; set; }
-        [JsonPropertyName("show")]     public SimklShowItem? Show { get; set; }
+        [JsonPropertyName("movie")] public SimklMovieItem? Movie { get; set; }
+    }
+
+    internal sealed class SimklRatedShow : SimklRatedBase
+    {
+        // Both the "shows" and "anime" buckets nest their item under "show".
+        [JsonPropertyName("show")] public SimklShowItem? Show { get; set; }
     }
 
     /// <summary>
-    /// Response envelope from GET /sync/ratings.
-    /// Simkl returns a top-level object with "movies" and "shows" arrays.
-    /// VERIFY at smoke-test: field names / nesting confirmed from Simkl public docs;
-    /// parser is null-safe to handle any variation.
+    /// Response envelope from GET /sync/ratings. Simkl returns a top-level
+    /// object with "movies", "shows" and "anime" arrays. Anime is a separate
+    /// bucket from shows on Simkl and was previously dropped entirely.
     /// </summary>
     internal sealed class SimklRatingsResponse
     {
         [JsonPropertyName("movies")] public SimklRatedMovie[]? Movies { get; set; }
         [JsonPropertyName("shows")]  public SimklRatedShow[]?  Shows  { get; set; }
+        [JsonPropertyName("anime")]  public SimklRatedShow[]?  Anime  { get; set; }
     }
 
     // -------------------------------------------------------------------------
@@ -340,20 +382,55 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync.Providers
         {
             var result = new List<ExternalRating>();
 
-            using var req  = BuildRequest(HttpMethod.Get, $"{BaseUrl}/sync/ratings?type=movies,shows", conn, body: null);
+            // No ?type= filter: the spec treats type as a path segment
+            // (/sync/ratings/{type}/{rating}) and the bare endpoint returns
+            // every bucket. The old "?type=movies,shows" query was ignored by
+            // Simkl and silently excluded nothing — but it also documented an
+            // intent (skip anime) that was wrong, so it's gone.
+            using var req  = BuildRequest(HttpMethod.Get, $"{BaseUrl}/sync/ratings", conn, body: null);
             using var resp = await _http.SendAsync(req, ct).ConfigureAwait(false);
             resp.EnsureSuccessStatusCode();
 
             var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
 
-            SimklRatingsResponse? envelope = null;
+            SimklRatingsResponse? envelope;
             try
             {
                 envelope = JsonSerializer.Deserialize<SimklRatingsResponse>(json);
             }
-            catch (JsonException)
+            catch (JsonException ex)
             {
-                // Tolerant: if the response format is unexpected, return what we have
+                // Do NOT swallow this. Returning an empty list on a parse failure
+                // is indistinguishable from "the user has no ratings", which is
+                // what hid issue #19: the pull reported 0 for months while the
+                // export step happily re-pushed the same items every cycle.
+                // Surfacing it puts the reason on the connection's LastError.
+                throw new InvalidOperationException(
+                    "Simkl returned a ratings payload StarTrack could not parse. " +
+                    "This usually means Simkl changed their response format. " +
+                    $"Parse error: {ex.Message}", ex);
+            }
+
+            void AddShows(SimklRatedShow[]? bucket)
+            {
+                if (bucket == null) return;
+                foreach (var item in bucket)
+                {
+                    if (item.Show == null) continue;
+                    // Simkl returns watched items with no rating in the same
+                    // buckets. Skip them — clamping a missing score would
+                    // import the whole watch history as 0.5 stars.
+                    if (item.Score is not int score || score < 1) continue;
+                    result.Add(new ExternalRating(
+                        Imdb:      item.Show.Ids?.Imdb,
+                        Tmdb:      item.Show.Ids?.Tmdb,
+                        Tvdb:      item.Show.Ids?.Tvdb,
+                        Title:     item.Show.Title ?? string.Empty,
+                        Year:      item.Show.Year,
+                        MediaType: "show",
+                        Stars:     RatingScale.FromService10(score),
+                        RatedAt:   ParseRatedAt(item.ScoredAt)));
+                }
             }
 
             if (envelope?.Movies != null)
@@ -361,6 +438,7 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync.Providers
                 foreach (var item in envelope.Movies)
                 {
                     if (item.Movie == null) continue;
+                    if (item.Score is not int score || score < 1) continue;
                     result.Add(new ExternalRating(
                         Imdb:      item.Movie.Ids?.Imdb,
                         Tmdb:      item.Movie.Ids?.Tmdb,
@@ -368,27 +446,13 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync.Providers
                         Title:     item.Movie.Title ?? string.Empty,
                         Year:      item.Movie.Year,
                         MediaType: "movie",
-                        Stars:     RatingScale.FromService10(item.Rating),
-                        RatedAt:   ParseRatedAt(item.RatedAt)));
+                        Stars:     RatingScale.FromService10(score),
+                        RatedAt:   ParseRatedAt(item.ScoredAt)));
                 }
             }
 
-            if (envelope?.Shows != null)
-            {
-                foreach (var item in envelope.Shows)
-                {
-                    if (item.Show == null) continue;
-                    result.Add(new ExternalRating(
-                        Imdb:      item.Show.Ids?.Imdb,
-                        Tmdb:      item.Show.Ids?.Tmdb,
-                        Tvdb:      null,  // VERIFY at smoke-test: Simkl may not expose tvdb in ratings response
-                        Title:     item.Show.Title ?? string.Empty,
-                        Year:      item.Show.Year,
-                        MediaType: "show",
-                        Stars:     RatingScale.FromService10(item.Rating),
-                        RatedAt:   ParseRatedAt(item.RatedAt)));
-                }
-            }
+            AddShows(envelope?.Shows);
+            AddShows(envelope?.Anime);
 
             return result;
         }

@@ -217,68 +217,170 @@ namespace Jellyfin.Plugin.InternalRating.Tests
         // PullRatingsAsync
         // =====================================================================
 
-        [Fact]
-        public async Task PullRatingsAsync_ParsesMoviesAndShows()
+        // ---------------------------------------------------------------------
+        // The payload below is transcribed VERBATIM from Simkl's published
+        // apiary spec ("Get Ratings", /sync/ratings/{type}/{rating}) — not
+        // invented from what our own push code sends.
+        //
+        // Issue #19: the previous fixtures used "rating"/"rated_at" and a
+        // numeric tmdb, which is the shape of our POST *request* body, not
+        // Simkl's GET *response*. The tests passed against the wrong contract
+        // while every real pull returned nothing. Keep this fixture honest.
+        // ---------------------------------------------------------------------
+        private const string RealSimklRatingsJson = """
         {
-            // Simkl returns an envelope object with "movies" and "shows" arrays
-            const string ratingsJson = """
+          "shows": [
+            {
+              "last_watched_at": "2016-09-12T13:00:30Z",
+              "user_rated_at": "2021-06-23T13:19:05Z",
+              "user_rating": 5,
+              "status": "dropped",
+              "last_watched": null,
+              "next_to_watch": "S01E01",
+              "show": {
+                "title": "The Last Ship",
+                "year": 2014,
+                "ids": { "simkl": 42040, "imdb": "tt2402207", "tvdb": "269533" }
+              }
+            }
+          ],
+          "anime": [
+            {
+              "last_watched_at": "2014-11-06T22:05:52Z",
+              "user_rated_at": "2021-06-23T13:19:05Z",
+              "user_rating": 10,
+              "status": "completed",
+              "show": {
+                "title": "Hunter x Hunter",
+                "year": 2011,
+                "ids": { "simkl": 40398, "imdb": "tt2098220", "mal": "11061", "anidb": "8550" }
+              }
+            }
+          ],
+          "movies": [
+            {
+              "last_watched_at": "2014-08-16T18:45:20Z",
+              "user_rated_at": "2021-06-23T13:19:05Z",
+              "user_rating": 6,
+              "status": "completed",
+              "movie": {
+                "title": "Maleficent",
+                "year": 2014,
+                "ids": { "simkl": 195258, "imdb": "tt1587310", "tmdb": "102651" }
+              }
+            }
+          ]
+        }
+        """;
+
+        [Fact]
+        public async Task PullRatingsAsync_ParsesRealSimklPayload()
+        {
+            var client   = MakeClient(_ => Json(RealSimklRatingsJson));
+            var provider = new SimklProvider(client, "cid", "csec");
+            var ratings  = await provider.PullRatingsAsync(FreshConn(), CancellationToken.None);
+
+            // 1 movie + 1 show + 1 anime — anime used to be dropped entirely.
+            Assert.Equal(3, ratings.Count);
+
+            var movie = Assert.Single(ratings, r => r.MediaType == "movie");
+            Assert.Equal("Maleficent", movie.Title);
+            Assert.Equal("tt1587310",  movie.Imdb);
+            Assert.Equal(102651,       movie.Tmdb);          // arrives as the STRING "102651"
+            Assert.Equal(3.0,          movie.Stars);         // user_rating 6 -> 3.0
+            Assert.Equal(2014,         movie.Year);
+            Assert.Equal(new DateTime(2021, 6, 23, 13, 19, 5, DateTimeKind.Utc), movie.RatedAt);
+
+            var show = Assert.Single(ratings, r => r.Title == "The Last Ship");
+            Assert.Equal("show",    show.MediaType);
+            Assert.Equal(269533,    show.Tvdb);              // tvdb was previously discarded
+            Assert.Equal(2.5,       show.Stars);             // user_rating 5 -> 2.5
+
+            var anime = Assert.Single(ratings, r => r.Title == "Hunter x Hunter");
+            Assert.Equal("show", anime.MediaType);
+            Assert.Equal(5.0,    anime.Stars);               // user_rating 10 -> 5.0
+        }
+
+        [Fact]
+        public async Task PullRatingsAsync_SkipsWatchedItemsWithNoRating()
+        {
+            // Simkl returns watched-but-unrated items in the same buckets.
+            // Clamping a missing score would import the whole watch history
+            // at 0.5 stars, silently overwriting real ratings.
+            const string json = """
             {
               "movies": [
                 {
-                  "rating": 8,
-                  "rated_at": "2024-06-01T10:00:00.000Z",
-                  "movie": {
-                    "title": "Inception",
-                    "year": 2010,
-                    "ids": { "imdb": "tt1375666", "tmdb": 27205 }
-                  }
-                }
-              ],
-              "shows": [
+                  "last_watched_at": "2024-01-01T00:00:00Z",
+                  "status": "completed",
+                  "movie": { "title": "Watched Not Rated", "year": 2020, "ids": { "imdb": "tt1" } }
+                },
                 {
-                  "rating": 6,
-                  "rated_at": "2024-06-02T10:00:00.000Z",
-                  "show": {
-                    "title": "Breaking Bad",
-                    "year": 2008,
-                    "ids": { "imdb": "tt0903747", "tmdb": 1396 }
-                  }
+                  "user_rating": 8,
+                  "user_rated_at": "2024-02-01T00:00:00Z",
+                  "movie": { "title": "Rated", "year": 2021, "ids": { "imdb": "tt2" } }
                 }
               ]
             }
             """;
 
-            var client   = MakeClient(_ => Json(ratingsJson));
+            var client   = MakeClient(_ => Json(json));
             var provider = new SimklProvider(client, "cid", "csec");
             var ratings  = await provider.PullRatingsAsync(FreshConn(), CancellationToken.None);
 
-            Assert.Equal(2, ratings.Count);
+            var only = Assert.Single(ratings);
+            Assert.Equal("Rated", only.Title);
+            Assert.Equal(4.0,     only.Stars);
+        }
 
-            var movie = ratings[0];
-            Assert.Equal("movie",      movie.MediaType);
-            Assert.Equal("tt1375666",  movie.Imdb);
-            Assert.Equal(27205,        movie.Tmdb);
-            Assert.Equal(4.0,          movie.Stars);   // rating 8 → 4.0
-            Assert.Equal(2010,         movie.Year);
-            Assert.Equal("Inception",  movie.Title);
+        [Fact]
+        public async Task PullRatingsAsync_FallsBackToPostStyleFieldNames()
+        {
+            // Defensive: if Simkl ever returns the POST-style naming, take it
+            // rather than treating every item as unrated.
+            const string json = """
+            {
+              "movies": [
+                {
+                  "rating": 8,
+                  "rated_at": "2024-06-01T10:00:00.000Z",
+                  "movie": { "title": "Inception", "year": 2010, "ids": { "imdb": "tt1375666", "tmdb": 27205 } }
+                }
+              ]
+            }
+            """;
 
-            var show = ratings[1];
-            Assert.Equal("show",         show.MediaType);
-            Assert.Equal("tt0903747",    show.Imdb);
-            Assert.Equal(1396,           show.Tmdb);
-            Assert.Equal(3.0,            show.Stars);    // rating 6 → 3.0
-            Assert.Equal("Breaking Bad", show.Title);
+            var client   = MakeClient(_ => Json(json));
+            var provider = new SimklProvider(client, "cid", "csec");
+            var ratings  = await provider.PullRatingsAsync(FreshConn(), CancellationToken.None);
+
+            var r = Assert.Single(ratings);
+            Assert.Equal(4.0,   r.Stars);
+            Assert.Equal(27205, r.Tmdb);   // numeric tmdb still accepted
         }
 
         [Fact]
         public async Task PullRatingsAsync_HandlesEmptyEnvelope()
         {
-            var client   = MakeClient(_ => Json("""{"movies":[],"shows":[]}"""));
+            var client   = MakeClient(_ => Json("""{"movies":[],"shows":[],"anime":[]}"""));
             var provider = new SimklProvider(client, "cid", "csec");
 
             var ratings = await provider.PullRatingsAsync(FreshConn(), CancellationToken.None);
 
             Assert.Empty(ratings);
+        }
+
+        [Fact]
+        public async Task PullRatingsAsync_ThrowsRatherThanReportingZeroOnGarbage()
+        {
+            // A parse failure must NOT look like "user has no ratings" — that
+            // is precisely what hid issue #19 for months.
+            var client   = MakeClient(_ => Json("""{"movies": "not-an-array"}"""));
+            var provider = new SimklProvider(client, "cid", "csec");
+
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => provider.PullRatingsAsync(FreshConn(), CancellationToken.None));
+            Assert.Contains("could not parse", ex.Message, StringComparison.OrdinalIgnoreCase);
         }
 
         [Fact]
@@ -288,8 +390,8 @@ namespace Jellyfin.Plugin.InternalRating.Tests
             {
               "movies": [
                 {
-                  "rating": 10,
-                  "rated_at": "2024-01-01T00:00:00.000Z",
+                  "user_rating": 10,
+                  "user_rated_at": "2024-01-01T00:00:00.000Z",
                   "movie": {
                     "title": "NoIds",
                     "year": 1999,
