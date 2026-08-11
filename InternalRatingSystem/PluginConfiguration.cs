@@ -34,6 +34,13 @@ namespace Jellyfin.Plugin.InternalRating
         /// <summary>Replace ratings in the 'Media Bar' plugin with the StarTrack average.</summary>
         public bool ReplaceMediaBarRating { get; set; } = true;
 
+        /// <summary>
+        /// Replace the community rating on the 'Media Bar Enhanced' plugin's home-page
+        /// hero with the StarTrack average. Items StarTrack hasn't rated keep showing
+        /// their native rating rather than going blank.
+        /// </summary>
+        public bool ReplaceMediaBarEnhancedRating { get; set; } = false;
+
         /// <summary>Overlay the StarTrack average rating on media posters in library grids.</summary>
         public bool ShowRatingsOnPosters { get; set; } = true;
 

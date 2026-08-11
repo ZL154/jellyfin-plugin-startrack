@@ -49,18 +49,19 @@
     // handles the 200+ pre-existing literals.
 
     var _STARTRACK_CONFIG = {
-        language:                  'en',
-        hideRecentButton:          false,
-        hideLetterboxdButton:      false,
-        hideExternalSyncButton:    false,
-        rateButtonOnlyInMediaItem: false,
-        replaceMediaDetailsRating: true,
-        replaceMediaBarRating:     true,
-        showRatingsOnPosters:      true,
-        postPlaybackRatingPopup:   true,
-        communityRecentMode:       false,
-        hiddenOverlayViews:        [],
-        supportedLanguages:        ['en','fr','es','de','it','pt','zh','ja']
+        language:                      'en',
+        hideRecentButton:              false,
+        hideLetterboxdButton:          false,
+        hideExternalSyncButton:        false,
+        rateButtonOnlyInMediaItem:     false,
+        replaceMediaDetailsRating:     true,
+        replaceMediaBarRating:         true,
+        replaceMediaBarEnhancedRating: false,
+        showRatingsOnPosters:          true,
+        postPlaybackRatingPopup:       true,
+        communityRecentMode:           false,
+        hiddenOverlayViews:            [],
+        supportedLanguages:            ['en','fr','es','de','it','pt','zh','ja']
     };
 
     var _STARTRACK_STRINGS_EN = null;   // en.json (reference for substitution)
@@ -6734,6 +6735,7 @@
                 applyConfigVisibility();
                 try { startPosterBadges(); } catch (e) {}
                 try { startMediaBarReplace(); } catch (e) {}
+                try { startMediaBarEnhancedReplace(); } catch (e) {}
                 try { startPostPlaybackPopup(); } catch (e) {}
             });
 
@@ -6949,6 +6951,43 @@
                 });
             } catch (e) {}
         }, 2000);
+    }
+
+    // `.star-rating-container` has no id of its own \u2014 the item id lives on
+    // the ancestor `.slide[data-item-id]`. Only rendered when the item
+    // already has a native CommunityRating; StarTrack takes over that slot
+    // when it has a rating. When it doesn't, MBE's native value is left
+    // showing rather than replaced.
+    function startMediaBarEnhancedReplace() {
+        if (!_STARTRACK_CONFIG.replaceMediaBarEnhancedRating) return;
+        setInterval(function () {
+            try {
+                // Polled faster than the loop above (300ms vs 2000ms) and hidden
+                // while in flight: MBE renders the native rating synchronously,
+                // so a slow swap flashes the wrong number first.
+                var stars = document.querySelectorAll('.slide[data-item-id] .star-rating-container:not([data-ir-mbe])');
+                stars.forEach(function (c) {
+                    c.setAttribute('data-ir-mbe', '1');
+                    var slide = c.closest('.slide[data-item-id]');
+                    var id = slide && slide.getAttribute('data-item-id');
+                    if (!id) return;
+                    c.style.visibility = 'hidden';
+                    apiGet(id).then(function (d) {
+                        if (!d || !d.totalRatings) {
+                            c.classList.add('ir-mbe-unrated');
+                            var sep = c.nextElementSibling;
+                            if (sep && sep.classList.contains('separator-icon')) sep.classList.add('ir-mbe-unrated');
+                            return;
+                        }
+                        var icon = c.querySelector('.community-rating-star');
+                        c.textContent = '';
+                        if (icon) c.appendChild(icon);
+                        c.appendChild(document.createTextNode(d.averageRating.toFixed(1)));
+                        c.title = 'StarTrack (' + d.totalRatings + ')';
+                    }).catch(function () {}).finally(function () { c.style.visibility = ''; });
+                });
+            } catch (e) {}
+        }, 300);
     }
 
     // ── Post-playback rating popup ───────────────────────────────────────
@@ -7370,10 +7409,11 @@
         if (simklId) simklId.value = _adminPickKey(c, 'SimklClientId') || '';
         var simklSecret = root.querySelector('#stSimklClientSecret');
         if (simklSecret) simklSecret.value = _adminPickKey(c, 'SimklClientSecret') || '';
-        _adminSetCheckbox(root.querySelector('#stRateOnlyInMedia'),      _adminPickKey(c, 'RateButtonOnlyInMediaItem'));
-        _adminSetCheckbox(root.querySelector('#stReplaceMediaDetails'),  _adminPickKey(c, 'ReplaceMediaDetailsRating'));
-        _adminSetCheckbox(root.querySelector('#stReplaceMediaBar'),      _adminPickKey(c, 'ReplaceMediaBarRating'));
-        _adminSetCheckbox(root.querySelector('#stShowRatingsOnPosters'), _adminPickKey(c, 'ShowRatingsOnPosters'));
+        _adminSetCheckbox(root.querySelector('#stRateOnlyInMedia'),         _adminPickKey(c, 'RateButtonOnlyInMediaItem'));
+        _adminSetCheckbox(root.querySelector('#stReplaceMediaDetails'),     _adminPickKey(c, 'ReplaceMediaDetailsRating'));
+        _adminSetCheckbox(root.querySelector('#stReplaceMediaBar'),         _adminPickKey(c, 'ReplaceMediaBarRating'));
+        _adminSetCheckbox(root.querySelector('#stReplaceMediaBarEnhanced'), _adminPickKey(c, 'ReplaceMediaBarEnhancedRating'));
+        _adminSetCheckbox(root.querySelector('#stShowRatingsOnPosters'),    _adminPickKey(c, 'ShowRatingsOnPosters'));
         var posSel = root.querySelector('#stPosterPosition');
         if (posSel) posSel.value = _adminPickKey(c, 'PosterRatingPosition') || 'top-right';
         var mrl = root.querySelector('#stMaxReviewLength');
@@ -7415,10 +7455,11 @@
         if (_simklId) c.SimklClientId = _simklId.value || '';
         var _simklSecret = root.querySelector('#stSimklClientSecret');
         if (_simklSecret) c.SimklClientSecret = _simklSecret.value || '';
-        c.RateButtonOnlyInMediaItem = !!(root.querySelector('#stRateOnlyInMedia')      && root.querySelector('#stRateOnlyInMedia').checked);
-        c.ReplaceMediaDetailsRating = !!(root.querySelector('#stReplaceMediaDetails')  && root.querySelector('#stReplaceMediaDetails').checked);
-        c.ReplaceMediaBarRating     = !!(root.querySelector('#stReplaceMediaBar')      && root.querySelector('#stReplaceMediaBar').checked);
-        c.ShowRatingsOnPosters      = !!(root.querySelector('#stShowRatingsOnPosters') && root.querySelector('#stShowRatingsOnPosters').checked);
+        c.RateButtonOnlyInMediaItem     = !!(root.querySelector('#stRateOnlyInMedia')         && root.querySelector('#stRateOnlyInMedia').checked);
+        c.ReplaceMediaDetailsRating     = !!(root.querySelector('#stReplaceMediaDetails')     && root.querySelector('#stReplaceMediaDetails').checked);
+        c.ReplaceMediaBarRating         = !!(root.querySelector('#stReplaceMediaBar')         && root.querySelector('#stReplaceMediaBar').checked);
+        c.ReplaceMediaBarEnhancedRating = !!(root.querySelector('#stReplaceMediaBarEnhanced') && root.querySelector('#stReplaceMediaBarEnhanced').checked);
+        c.ShowRatingsOnPosters          = !!(root.querySelector('#stShowRatingsOnPosters')    && root.querySelector('#stShowRatingsOnPosters').checked);
         var _pos = root.querySelector('#stPosterPosition');
         if (_pos) c.PosterRatingPosition = _pos.value || 'top-right';
         var _mrl = root.querySelector('#stMaxReviewLength');

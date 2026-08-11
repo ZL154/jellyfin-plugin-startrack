@@ -277,6 +277,7 @@
   "admin.toggle.hide_letterboxd_sub": "Removes the Letterboxd entry from the rating panel footer.",
   "admin.toggle.replace_details": "Replace the native rating on media detail pages with the StarTrack average",
   "admin.toggle.replace_mediabar": "Replace ratings in the Media Bar plugin with the StarTrack average",
+  "admin.toggle.replace_mediabar_enhanced": "Replace ratings in the Media Bar Enhanced plugin with the StarTrack average",
   "admin.toggle.show_on_posters": "Overlay the StarTrack rating on media posters",
   "admin.toggle.post_playback": "Show a rating popup after a movie or episode finishes playing",
   "admin.default_language_label": "Default language",
