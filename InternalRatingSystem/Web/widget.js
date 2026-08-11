@@ -352,7 +352,11 @@
 
     // ── Utilities ─────────────────────────────────────────────────────────
 
-    function esc(s) { var d = document.createElement('div'); d.appendChild(document.createTextNode(String(s))); return d.innerHTML; }
+    function esc(s) {
+        var d = document.createElement('div');
+        d.appendChild(document.createTextNode(String(s)));
+        return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
 
     function timeAgo(iso) {
         var s = Math.floor((Date.now() - new Date(iso)) / 1000);
@@ -7553,6 +7557,88 @@
             .catch(function () {});
     }
 
+    // ── Admin: set up Letterboxd sync on behalf of any user ────────────────
+    // Renders one row per Jellyfin user with their current Letterboxd link
+    // (if any). Saving posts to the elevated AdminSettings endpoint, which
+    // both stores the username and runs an immediate sync.
+
+    function _adminLoadLetterboxdUsers() {
+        var auth = getAuth(); if (!auth) return;
+        var el = document.getElementById('stLetterboxdUsers');
+        if (!el) return;
+        fetch(_ST_BASE + '/Plugins/StarTrack/Letterboxd/AdminUsers', { headers: { Authorization: auth } })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (list) { _adminRenderLetterboxdUsers(list || []); })
+            .catch(function () {
+                if (el) el.textContent = tr('cfg.lb_users_load_failed', null, 'Could not load users.');
+            });
+    }
+
+    function _adminRenderLetterboxdUsers(list) {
+        var el = document.getElementById('stLetterboxdUsers');
+        if (!el) return;
+        if (!list.length) {
+            el.textContent = tr('cfg.lb_no_users', null, 'No users found.');
+            return;
+        }
+        var rows = list.map(function (u) {
+            return '<tr data-user-id="' + esc(u.userId) + '">' +
+                '<td>' + esc(u.userName) + '</td>' +
+                '<td><input type="text" class="st-lb-username" value="' + esc(u.username || '') + '" placeholder="letterboxd username"></td>' +
+                '<td><input type="checkbox" class="st-cb st-lb-autosync"' + (u.enableAutoSync ? ' checked' : '') + '></td>' +
+                '<td><button type="button" class="st-lb-save">' + tr('cfg.lb_save_sync', null, 'Save & Sync') + '</button></td>' +
+                '<td class="st-lb-status"></td>' +
+                '</tr>';
+        }).join('');
+        el.innerHTML =
+            '<table class="st-lb-table"><thead><tr>' +
+            '<th>' + tr('cfg.lb_col_user', null, 'User') + '</th>' +
+            '<th>' + tr('cfg.lb_col_username', null, 'Letterboxd username') + '</th>' +
+            '<th>' + tr('cfg.lb_col_autosync', null, 'Auto-sync') + '</th>' +
+            '<th></th><th></th>' +
+            '</tr></thead><tbody>' + rows + '</tbody></table>';
+    }
+
+    function _adminSaveLetterboxdUser(row) {
+        var userId = row.getAttribute('data-user-id');
+        var usernameInput = row.querySelector('.st-lb-username');
+        var autoSyncInput = row.querySelector('.st-lb-autosync');
+        var saveBtn = row.querySelector('.st-lb-save');
+        var status = row.querySelector('.st-lb-status');
+        var auth = getAuth();
+        if (!userId || !auth) return;
+
+        var username = usernameInput ? usernameInput.value.trim() : '';
+        var enableAutoSync = !!(autoSyncInput && autoSyncInput.checked);
+
+        var show = function (msg, ok) {
+            if (!status) return;
+            status.style.color = ok ? '#52b54b' : '#ff8080';
+            status.textContent = msg;
+        };
+
+        if (saveBtn) saveBtn.disabled = true;
+        show(tr('cfg.lb_saving', null, 'Saving…'), true);
+
+        fetch(_ST_BASE + '/Plugins/StarTrack/Letterboxd/AdminSettings/' + encodeURIComponent(userId), {
+            method: 'POST',
+            headers: { Authorization: auth, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: username, enableAutoSync: enableAutoSync })
+        })
+            .then(function (r) {
+                if (!r.ok) return r.text().then(function (t) { throw new Error(t || ('HTTP ' + r.status)); });
+                return r.json();
+            })
+            .then(function (result) {
+                if (!username) { show('✓ ' + tr('cfg.lb_cleared', null, 'Cleared'), true); return; }
+                if (result && result.error) { show('✗ ' + result.error, false); return; }
+                var n = (result && (result.imported + result.updated)) || 0;
+                show('✓ ' + n + ' ' + tr('cfg.lb_synced', null, 'ratings synced'), true);
+            })
+            .catch(function (e) { show('✗ ' + (e && e.message || 'Failed'), false); })
+            .finally(function () { if (saveBtn) saveBtn.disabled = false; });
+    }
+
     function _adminWireInstance(page) {
         if (!page || page.dataset.stWired === '1') return;
         page.dataset.stWired = '1';
@@ -7629,6 +7715,19 @@
                     .finally(function () { backfillBtn.disabled = false; });
             });
         }
+
+        // Delegated: the per-user Letterboxd rows are rendered dynamically
+        // by _adminRenderLetterboxdUsers, so the buttons don't exist yet
+        // when this instance is first wired.
+        var lbContainer = page.querySelector('#stLetterboxdUsers');
+        if (lbContainer) {
+            lbContainer.addEventListener('click', function (ev) {
+                var btn = ev.target.closest('.st-lb-save');
+                if (!btn) return;
+                var row = btn.closest('tr[data-user-id]');
+                if (row) _adminSaveLetterboxdUser(row);
+            });
+        }
     }
 
     function _adminTick() {
@@ -7642,6 +7741,7 @@
             _adminLoadTranslations(_adminCurrentLang()).then(_adminTranslatePage);
             _adminLoadSettings();
             _adminLoadStats();
+            _adminLoadLetterboxdUsers();
         } else if (_adminCachedConfig && !_adminLocalDirty) {
             // Reassert cached state — protects against Jellyfin or theme
             // scripts that silently clear the checkboxes after render.

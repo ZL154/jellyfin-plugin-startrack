@@ -67,7 +67,10 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             finally { _lock.Release(); }
         }
 
-        /// <summary>Sets username + auto-sync toggle. Preserves sync state fields.</summary>
+        /// <summary>
+        /// Sets username + auto-sync toggle. Preserves other sync state fields —
+        /// except when the username actually changes.
+        /// </summary>
         public async Task SetConfigAsync(string userId, string username, bool enableAutoSync)
         {
             await _lock.WaitAsync().ConfigureAwait(false);
@@ -78,7 +81,14 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                     s = new LetterboxdUserSettings();
                     _store.Users[userId] = s;
                 }
-                s.Username       = (username ?? string.Empty).Trim();
+                var trimmed = (username ?? string.Empty).Trim();
+                if (!string.Equals(s.Username, trimmed, StringComparison.Ordinal))
+                {
+                    s.RssETag         = null;
+                    s.RssLastModified = null;
+                    s.LastSyncedGuid  = null;
+                }
+                s.Username       = trimmed;
                 s.EnableAutoSync = enableAutoSync;
                 await SaveAsync().ConfigureAwait(false);
             }

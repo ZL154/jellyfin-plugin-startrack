@@ -11,6 +11,13 @@
 
             <!-- Inline styles so they survive Jellyfin's SPA page loader -->
             <style>
+                #StarTrackConfigPage .st-lb-table{width:100%;border-collapse:collapse;margin-top:6px}
+                #StarTrackConfigPage .st-lb-table th{text-align:left;color:rgba(255,255,255,.5);font-weight:600;font-size:.8em;text-transform:uppercase;letter-spacing:.05em;padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.1)}
+                #StarTrackConfigPage .st-lb-table td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:middle}
+                #StarTrackConfigPage .st-lb-username{width:100%;max-width:220px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);border-radius:6px;color:#fff;padding:6px 8px}
+                #StarTrackConfigPage .st-lb-save{background:#f4c430;color:#000;border:none;border-radius:6px;padding:6px 14px;font-weight:700;cursor:pointer;white-space:nowrap}
+                #StarTrackConfigPage .st-lb-save:disabled{opacity:.5;cursor:default}
+                #StarTrackConfigPage .st-lb-status{font-size:.85em;color:rgba(255,255,255,.6)}
                 #StarTrackConfigPage .st-group{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:4px 18px 8px;margin-bottom:14px;display:block}
                 #StarTrackConfigPage .st-group-title{color:#f4c430;font-weight:700;font-size:.85em;text-transform:uppercase;letter-spacing:.08em;padding:14px 0 10px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:0}
                 #StarTrackConfigPage .st-row{display:flex;align-items:flex-start;gap:14px;padding:14px 0;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.05);margin:0}
@@ -374,6 +381,14 @@
                     The hourly sync is a standard Jellyfin scheduled task — you can adjust its
                     interval in <code>Dashboard → Scheduled Tasks → StarTrack Letterboxd Sync</code>.
                 </p>
+            </div>
+
+            <div class="verticalSection" style="margin-top:24px;">
+                <h3 class="sectionTitle">🎞 <span data-tr="Letterboxd Sync – Admin Configuration">Letterboxd Sync – Admin Configuration</span></h3>
+                <p style="color:rgba(255,255,255,.7);line-height:1.55;" data-tr="Link a Letterboxd username to any user, then Save &amp; Sync to instantly sync. Optional toggle for the hourly auto-sync.">
+                    Link a Letterboxd username to any user, then Save &amp; Sync to instantly sync. Optional toggle for the hourly auto-sync.
+                </p>
+                <div id="stLetterboxdUsers" style="margin-top:10px;color:rgba(255,255,255,.5);font-size:.9em;" data-tr="Loading users…">Loading users…</div>
             </div>
 
             <div class="verticalSection" style="margin-top:24px;padding-top:18px;border-top:1px solid rgba(255,255,255,.08);">
