@@ -11,11 +11,77 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
     // relied on Jellyfin's naming policy and got PascalCase keys back instead
     // of camelCase).
 
+    /// <summary>
+    /// Which way ratings flow between StarTrack and Letterboxd.
+    /// Mirrors ExternalSync's SyncDirection so the two panels behave alike.
+    ///
+    /// Import needs only a username (public RSS/CSV). Export needs the account
+    /// password, because Letterboxd has no public write API — see
+    /// <see cref="LetterboxdSecretProtector"/>.
+    /// </summary>
+    public enum LetterboxdDirection
+    {
+        /// <summary>No syncing.</summary>
+        Off = 0,
+        /// <summary>Letterboxd → StarTrack only. This is the classic behaviour and needs no password.</summary>
+        ImportOnly = 1,
+        /// <summary>StarTrack → Letterboxd only. Requires a linked account.</summary>
+        ExportOnly = 2,
+        /// <summary>Both directions, newer-wins on conflict. Requires a linked account.</summary>
+        TwoWay = 3
+    }
+
     /// <summary>Per-user Letterboxd sync settings + state.</summary>
     public sealed class LetterboxdUserSettings
     {
         [JsonPropertyName("username")]           public string   Username       { get; set; } = string.Empty;
         [JsonPropertyName("enableAutoSync")]     public bool     EnableAutoSync { get; set; }
+
+        // ---- Write-back (v1.6.5) ------------------------------------------
+        // Import has always worked off the public RSS feed and CSV exports.
+        // Pushing back requires driving letterboxd.com as the signed-in user,
+        // so these only matter once the user opts into an export direction.
+
+        /// <summary>Direction of sync. Defaults to ImportOnly, which is exactly what pre-1.6.5 did.</summary>
+        [JsonPropertyName("direction")]          public LetterboxdDirection Direction { get; set; } = LetterboxdDirection.ImportOnly;
+
+        /// <summary>
+        /// The account password, ENCRYPTED AT REST. Never returned by any API
+        /// response — the DTOs expose <c>hasPassword</c> instead. Read it only
+        /// through <see cref="LetterboxdSecretProtector.Unprotect"/>.
+        /// </summary>
+        [JsonPropertyName("passwordEnc")]        public string?  PasswordEnc    { get; set; }
+
+        /// <summary>
+        /// Optional raw Cookie header (needs <c>cf_clearance</c>) for installs
+        /// where Cloudflare challenges the server. Also encrypted at rest — a
+        /// live session cookie is as sensitive as the password.
+        /// </summary>
+        [JsonPropertyName("rawCookiesEnc")]      public string?  RawCookiesEnc  { get; set; }
+
+        /// <summary>
+        /// User-Agent to pair with <see cref="RawCookiesEnc"/>. Cloudflare pins
+        /// cf_clearance to the exact UA that solved the challenge, so cookies
+        /// copied from Chrome sent with a Firefox UA are rejected.
+        /// </summary>
+        [JsonPropertyName("userAgent")]          public string?  UserAgent      { get; set; }
+
+        /// <summary>Push star ratings to Letterboxd.</summary>
+        [JsonPropertyName("pushRatings")]        public bool     PushRatings    { get; set; } = true;
+
+        /// <summary>Log watches as Letterboxd diary entries (with rewatch detection).</summary>
+        [JsonPropertyName("pushWatched")]        public bool     PushWatched    { get; set; } = true;
+
+        /// <summary>Mirror ♡ liked films to Letterboxd likes.</summary>
+        [JsonPropertyName("pushLiked")]          public bool     PushLiked      { get; set; } = true;
+
+        /// <summary>Post written reviews alongside the diary entry.</summary>
+        [JsonPropertyName("pushReviews")]        public bool     PushReviews    { get; set; }
+
+        // ---- Push state ----
+        [JsonPropertyName("lastPushedAt")]       public DateTime? LastPushedAt   { get; set; }
+        [JsonPropertyName("lastPushedCount")]    public int      LastPushedCount { get; set; }
+        [JsonPropertyName("lastPushError")]      public string?  LastPushError   { get; set; }
         [JsonPropertyName("lastSyncedGuid")]     public string?  LastSyncedGuid { get; set; }
         [JsonPropertyName("lastSyncedAt")]       public DateTime? LastSyncedAt  { get; set; }
         [JsonPropertyName("lastImportedCount")]  public int   LastImportedCount { get; set; }
