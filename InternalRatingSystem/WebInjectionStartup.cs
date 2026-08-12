@@ -51,6 +51,17 @@ namespace Jellyfin.Plugin.InternalRating
             // scheduler picks it up and runs it hourly by default.
             services.AddSingleton<IScheduledTask, LetterboxdSyncTask>();
 
+            // ---- Letterboxd write-back (v1.6.5) ----
+            // Ledger of diary entries already pushed. Its own JSON file rather
+            // than part of letterboxd.json: it grows with the user's library and
+            // the settings store is cloned on every read.
+            services.AddSingleton<LetterboxdPushLedger>(sp =>
+                new LetterboxdPushLedger(sp.GetRequiredService<IApplicationPaths>()));
+
+            // Push orchestrator. Takes IRatingGatherer/ILikedGatherer registered
+            // further down for ExternalSync — same local data, different sink.
+            services.AddSingleton<LetterboxdPushService>();
+
             // ---- ExternalSync services ----
             // FileExportService has no dependencies (pure serialisation helper).
             services.AddSingleton<FileExportService>();

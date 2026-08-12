@@ -38,15 +38,56 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
     }
 
     /// <summary>
+    /// The write surface StarTrack needs from Letterboxd.
+    ///
+    /// Exists as a seam: today the only implementation drives letterboxd.com as
+    /// a signed-in browser session, because Letterboxd's public API is closed.
+    /// If they ever issue an API key, an ApiLetterboxdWriter can implement this
+    /// and drop in without the push orchestrator changing at all.
+    /// </summary>
+    public interface ILetterboxdWriter
+    {
+        /// <summary>Resolves a TMDb movie id to a Letterboxd film, or null if unknown to them.</summary>
+        Task<LetterboxdFilm?> ResolveFilmAsync(int tmdbId, CancellationToken ct = default);
+
+        /// <summary>Sets the member's rating for a film in place. Idempotent.</summary>
+        Task<LetterboxdWriteResult> SetRatingAsync(LetterboxdFilm film, double? stars, CancellationToken ct = default);
+
+        /// <summary>Marks a film watched. Idempotent.</summary>
+        Task<LetterboxdWriteResult> SetWatchedAsync(LetterboxdFilm film, CancellationToken ct = default);
+
+        /// <summary>Creates a dated diary entry. NOT idempotent — callers must dedupe.</summary>
+        Task<LetterboxdWriteResult> LogEntryAsync(
+            LetterboxdFilm film, DateTime watchedAt, double? rating, bool liked, bool rewatch,
+            string? review = null, bool containsSpoilers = false, CancellationToken ct = default);
+    }
+
+    /// <summary>
     /// Writes StarTrack activity back to letterboxd.com through an authenticated
     /// <see cref="LetterboxdSession"/>.
     ///
-    /// SCALE NOTE: Letterboxd rates on 0.5–5.0 in half-star steps, which is
-    /// exactly StarTrack's own scale, so ratings pass through unconverted. Do
-    /// not "helpfully" multiply by two here — Trakt and Simkl use 1–10, this
-    /// does not, and mixing them up silently rewrites people's ratings.
+    /// ==================== READ BEFORE TOUCHING RATINGS ====================
+    /// Letterboxd exposes TWO write paths and they use DIFFERENT RATING SCALES.
+    /// Verified against both endpoints, not assumed:
+    ///
+    ///   POST /s/film:{id}/rate/    rating = 0..10 INTEGER  (0 clears it)
+    ///                              idempotent: sets the rating in place
+    ///
+    ///   POST /api/v0/log-entries   rating = 0.5..5.0 HALF-STARS
+    ///                              creates a NEW diary entry on every call
+    ///
+    /// StarTrack's own scale is 0.5–5.0, so the log-entries path passes through
+    /// unconverted while the rate path doubles. Getting these the wrong way
+    /// round halves or doubles every rating a user pushes — the same class of
+    /// bug as issue #19. Both directions are pinned by tests.
+    ///
+    /// The idempotency difference is why the push orchestrator prefers
+    /// rate/watch for ongoing sync and treats diary entries as opt-in: a
+    /// repeated rate is a no-op, a repeated log-entry is a duplicate in
+    /// someone's diary, forever, every ten minutes.
+    /// ======================================================================
     /// </summary>
-    public sealed class LetterboxdWriteService
+    public sealed class LetterboxdWriteService : ILetterboxdWriter
     {
         private readonly LetterboxdSession _session;
         private readonly ILogger _logger;
@@ -127,8 +168,85 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         }
 
         /// <summary>
+        /// Converts StarTrack's 0.5–5.0 half-stars to the 0–10 integer the
+        /// <c>/s/film:{id}/rate/</c> endpoint expects. 0 clears the rating.
+        /// </summary>
+        internal static int ToRateEndpointScale(double? stars)
+        {
+            if (stars is not double s || s <= 0) return 0;          // 0 = remove rating
+            return (int)Math.Clamp(Math.Round(s * 2, MidpointRounding.AwayFromZero), 1, 10);
+        }
+
+        /// <summary>
+        /// Sets the member's rating for a film, in place. Idempotent — sending
+        /// the same value again is a no-op, so this is safe on every sync tick.
+        /// Pass null or 0 stars to clear the rating.
+        /// </summary>
+        public Task<LetterboxdWriteResult> SetRatingAsync(
+            LetterboxdFilm film, double? stars, CancellationToken ct = default)
+            => PostFormAsync(film, "rate", new Dictionary<string, string>
+            {
+                ["rating"] = ToRateEndpointScale(stars).ToString(CultureInfo.InvariantCulture)
+            }, ct);
+
+        /// <summary>Marks a film watched. Idempotent.</summary>
+        public Task<LetterboxdWriteResult> SetWatchedAsync(LetterboxdFilm film, CancellationToken ct = default)
+            => PostFormAsync(film, "watch", new Dictionary<string, string> { ["watched"] = "true" }, ct);
+
+        /// <summary>
+        /// Shared plumbing for the form-encoded <c>/s/film:{id}/{action}/</c>
+        /// endpoints, which take the CSRF token in the body rather than a header.
+        /// </summary>
+        private async Task<LetterboxdWriteResult> PostFormAsync(
+            LetterboxdFilm film, string action, Dictionary<string, string> fields, CancellationToken ct)
+        {
+            if (film == null) return new LetterboxdWriteResult(LetterboxdWriteStatus.FilmNotFound);
+            if (!_session.IsAuthenticated)
+                return new LetterboxdWriteResult(LetterboxdWriteStatus.NeedsReauth, "Not signed in to Letterboxd.");
+
+            // Letterboxd's own JS reads the CSRF value out of the cookie and
+            // posts it straight back as __csrf; mirror that exactly.
+            fields["__csrf"] = _session.Csrf;
+
+            try
+            {
+                using var req = new HttpRequestMessage(HttpMethod.Post, $"/s/film:{film.FilmId}/{action}/")
+                {
+                    Content = new FormUrlEncodedContent(fields)
+                };
+                req.Headers.Referrer = new Uri($"{LetterboxdSession.BaseUrl}/film/{film.Slug}/");
+                req.Headers.TryAddWithoutValidation("X-Requested-With", "XMLHttpRequest");
+
+                using var res = await _session.Http.SendAsync(req, ct).ConfigureAwait(false);
+
+                if (res.IsSuccessStatusCode) return new LetterboxdWriteResult(LetterboxdWriteStatus.Ok);
+
+                return res.StatusCode switch
+                {
+                    HttpStatusCode.Unauthorized => new LetterboxdWriteResult(
+                        LetterboxdWriteStatus.NeedsReauth, "Letterboxd session expired."),
+                    HttpStatusCode.Forbidden => new LetterboxdWriteResult(
+                        LetterboxdWriteStatus.Cloudflare,
+                        "Letterboxd returned 403 — Cloudflare, or the session/CSRF token expired."),
+                    HttpStatusCode.NotFound => new LetterboxdWriteResult(LetterboxdWriteStatus.FilmNotFound),
+                    _ => new LetterboxdWriteResult(LetterboxdWriteStatus.Failed,
+                        $"Letterboxd returned HTTP {(int)res.StatusCode}.")
+                };
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "[StarTrack] Letterboxd {Action} failed for {Slug}", action, film.Slug);
+                return new LetterboxdWriteResult(LetterboxdWriteStatus.Failed, "Could not reach Letterboxd.");
+            }
+        }
+
+        /// <summary>
         /// Creates a diary log entry: the watch date, optional rating, like flag,
         /// rewatch flag and optional review, in one write.
+        ///
+        /// NOT IDEMPOTENT — every call adds another dated entry to the member's
+        /// diary. Callers must dedupe (see LetterboxdPushLedger).
         /// </summary>
         /// <param name="film">Resolved film.</param>
         /// <param name="watchedAt">Diary date. Local date only — Letterboxd stores a day, not an instant.</param>
