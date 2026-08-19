@@ -588,6 +588,14 @@
             'html[data-st-tv="1"] #ir-widget .ir-sw:focus{outline:none!important;box-shadow:none!important;transform:scale(1.3)!important;filter:drop-shadow(0 0 6px rgba(244,196,48,.9))!important}',
             'html[data-st-tv="1"][data-st-size="large"] .ir-pill{padding:14px 28px!important;font-size:26px!important}',
             'html[data-st-tv="1"][data-st-size="large"] #ir-page-badge{font-size:24px!important;padding:8px 18px!important}',
+            // [v1.6.5] (#8, locksoft follow-up video) v1.6.4 made every panel
+            // control D-pad FOCUSABLE on TV but never scaled the panel itself, so
+            // you could focus controls you still couldn't read: the panel inherits
+            // #ir-widget's 14px and its children are em-based off that (review box
+            // .8em ~= 11px on a 1080p TV). Setting the panel font-size in absolute
+            // px cascades to every em child, so one rule covers the whole panel.
+            // max-height guards the taller text against running off-screen.
+            'html[data-st-tv="1"][data-st-size="large"] .ir-panel{width:560px!important;padding:26px!important;font-size:22px!important;max-height:80vh!important;overflow-y:auto!important}',
             // [v1.6.2] (#8, locksoft) TV: post-playback popup stars are focusable; show a focus ring.
             '#ir-pp-prompt .ir-pp-star{border-radius:6px;outline:none}',
             'html[data-st-tv="1"] #ir-pp-prompt .ir-pp-star:focus{outline:3px solid #f4c430!important;outline-offset:2px!important}',
@@ -1686,7 +1694,7 @@
                         '<span class="ir-yc"></span>' +
                     '</div>' +
                     '<div class="ir-rev-wrap">' +
-                        '<textarea class="ir-rev" placeholder="Add a review (optional)\u2026" maxlength="' + (_STARTRACK_CONFIG.maxReviewLength || 10000) + '" rows="2"></textarea>' +
+                        '<textarea class="ir-rev" placeholder="' + esc(tr('ui.panel.review_placeholder', null, 'Add a review (optional)\u2026')) + '" maxlength="' + (_STARTRACK_CONFIG.maxReviewLength || 10000) + '" rows="2"></textarea>' +
                         '<span class="ir-rev-hint">0 / ' + (_STARTRACK_CONFIG.maxReviewLength || 10000) + '</span>' +
                     '</div>' +
                     '<div class="ir-submit-row">' +
@@ -5773,7 +5781,7 @@
         setStarDisplay(myVal);
 
         var yc = el.querySelector('.ir-yc'), rb = el.querySelector('.ir-rb'), submit = el.querySelector('.ir-submit'), rev = el.querySelector('.ir-rev');
-        yc.textContent     = myVal ? myVal.toFixed(1) + ' \u2605 selected' : '';
+        yc.textContent     = myVal ? tr('ui.panel.stars_selected', { n: myVal.toFixed(1) }, myVal.toFixed(1) + ' \u2605 selected') : '';
         rb.style.display   = myVal ? '' : 'none';
         submit.textContent = myVal ? '\u2605 Update Rating' : '\u2605 Save Rating';
         submit.classList.toggle('ir-ready', myVal > 0);
@@ -5916,7 +5924,7 @@
                 e.stopPropagation();
                 _pendingStars = v;
                 setStarDisplay(v);
-                yc.textContent = v.toFixed(1) + ' \u2605 selected';
+                yc.textContent = tr('ui.panel.stars_selected', { n: v.toFixed(1) }, v.toFixed(1) + ' \u2605 selected');
                 submit.classList.add('ir-ready');
             });
         });
@@ -5934,7 +5942,7 @@
                     e.preventDefault(); e.stopPropagation();
                     _pendingStars = full;
                     setStarDisplay(full);
-                    yc.textContent = full.toFixed(1) + ' \u2605 selected';
+                    yc.textContent = tr('ui.panel.stars_selected', { n: full.toFixed(1) }, full.toFixed(1) + ' \u2605 selected');
                     submit.classList.add('ir-ready');
                 }
             });

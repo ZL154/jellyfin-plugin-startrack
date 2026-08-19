@@ -563,5 +563,6 @@
   "cfg.lb_cleared": "Cancellato",
   "cfg.lb_synced": "valutazioni sincronizzate",
   "admin.toggle.replace_mediabar_enhanced": "Sostituisci le valutazioni del plugin Media Bar Enhanced con la media di StarTrack",
-  "widget.startrack_count": "StarTrack ({n})"
+  "widget.startrack_count": "StarTrack ({n})",
+  "ui.panel.stars_selected": "{n} ★ selezionate"
 }

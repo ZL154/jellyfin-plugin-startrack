@@ -563,5 +563,6 @@
   "cfg.lb_cleared": "已清除",
   "cfg.lb_synced": "条评分已同步",
   "admin.toggle.replace_mediabar_enhanced": "将 Media Bar Enhanced 插件中的评分替换为 StarTrack 平均分",
-  "widget.startrack_count": "StarTrack ({n})"
+  "widget.startrack_count": "StarTrack ({n})",
+  "ui.panel.stars_selected": "已选 {n} ★"
 }

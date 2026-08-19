@@ -563,5 +563,6 @@
   "cfg.lb_cleared": "クリアしました",
   "cfg.lb_synced": "件の評価を同期しました",
   "admin.toggle.replace_mediabar_enhanced": "Media Bar Enhanced プラグインの評価を StarTrack の平均値に置き換える",
-  "widget.startrack_count": "StarTrack ({n})"
+  "widget.startrack_count": "StarTrack ({n})",
+  "ui.panel.stars_selected": "{n} ★ 選択中"
 }

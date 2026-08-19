@@ -563,5 +563,6 @@
   "cfg.backfill_running": "Backfilling…",
   "cfg.backfill_done": "ratings written to the native field",
   "cfg.backfill_no_auth": "Not signed in",
-  "widget.startrack_count": "StarTrack ({n})"
+  "widget.startrack_count": "StarTrack ({n})",
+  "ui.panel.stars_selected": "{n} ★ selected"
 }

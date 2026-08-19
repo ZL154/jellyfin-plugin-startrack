@@ -563,5 +563,6 @@
   "cfg.lb_cleared": "Effacé",
   "cfg.lb_synced": "notes synchronisées",
   "admin.toggle.replace_mediabar_enhanced": "Remplacer les notes du plugin Media Bar Enhanced par la moyenne StarTrack",
-  "widget.startrack_count": "StarTrack ({n})"
+  "widget.startrack_count": "StarTrack ({n})",
+  "ui.panel.stars_selected": "{n} ★ sélectionnées"
 }
