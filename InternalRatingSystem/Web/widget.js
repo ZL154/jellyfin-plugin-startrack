@@ -5852,6 +5852,110 @@
 
     // ── Interactions ──────────────────────────────────────────────────────
 
+    // ── TV: keep D-pad focus INSIDE the open rating panel ────────────────
+    // [v1.6.5] (#8, locksoft follow-up video) v1.6.4 made the panel controls
+    // focusable, but opening the panel never moved focus into it and nothing
+    // stopped webOS/Tizen spatial navigation from walking straight back out.
+    // Net effect on a TV: the star row was unreachable, so the panel could be
+    // opened but a rating could not actually be set. His words: "this button
+    // only opens and closes, it should open and get the focus on the stars".
+    //
+    // Rows are derived from the RENDERED layout (bucketed by vertical
+    // position) rather than a hardcoded list of selectors, so the panel's
+    // markup can change without silently breaking remote navigation again.
+
+    function _stPanelFocusables(panel) {
+        var sel = '.ir-sw, button, textarea, select, a[href], [tabindex]';
+        return Array.prototype.filter.call(panel.querySelectorAll(sel), function (n) {
+            if (n.disabled) return false;
+            if (n.getAttribute('tabindex') === '-1') return false;
+            var r = n.getBoundingClientRect();
+            return r.width > 0 && r.height > 0;      // visible only
+        });
+    }
+
+    // Group focusables into visual rows, each ordered left-to-right.
+    function _stPanelRows(panel) {
+        var items = _stPanelFocusables(panel), buckets = {}, keys = [];
+        items.forEach(function (n) {
+            var top = Math.round(n.getBoundingClientRect().top / 10) * 10;
+            if (!buckets[top]) { buckets[top] = []; keys.push(top); }
+            buckets[top].push(n);
+        });
+        keys.sort(function (a, b) { return a - b; });
+        return keys.map(function (k) {
+            return buckets[k].sort(function (a, b) {
+                return a.getBoundingClientRect().left - b.getBoundingClientRect().left;
+            });
+        });
+    }
+
+    // Focus the star matching the current rating, so OK/Enter on open is
+    // already sitting on something useful. Falls back to the first control.
+    function _stFocusPanelStart(panel) {
+        if (!_ST_IS_TV || !panel) return;
+        setTimeout(function () {
+            try {
+                var stars = panel.querySelectorAll('.ir-sw');
+                if (stars.length) {
+                    var cur = panel.querySelector('.ir-sw.ir-full:last-of-type');
+                    (cur || stars[0]).focus();
+                    return;
+                }
+                var f = _stPanelFocusables(panel);
+                if (f.length) f[0].focus();
+            } catch (e) {}
+        }, 0);   // after the render pass that rebuilds the star row
+    }
+
+    function _stBindPanelFocusTrap(panel, pill, closeFn) {
+        if (!_ST_IS_TV || !panel) return;
+        panel.addEventListener('keydown', function (e) {
+            if (!panel.classList.contains('ir-open')) return;
+
+            var k = e.key;
+            if (k === 'Escape' || k === 'Backspace' || k === 'GoBack' || k === 'XF86Back') {
+                e.preventDefault(); e.stopPropagation();
+                closeFn();
+                if (pill) try { pill.focus(); } catch (err) {}
+                return;
+            }
+
+            var horiz = (k === 'ArrowLeft' || k === 'ArrowRight');
+            var vert  = (k === 'ArrowUp'   || k === 'ArrowDown');
+            if (!horiz && !vert) return;
+
+            var active = document.activeElement;
+            // Inside the review box, left/right belong to the caret.
+            if (active && active.classList && active.classList.contains('ir-rev') && horiz) return;
+
+            var rows = _stPanelRows(panel);
+            if (!rows.length) return;
+
+            var r = -1, c = -1;
+            for (var i = 0; i < rows.length && r < 0; i++) {
+                var j = rows[i].indexOf(active);
+                if (j >= 0) { r = i; c = j; }
+            }
+            // Focus drifted outside the panel — pull it back in rather than
+            // letting the platform keep walking away.
+            if (r < 0) { e.preventDefault(); rows[0][0].focus(); return; }
+
+            var nr = r, nc = c;
+            if (horiz) {
+                nc = c + (k === 'ArrowRight' ? 1 : -1);
+                if (nc < 0 || nc >= rows[r].length) { e.preventDefault(); e.stopPropagation(); return; }  // stay put, don't escape
+            } else {
+                nr = r + (k === 'ArrowDown' ? 1 : -1);
+                if (nr < 0 || nr >= rows.length) { e.preventDefault(); e.stopPropagation(); return; }
+                nc = Math.min(c, rows[nr].length - 1);
+            }
+
+            e.preventDefault(); e.stopPropagation();
+            try { rows[nr][nc].focus(); } catch (err) {}
+        }, true);   // capture: beat the platform's own spatial navigation
+    }
+
     function bindInteractions(el) {
         bindLanguagePickers(el);
         bindSizeToggle(el);
@@ -5866,6 +5970,15 @@
         var actWatch = el.querySelector('.ir-act-watch');
         var actFav   = el.querySelector('.ir-act-fav');
         var open = false, listOpen = false;
+
+        // TV only: trap D-pad focus inside the panel while it is open, and let
+        // Back/Escape close it and hand focus back to the pill.
+        _stBindPanelFocusTrap(panel, pill, function () {
+            open = false;
+            panel.classList.remove('ir-open');
+            var lbEl0 = el.querySelector('.ir-lb-view');
+            if (lbEl0) lbEl0.style.display = 'none';
+        });
 
         pill.addEventListener('click', function () {
             open = !open;
@@ -5888,10 +6001,11 @@
                 if (_curId) {
                     itemView.style.display   = '';
                     recentView.style.display = 'none';
-                    apiGet(_curId).then(function (d) { if (d) render(d); });
+                    apiGet(_curId).then(function (d) { if (d) render(d); _stFocusPanelStart(panel); });
                 } else {
                     itemView.style.display   = 'none';
                     recentView.style.display = '';
+                    _stFocusPanelStart(panel);
                 }
             }
         });
