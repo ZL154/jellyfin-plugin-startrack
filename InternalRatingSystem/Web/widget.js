@@ -838,6 +838,12 @@
             '.ir-lb-open-btn{display:block!important;width:100%!important;margin-top:10px!important;background:none!important;border:1px dashed rgba(244,196,48,.28)!important;color:rgba(244,196,48,.75)!important;border-radius:6px!important;padding:6px 10px!important;font-size:.76em!important;font-weight:600!important;cursor:pointer!important;text-align:center!important;letter-spacing:.02em!important;transition:all .15s!important}',
             '.ir-lb-open-btn:hover{background:rgba(244,196,48,.08)!important;border-color:#f4c430!important;color:#fff!important}',
             '.ir-lb-view{color:#fff!important}',
+            '.ir-lb-warn{background:rgba(244,196,48,.10)!important;border:1px solid rgba(244,196,48,.35)!important;border-radius:6px!important;padding:8px 10px!important;font-size:.78em!important;line-height:1.5!important;color:#f0d68a!important;margin:8px 0!important}',
+            '.ir-lb-push-toggle-row{margin-top:10px!important}',
+            '.ir-lb-push input[type=password],.ir-lb-push input[type=text]{width:100%!important;background:rgba(255,255,255,.06)!important;border:1px solid rgba(255,255,255,.16)!important;border-radius:6px!important;color:#fff!important;padding:6px 8px!important;font-size:.8em!important;margin-top:5px!important;outline:none!important}',
+            '.ir-lb-adv{margin:8px 0!important;font-size:.78em!important}',
+            '.ir-lb-adv summary{cursor:pointer!important;color:#f4c430!important;padding:3px 0!important}',
+            '.ir-lb-push-status{font-size:.78em!important;line-height:1.5!important;margin-top:8px!important;min-height:1.2em!important}',
             '.ir-lb-header{display:flex!important;align-items:center!important;gap:10px!important;margin-bottom:14px!important;padding-bottom:10px!important;border-bottom:1px solid rgba(255,255,255,.1)!important}',
             '.ir-lb-back{background:none!important;border:none!important;color:rgba(255,255,255,.6)!important;font-size:1.2em!important;cursor:pointer!important;padding:0 4px!important;border-radius:4px!important;transition:color .15s!important}',
             '.ir-lb-back:hover{color:#fff!important}',
@@ -1752,6 +1758,69 @@
                         '</label>' +
                     '</div>' +
                     '<div class="ir-lb-status"></div>' +
+
+                    // ---- Write-back (v1.6.5) --------------------------------
+                    // Import above needs only a username. Pushing back needs the
+                    // account password, because Letterboxd has no public write
+                    // API. The UI says so plainly rather than presenting it as a
+                    // normal integration toggle.
+                    '<div class="ir-lb-sep"></div>' +
+                    '<div class="ir-lb-csv-title" data-tr="Send to Letterboxd">Send to Letterboxd</div>' +
+                    '<div class="ir-lb-csv-hint" data-tr="Two ways to get your StarTrack ratings onto Letterboxd. The CSV needs no password and always works. Automatic push needs your Letterboxd password, because Letterboxd has no public API for writing.">' +
+                        'Two ways to get your StarTrack ratings onto Letterboxd. The CSV needs no password and always works. ' +
+                        'Automatic push needs your Letterboxd password, because Letterboxd has no public API for writing.' +
+                    '</div>' +
+                    '<div class="ir-lb-btn-row">' +
+                        '<button class="ir-lb-csv" data-tr="Download CSV for letterboxd.com/import">Download CSV for letterboxd.com/import</button>' +
+                    '</div>' +
+
+                    '<div class="ir-lb-push-toggle-row">' +
+                        '<label class="ir-lb-check">' +
+                            '<input type="checkbox" class="ir-lb-push-on" />' +
+                            '<span data-tr="Also push automatically (needs password)">Also push automatically (needs password)</span>' +
+                        '</label>' +
+                    '</div>' +
+
+                    '<div class="ir-lb-push" style="display:none">' +
+                        '<div class="ir-lb-warn" data-tr="StarTrack will store your Letterboxd password, encrypted, so it can sign in as you. Two-factor accounts cannot work this way - use the CSV instead.">' +
+                            'StarTrack will store your Letterboxd password, encrypted, so it can sign in as you. ' +
+                            'Two-factor accounts cannot work this way - use the CSV instead.' +
+                        '</div>' +
+                        '<div class="ir-lb-row">' +
+                            '<label class="ir-lb-label" data-tr="Letterboxd password">Letterboxd password</label>' +
+                            '<input type="password" class="ir-lb-pw" autocomplete="new-password" />' +
+                        '</div>' +
+                        '<div class="ir-lb-row">' +
+                            '<label class="ir-lb-check"><input type="checkbox" class="ir-lb-p-ratings" checked /><span data-tr="Ratings">Ratings</span></label>' +
+                            '<label class="ir-lb-check"><input type="checkbox" class="ir-lb-p-watched" checked /><span data-tr="Mark watched">Mark watched</span></label>' +
+                            '<label class="ir-lb-check"><input type="checkbox" class="ir-lb-p-liked" checked /><span data-tr="Likes">Likes</span></label>' +
+                        '</div>' +
+                        '<div class="ir-lb-row">' +
+                            '<label class="ir-lb-check">' +
+                                '<input type="checkbox" class="ir-lb-p-diary" />' +
+                                '<span data-tr="Log new watches to your diary (from now on)">Log new watches to your diary (from now on)</span>' +
+                            '</label>' +
+                            '<div class="ir-lb-csv-hint" data-tr="Diary entries cannot be edited by a later sync, so only films you rate from now on are logged. Your existing diary is left alone.">' +
+                                'Diary entries cannot be edited by a later sync, so only films you rate from now on are logged. ' +
+                                'Your existing diary is left alone.' +
+                            '</div>' +
+                        '</div>' +
+                        '<details class="ir-lb-adv">' +
+                            '<summary data-tr="Blocked by Cloudflare?">Blocked by Cloudflare?</summary>' +
+                            '<div class="ir-lb-csv-hint" data-tr="If sign-in fails with a Cloudflare error, paste your browser cookie header (must include cf_clearance) and the matching User-Agent. Cloudflare ties these to one browser and IP and they expire quickly.">' +
+                                'If sign-in fails with a Cloudflare error, paste your browser cookie header (must include cf_clearance) ' +
+                                'and the matching User-Agent. Cloudflare ties these to one browser and IP and they expire quickly.' +
+                            '</div>' +
+                            '<input type="text" class="ir-lb-cookies" placeholder="cf_clearance=...; letterboxd.signed.in=..." />' +
+                            '<input type="text" class="ir-lb-ua" placeholder="Mozilla/5.0 ..." />' +
+                        '</details>' +
+                        '<div class="ir-lb-btn-row">' +
+                            '<button class="ir-lb-verify" data-tr="Verify login">Verify login</button>' +
+                            '<button class="ir-lb-push-save" data-tr="Save">Save</button>' +
+                            '<button class="ir-lb-push-now" data-tr="Push now">Push now</button>' +
+                        '</div>' +
+                        '<div class="ir-lb-push-status"></div>' +
+                    '</div>' +
                 '</div>' +
             '</div>';
 
@@ -6146,6 +6215,22 @@
         var lbStatus  = el.querySelector('.ir-lb-status');
         var lbOpenBtns = el.querySelectorAll('.ir-lb-open-btn');
 
+        // ---- write-back controls (v1.6.5) ----
+        var lbCsv      = el.querySelector('.ir-lb-csv');
+        var lbPushOn   = el.querySelector('.ir-lb-push-on');
+        var lbPushBox  = el.querySelector('.ir-lb-push');
+        var lbPw       = el.querySelector('.ir-lb-pw');
+        var lbPRatings = el.querySelector('.ir-lb-p-ratings');
+        var lbPWatched = el.querySelector('.ir-lb-p-watched');
+        var lbPLiked   = el.querySelector('.ir-lb-p-liked');
+        var lbPDiary   = el.querySelector('.ir-lb-p-diary');
+        var lbCookies  = el.querySelector('.ir-lb-cookies');
+        var lbUa       = el.querySelector('.ir-lb-ua');
+        var lbVerify   = el.querySelector('.ir-lb-verify');
+        var lbPushSave = el.querySelector('.ir-lb-push-save');
+        var lbPushNow  = el.querySelector('.ir-lb-push-now');
+        var lbPushStat = el.querySelector('.ir-lb-push-status');
+
         function showLbStatus(text, kind) {
             if (!lbStatus) return;
             lbStatus.textContent = text;
@@ -6153,6 +6238,136 @@
             if (kind === 'ok')  lbStatus.classList.add('ir-lb-ok');
             if (kind === 'err') lbStatus.classList.add('ir-lb-err');
         }
+
+        function showPushStatus(text, kind) {
+            if (!lbPushStat) return;
+            lbPushStat.textContent = text;
+            lbPushStat.style.color = kind === 'ok'  ? '#52b54b'
+                                   : kind === 'err' ? '#ff8080'
+                                   : 'rgba(255,255,255,.6)';
+        }
+
+        // Direction is derived rather than exposed as a 4-way picker: import is
+        // driven by the auto-sync checkbox above, push by the checkbox here.
+        // Two plain toggles map onto the four directions without asking anyone
+        // to reason about "ExportOnly vs TwoWay".
+        function currentDirection() {
+            var importing = !!(lbAuto && lbAuto.checked);
+            var pushing   = !!(lbPushOn && lbPushOn.checked);
+            if (importing && pushing) return 3;   // TwoWay
+            if (pushing)              return 2;   // ExportOnly
+            if (importing)            return 1;   // ImportOnly
+            return 1;                             // default stays import-only
+        }
+
+        function loadPushAccount() {
+            apiLbGetAccount().then(function (a) {
+                if (!a) return;
+                if (lbPushOn)   lbPushOn.checked   = (a.direction === 2 || a.direction === 3);
+                if (lbPushBox)  lbPushBox.style.display = lbPushOn && lbPushOn.checked ? '' : 'none';
+                if (lbPRatings) lbPRatings.checked = !!a.pushRatings;
+                if (lbPWatched) lbPWatched.checked = !!a.pushWatched;
+                if (lbPLiked)   lbPLiked.checked   = !!a.pushLiked;
+                if (lbPDiary)   lbPDiary.checked   = !!a.pushDiary;
+                if (lbUa)       lbUa.value         = a.userAgent || '';
+                if (lbPw)       lbPw.placeholder   = a.hasPassword
+                    ? tr('lb.pw_saved', null, 'Saved - leave blank to keep')
+                    : '';
+                if (lbCookies)  lbCookies.placeholder = a.hasRawCookies
+                    ? tr('lb.cookies_saved', null, 'Saved - leave blank to keep')
+                    : 'cf_clearance=...; letterboxd.signed.in=...';
+
+                if (a.lastPushError) showPushStatus('\u2717 ' + a.lastPushError, 'err');
+                else if (a.lastPushedAt) showPushStatus(
+                    tr('lb.last_pushed', null, 'Last pushed') + ' ' + timeAgo(a.lastPushedAt) +
+                    (a.lastPushedCount ? ' \u2014 ' + a.lastPushedCount : ''), '');
+            });
+        }
+
+        // Only the fields the user actually typed are sent. A blank password
+        // means "keep the stored one" so saving other settings never requires
+        // the browser to hold the secret again.
+        function pushPayload() {
+            var body = {
+                direction:   currentDirection(),
+                pushRatings: !!(lbPRatings && lbPRatings.checked),
+                pushWatched: !!(lbPWatched && lbPWatched.checked),
+                pushLiked:   !!(lbPLiked   && lbPLiked.checked),
+                pushDiary:   !!(lbPDiary   && lbPDiary.checked),
+                pushReviews: false
+            };
+            if (lbPw && lbPw.value)           body.password   = lbPw.value;
+            if (lbCookies && lbCookies.value) body.rawCookies = lbCookies.value;
+            if (lbUa)                         body.userAgent  = lbUa.value || null;
+            return body;
+        }
+
+        if (lbPushOn) lbPushOn.addEventListener('change', function () {
+            if (lbPushBox) lbPushBox.style.display = lbPushOn.checked ? '' : 'none';
+        });
+
+        if (lbCsv) lbCsv.addEventListener('click', function () {
+            var auth = getAuth(); if (!auth) return;
+            showPushStatus(tr('lb.building_csv', null, 'Building CSV\u2026'), '');
+            fetch(_ST_BASE + '/Plugins/StarTrack/Letterboxd/ExportCsv', { headers: { Authorization: auth } })
+                .then(function (r) { return r.ok ? r.blob() : null; })
+                .then(function (b) {
+                    if (!b) { showPushStatus('\u2717 ' + tr('lb.csv_failed', null, 'Could not build the CSV.'), 'err'); return; }
+                    var url = URL.createObjectURL(b);
+                    var a = document.createElement('a');
+                    a.href = url; a.download = 'startrack-letterboxd.csv';
+                    document.body.appendChild(a); a.click();
+                    document.body.removeChild(a);
+                    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+                    showPushStatus('\u2713 ' + tr('lb.csv_ready', null, 'Downloaded - upload it at letterboxd.com/import'), 'ok');
+                })
+                .catch(function () { showPushStatus('\u2717 ' + tr('lb.csv_failed', null, 'Could not build the CSV.'), 'err'); });
+        });
+
+        if (lbVerify) lbVerify.addEventListener('click', function () {
+            lbVerify.disabled = true;
+            showPushStatus(tr('lb.verifying', null, 'Checking sign-in\u2026'), '');
+            apiLbVerify({
+                username:   lbUser ? lbUser.value.trim() : '',
+                password:   lbPw ? lbPw.value : '',
+                rawCookies: lbCookies ? lbCookies.value : '',
+                userAgent:  lbUa ? lbUa.value : ''
+            }).then(function (r) {
+                if (!r)      showPushStatus('\u2717 ' + tr('lb.verify_failed', null, 'Could not reach Letterboxd.'), 'err');
+                else if (r.ok) showPushStatus('\u2713 ' + tr('lb.verify_ok', null, 'Signed in successfully.'), 'ok');
+                else         showPushStatus('\u2717 ' + (r.message || r.status), 'err');
+            }).finally(function () { lbVerify.disabled = false; });
+        });
+
+        if (lbPushSave) lbPushSave.addEventListener('click', function () {
+            lbPushSave.disabled = true;
+            showPushStatus(tr('lb.saving', null, 'Saving\u2026'), '');
+            apiLbSaveAccount(pushPayload()).then(function (r) {
+                if (r.ok) {
+                    showPushStatus('\u2713 ' + tr('lb.saved', null, 'Saved'), 'ok');
+                    if (lbPw) lbPw.value = '';         // never keep the secret in the DOM
+                    if (lbCookies) lbCookies.value = '';
+                    loadPushAccount();
+                } else {
+                    showPushStatus('\u2717 ' + (r.message || tr('lb.save_failed', null, 'Could not save.')), 'err');
+                }
+            }).finally(function () { lbPushSave.disabled = false; });
+        });
+
+        if (lbPushNow) lbPushNow.addEventListener('click', function () {
+            lbPushNow.disabled = true;
+            showPushStatus(tr('lb.pushing', null, 'Pushing to Letterboxd\u2026'), '');
+            apiLbPushNow().then(function (r) {
+                if (!r) { showPushStatus('\u2717 ' + tr('lb.push_failed', null, 'Push failed.'), 'err'); return; }
+                if (r.error) { showPushStatus('\u2717 ' + r.error, 'err'); return; }
+                var parts = [];
+                if (r.rated)        parts.push(r.rated + ' ' + tr('lb.n_rated', null, 'rated'));
+                if (r.watched)      parts.push(r.watched + ' ' + tr('lb.n_watched', null, 'watched'));
+                if (r.diaryEntries) parts.push(r.diaryEntries + ' ' + tr('lb.n_diary', null, 'diary'));
+                if (r.unmatched)    parts.push(r.unmatched + ' ' + tr('lb.n_unmatched', null, 'not on Letterboxd'));
+                showPushStatus('\u2713 ' + (parts.length ? parts.join(', ') : tr('lb.nothing_to_push', null, 'Nothing new to push')), 'ok');
+            }).finally(function () { lbPushNow.disabled = false; });
+        });
 
         // Use _curId as the source of truth for "which view should we go
         // back to". Capturing prevView at openLbView() time was fragile
@@ -6172,6 +6387,7 @@
                         (s.lastImportedCount ? ' — imported ' + s.lastImportedCount + ' rating' + (s.lastImportedCount !== 1 ? 's' : '') : ''), '');
                 }
             });
+            loadPushAccount();
         }
 
         function closeLbView() {
@@ -6293,6 +6509,47 @@
         return fetch(_ST_BASE + '/Plugins/StarTrack/Letterboxd/SyncNow', {
             method: 'POST',
             headers: { Authorization: auth }
+        }).then(function (r) { return r.ok ? r.json() : null; })
+          .catch(function () { return null; });
+    }
+
+    // ---- Write-back (v1.6.5) --------------------------------------------
+    // The password is only ever sent upward. GET Account returns hasPassword,
+    // never the secret, so the browser never holds it after the save.
+
+    function apiLbGetAccount() {
+        var auth = getAuth(); if (!auth) return Promise.resolve(null);
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Letterboxd/Account', { headers: { Authorization: auth } })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .catch(function () { return null; });
+    }
+
+    function apiLbSaveAccount(body) {
+        var auth = getAuth(); if (!auth) return Promise.resolve({ ok: false });
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Letterboxd/Account', {
+            method: 'POST',
+            headers: { Authorization: auth, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        }).then(function (r) {
+            if (r.ok) return { ok: true };
+            return r.text().then(function (t) { return { ok: false, message: t }; });
+        }).catch(function () { return { ok: false }; });
+    }
+
+    function apiLbVerify(body) {
+        var auth = getAuth(); if (!auth) return Promise.resolve(null);
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Letterboxd/VerifyLogin', {
+            method: 'POST',
+            headers: { Authorization: auth, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body || {})
+        }).then(function (r) { return r.ok ? r.json() : null; })
+          .catch(function () { return null; });
+    }
+
+    function apiLbPushNow() {
+        var auth = getAuth(); if (!auth) return Promise.resolve(null);
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Letterboxd/PushNow', {
+            method: 'POST', headers: { Authorization: auth }
         }).then(function (r) { return r.ok ? r.json() : null; })
           .catch(function () { return null; });
     }
