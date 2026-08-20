@@ -7,7 +7,7 @@
 ![Jellyfin](https://img.shields.io/badge/Jellyfin-10.11%2B-CC0000?style=for-the-badge&labelColor=0d0d0d&logo=jellyfin&logoColor=white)
 ![.NET](https://img.shields.io/badge/.NET-9.0-CC0000?style=for-the-badge&labelColor=0d0d0d&logo=dotnet&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-CC0000?style=for-the-badge&labelColor=0d0d0d)
-![Version](https://img.shields.io/badge/Version-1.6.4-CC0000?style=for-the-badge&labelColor=0d0d0d)
+![Version](https://img.shields.io/badge/Version-1.6.5-CC0000?style=for-the-badge&labelColor=0d0d0d)
 
 **Letterboxd-style ratings, watchlist, lists & social layer for Jellyfin**
 
@@ -44,6 +44,15 @@ Designed to integrate cleanly with modern Jellyfin setups: desktop, mobile, TV/w
 ---
 
 ## Features
+
+### 🆕 New in 1.6.5
+
+- **Two-way Letterboxd** - send ratings, watched status and likes back to Letterboxd, either as a CSV you upload yourself (no password) or as an hourly automatic push (password stored encrypted). Optional diary logging records new watches without touching your existing diary.
+- **Simkl import fixed** - pulling ratings from Simkl returned nothing at all. StarTrack was reading the wrong fields and choking on Simkl's string-typed TMDb ids, so every pull silently reported zero. Anime ratings and TV series ids are now imported too.
+- **TV rating panel is usable again** - on a TV the panel could be opened but the stars could not be reached with the remote, so a rating could not actually be set. Focus now lands on the stars and stays inside the panel until you close it.
+- **Readable on TV** - the rating panel scales properly in Large mode instead of rendering at desktop size on a 1080p screen.
+- **Media Bar Enhanced support** - replace the hero rating with the StarTrack average (thanks @mysticalsoap).
+- **Admin-managed Letterboxd setup** - link a Letterboxd username to any user from the plugin config page (thanks @mysticalsoap).
 
 ### 🆕 New in 1.6.4
 
@@ -125,6 +134,22 @@ Designed to integrate cleanly with modern Jellyfin setups: desktop, mobile, TV/w
 - Hover any film card to reveal **⭐ pin to Top 4** and **+ add to a list** buttons
 
 ### 🔄 Letterboxd integration
+
+**Two-way as of 1.6.5.** Import has always worked from a username alone. Sending ratings *back* is new, and comes in two flavours because Letterboxd has no public write API:
+
+| | **CSV export** | **Automatic push** |
+|---|---|---|
+| Password needed | No | **Yes** - stored encrypted |
+| Effort | Download, then upload at [letterboxd.com/import](https://letterboxd.com/import) | Runs hourly on its own |
+| Two-factor accounts | Works | **Cannot work** |
+| Can Cloudflare block it | No | Sometimes |
+
+The CSV route is offered first and is what most people should use. Automatic push is opt-in, hidden behind a checkbox, and states plainly that it stores your Letterboxd password so it can sign in as you. If your account has two-factor authentication, only the CSV route is possible - StarTrack cannot complete a second factor unattended, and says so rather than failing mysteriously.
+
+- **Push ratings, watched status and likes** - ratings and watched marks use Letterboxd's idempotent endpoints, so re-running is harmless and changing a rating updates it in place
+- **Optional diary logging** - writes dated diary entries for films you rate **from the moment you switch it on**. It deliberately does *not* backfill: your existing diary is left completely alone, because StarTrack has no way to tell an existing entry apart from a new one and would otherwise duplicate years of history
+- **Verify login** button tells you immediately whether the password and any Cloudflare cookies work, instead of failing silently an hour later
+- **Cloudflare escape hatch** - paste a browser cookie header including `cf_clearance` plus the matching User-Agent for installs that get challenged
 - **Drop in your Letterboxd export ZIP** to import everything in one pass: `ratings.csv`, `diary.csv`, `watchlist.csv` and `likes/films.csv`
 - **Browser-style User-Agent** so Letterboxd's anti-bot doesn't block sync
 - **Sync now** button pulls your latest ratings (RSS), watchlist (RSS), and likes (HTML scrape) - one click, three data types
@@ -417,6 +442,11 @@ All endpoints are under `/Plugins/StarTrack/`. Every endpoint requires Jellyfin 
 | `POST` | `/Letterboxd/ScrapeFavorites` | Scrape your Letterboxd profile's "favourite films" section |
 | `POST` | `/Letterboxd/Cleanup` | Purge ratings whose library item no longer has a file on disk |
 | `GET` | `/Letterboxd/Diagnose` | Library matcher diagnostic + sample of normalised titles |
+| `GET` | `/Letterboxd/Account` | Write-back config. Reports whether a password/cookies are stored, never returns them |
+| `POST` | `/Letterboxd/Account` | Save direction, credentials and per-kind push toggles |
+| `POST` | `/Letterboxd/VerifyLogin` | Test a Letterboxd sign-in without writing anything |
+| `POST` | `/Letterboxd/PushNow` | Push ratings/watched/likes now, returns a per-kind report |
+| `GET` | `/Letterboxd/ExportCsv` | Download ratings as a `letterboxd.com/import` CSV (no password required) |
 
 ### External sync *(new in 1.6)*
 All under `/Plugins/StarTrack/ExternalSync/`. `{provider}` is `trakt`, `simkl`, or `yamtrack`.
