@@ -5,6 +5,8 @@ using System.IO.Compression;
 using System.Linq;
 using System.Net.Mime;
 using System.Threading.Tasks;
+using System.Text.Json.Serialization;
+using Jellyfin.Plugin.InternalRating.ExternalSync;
 using Jellyfin.Plugin.InternalRating.Letterboxd;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Net;
@@ -32,18 +34,24 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         private readonly LetterboxdSyncService _sync;
         private readonly IAuthorizationContext _authContext;
         private readonly IUserManager _userManager;
+        private readonly LetterboxdPushRunner _runner;
+        private readonly IRatingGatherer _gatherer;
         private readonly ILogger<LetterboxdController> _logger;
 
         public LetterboxdController(
             LetterboxdSyncService syncService,
             IAuthorizationContext authContext,
             IUserManager userManager,
+            LetterboxdPushRunner runner,
+            IRatingGatherer gatherer,
             ILogger<LetterboxdController> logger)
         {
             _settings    = Plugin.Instance!.LetterboxdSettings;
             _sync        = syncService;
             _authContext = authContext;
             _userManager = userManager;
+            _runner      = runner;
+            _gatherer    = gatherer;
             _logger      = logger;
         }
 
@@ -461,10 +469,217 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 ?? "Unknown";
         }
 
+        // ================================================================== //
+        // WRITE-BACK (v1.6.5)
+        //
+        // Letterboxd has no public write API, so pushing requires the account
+        // password. These endpoints are scoped to the caller, and there is
+        // deliberately NO admin equivalent: an admin linking a username on
+        // someone's behalf is a convenience, an admin typing another user's
+        // Letterboxd password is not something StarTrack should make easy.
+        // ================================================================== //
+
+        /// <summary>
+        /// The caller's write-back configuration. Never returns the password or
+        /// cookies, only whether they are set.
+        /// </summary>
+        [HttpGet("Account")]
+        [ProducesResponseType(typeof(AccountStateDto), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetAccount()
+        {
+            var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
+            if (userId == null) return Unauthorized();
+
+            var s = await _settings.GetAsync(userId.Value.ToString("N")).ConfigureAwait(false);
+            return Ok(new AccountStateDto
+            {
+                Username          = s.Username,
+                Direction         = (int)s.Direction,
+                HasPassword       = !string.IsNullOrEmpty(s.PasswordEnc),
+                HasRawCookies     = !string.IsNullOrEmpty(s.RawCookiesEnc),
+                UserAgent         = s.UserAgent,
+                PushRatings       = s.PushRatings,
+                PushWatched       = s.PushWatched,
+                PushLiked         = s.PushLiked,
+                PushReviews       = s.PushReviews,
+                PushDiary         = s.PushDiary,
+                DiaryLoggingSince = s.DiaryLoggingSince,
+                LastPushedAt      = s.LastPushedAt,
+                LastPushedCount   = s.LastPushedCount,
+                LastPushError     = s.LastPushError
+            });
+        }
+
+        /// <summary>
+        /// Saves the caller's write-back configuration. Omit the password to keep
+        /// the stored one; send an empty string to clear it.
+        /// </summary>
+        [HttpPost("Account")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> SetAccount([FromBody] SetAccountRequest req)
+        {
+            var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
+            if (userId == null) return Unauthorized();
+
+            if (req.Direction < 0 || req.Direction > 3) return BadRequest("Unknown sync direction.");
+            var direction = (LetterboxdDirection)req.Direction;
+
+            // Refuse to arm an export direction with no way to authenticate,
+            // rather than accepting it and failing quietly an hour later.
+            var stored = await _settings.GetAsync(userId.Value.ToString("N")).ConfigureAwait(false);
+            var willHavePassword = req.Password == null
+                ? !string.IsNullOrEmpty(stored.PasswordEnc)
+                : req.Password.Length > 0;
+
+            var exporting = direction == LetterboxdDirection.ExportOnly || direction == LetterboxdDirection.TwoWay;
+            if (exporting && !willHavePassword)
+                return BadRequest("Pushing to Letterboxd needs the account password. Letterboxd has no public write API, so there is no token-based alternative.");
+
+            var ok = await _settings.SetAccountAsync(
+                userId.Value.ToString("N"),
+                direction,
+                req.Password,
+                req.RawCookies,
+                req.UserAgent,
+                req.PushRatings, req.PushWatched, req.PushLiked, req.PushReviews,
+                req.PushDiary).ConfigureAwait(false);
+
+            if (!ok)
+                return BadRequest("Could not encrypt the credentials for storage, so nothing was saved. StarTrack will not fall back to storing them in plain text.");
+
+            return Ok();
+        }
+
+        /// <summary>
+        /// Tests a Letterboxd sign-in without writing anything, so a bad password
+        /// or a Cloudflare block is visible immediately instead of an hour later.
+        /// </summary>
+        [HttpPost("VerifyLogin")]
+        [ProducesResponseType(typeof(VerifyResultDto), StatusCodes.Status200OK)]
+        public async Task<IActionResult> VerifyLogin([FromBody] VerifyLoginRequest req)
+        {
+            var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
+            if (userId == null) return Unauthorized();
+
+            var s = await _settings.GetAsync(userId.Value.ToString("N")).ConfigureAwait(false);
+            var username = string.IsNullOrWhiteSpace(req.Username) ? s.Username : req.Username.Trim();
+
+            // Fall back to the stored password so Verify works without the
+            // browser having to hold the secret again just to re-check it.
+            var password = string.IsNullOrEmpty(req.Password)
+                ? LetterboxdSecretProtector.Unprotect(s.PasswordEnc)
+                : req.Password;
+
+            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrEmpty(password))
+                return Ok(new VerifyResultDto { Ok = false, Status = "BadCredentials", Message = "Username and password are both required." });
+
+            var cookies = string.IsNullOrEmpty(req.RawCookies)
+                ? LetterboxdSecretProtector.Unprotect(s.RawCookiesEnc)
+                : req.RawCookies;
+
+            var r = await _runner.VerifyAsync(username, password, cookies, req.UserAgent ?? s.UserAgent, HttpContext.RequestAborted)
+                                 .ConfigureAwait(false);
+
+            return Ok(new VerifyResultDto { Ok = r.Ok, Status = r.Status.ToString(), Message = r.Message });
+        }
+
+        /// <summary>Runs a push for the caller immediately and returns the report.</summary>
+        [HttpPost("PushNow")]
+        [ProducesResponseType(typeof(LetterboxdPushResult), StatusCodes.Status200OK)]
+        public async Task<IActionResult> PushNow()
+        {
+            var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
+            if (userId == null) return Unauthorized();
+
+            var r = await _runner.RunForUserAsync(userId.Value.ToString("N"), HttpContext.RequestAborted).ConfigureAwait(false);
+            _logger.LogInformation("[StarTrack] Letterboxd PushNow for {User}: written={W} error={E}",
+                userId.Value, r.TotalWritten, r.Error ?? "none");
+            return Ok(r);
+        }
+
+        /// <summary>
+        /// Downloads the caller's ratings as a CSV that letterboxd.com/import
+        /// accepts. This is the credential-free route into Letterboxd: no
+        /// password, nothing for Cloudflare to block, and it works for accounts
+        /// with two-factor authentication, which the session-based push
+        /// genuinely cannot support.
+        /// </summary>
+        [HttpGet("ExportCsv")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> ExportCsv()
+        {
+            var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
+            if (userId == null) return Unauthorized();
+
+            var ratings = await _gatherer.GatherAsync(userId.Value.ToString("N")).ConfigureAwait(false);
+            var csv = LetterboxdCsvExporter.Build(ratings);
+
+            return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "startrack-letterboxd.csv");
+        }
+
         public sealed class SetSettingsRequest
         {
             public string? Username       { get; set; }
             public bool    EnableAutoSync { get; set; }
+        }
+
+        /// <summary>Write-back configuration as returned to the UI. Secrets are reported as booleans only.</summary>
+        public sealed class AccountStateDto
+        {
+            [JsonPropertyName("username")]          public string    Username          { get; set; } = string.Empty;
+            [JsonPropertyName("direction")]         public int       Direction         { get; set; }
+            [JsonPropertyName("hasPassword")]       public bool      HasPassword       { get; set; }
+            [JsonPropertyName("hasRawCookies")]     public bool      HasRawCookies     { get; set; }
+            [JsonPropertyName("userAgent")]         public string?   UserAgent         { get; set; }
+            [JsonPropertyName("pushRatings")]       public bool      PushRatings       { get; set; }
+            [JsonPropertyName("pushWatched")]       public bool      PushWatched       { get; set; }
+            [JsonPropertyName("pushLiked")]         public bool      PushLiked         { get; set; }
+            [JsonPropertyName("pushReviews")]       public bool      PushReviews       { get; set; }
+            [JsonPropertyName("pushDiary")]         public bool      PushDiary         { get; set; }
+            [JsonPropertyName("diaryLoggingSince")] public DateTime? DiaryLoggingSince { get; set; }
+            [JsonPropertyName("lastPushedAt")]      public DateTime? LastPushedAt      { get; set; }
+            [JsonPropertyName("lastPushedCount")]   public int       LastPushedCount   { get; set; }
+            [JsonPropertyName("lastPushError")]     public string?   LastPushError     { get; set; }
+        }
+
+        /// <summary>Write-back configuration submitted by the UI.</summary>
+        public sealed class SetAccountRequest
+        {
+            /// <summary>0 Off, 1 ImportOnly, 2 ExportOnly, 3 TwoWay.</summary>
+            public int     Direction   { get; set; }
+
+            /// <summary>Null keeps the stored password; empty string clears it.</summary>
+            public string? Password    { get; set; }
+
+            /// <summary>Null keeps stored cookies; empty string clears them.</summary>
+            public string? RawCookies  { get; set; }
+
+            /// <summary>User-Agent paired with RawCookies for Cloudflare.</summary>
+            public string? UserAgent   { get; set; }
+
+            public bool    PushRatings { get; set; } = true;
+            public bool    PushWatched { get; set; } = true;
+            public bool    PushLiked   { get; set; } = true;
+            public bool    PushReviews { get; set; }
+            public bool    PushDiary   { get; set; }
+        }
+
+        /// <summary>Credentials to test. Empty fields fall back to what is stored.</summary>
+        public sealed class VerifyLoginRequest
+        {
+            public string? Username   { get; set; }
+            public string? Password   { get; set; }
+            public string? RawCookies { get; set; }
+            public string? UserAgent  { get; set; }
+        }
+
+        /// <summary>Outcome of a verify attempt.</summary>
+        public sealed class VerifyResultDto
+        {
+            [JsonPropertyName("ok")]      public bool    Ok      { get; set; }
+            [JsonPropertyName("status")]  public string  Status  { get; set; } = string.Empty;
+            [JsonPropertyName("message")] public string? Message { get; set; }
         }
     }
 }

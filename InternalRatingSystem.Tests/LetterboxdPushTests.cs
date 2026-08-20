@@ -131,10 +131,17 @@ namespace InternalRatingSystem.Tests
 
         private static LetterboxdUserSettings Settings(
             LetterboxdDirection dir = LetterboxdDirection.TwoWay,
-            bool ratings = true, bool watched = true, bool liked = true) => new()
+            bool ratings = true, bool watched = true, bool liked = true,
+            DateTime? diarySince = null) => new()
             {
                 Username = "someone", Direction = dir,
-                PushRatings = ratings, PushWatched = watched, PushLiked = liked
+                PushRatings = ratings, PushWatched = watched, PushLiked = liked,
+                PushDiary = true,
+                // Diary entries only apply at/after the switch-on point. Tests that
+                // exercise diary writing need a cutoff in the past; the default here
+                // is deliberately old so the existing cases keep testing what they
+                // were written to test.
+                DiaryLoggingSince = diarySince ?? new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc)
             };
 
         private LetterboxdPushService Service(IRatingGatherer g, ILikedGatherer? l = null) =>
@@ -293,6 +300,55 @@ namespace InternalRatingSystem.Tests
 
             Assert.NotNull(res.Error);
             Assert.Single(w.Resolved);   // stopped after the first film, not all three
+        }
+
+        // ---- diary cutoff ----
+
+        [Fact]
+        public async Task DiaryEntry_IsSkipped_ForWatchesOlderThanTheCutoff()
+        {
+            // Enabling diary logging must NOT backfill. A user turning this on
+            // usually has years of their own Letterboxd diary that StarTrack
+            // cannot recognise as "the same watch", so writing history would
+            // dump hundreds of duplicates into the one place that is painful to
+            // clean up by hand.
+            var old = Movie(1, 4.0, new DateTime(2020, 5, 1, 12, 0, 0, DateTimeKind.Utc));
+            var w = new FakeWriter();
+
+            var res = await Service(new FakeRatingGatherer(old)).PushAsync(
+                User, w, Settings(diarySince: new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)),
+                writeDiaryEntries: true);
+
+            Assert.Empty(w.Diary);
+            Assert.Equal(0, res.DiaryEntries);
+            Assert.Single(w.Rated);   // the idempotent rating still goes out
+        }
+
+        [Fact]
+        public async Task DiaryEntry_IsWritten_ForWatchesAfterTheCutoff()
+        {
+            var recent = Movie(2, 4.0, new DateTime(2026, 3, 1, 12, 0, 0, DateTimeKind.Utc));
+            var w = new FakeWriter();
+
+            var res = await Service(new FakeRatingGatherer(recent)).PushAsync(
+                User, w, Settings(diarySince: new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)),
+                writeDiaryEntries: true);
+
+            Assert.Single(w.Diary);
+            Assert.Equal(1, res.DiaryEntries);
+        }
+
+        [Fact]
+        public async Task DiaryEntry_IsSkipped_WhenLoggingWasNeverEnabled()
+        {
+            // No cutoff stamped means diary logging was never switched on.
+            var st = Settings();
+            st.DiaryLoggingSince = null;
+            var w = new FakeWriter();
+
+            await Service(new FakeRatingGatherer(Movie(3, 4.0))).PushAsync(User, w, st, writeDiaryEntries: true);
+
+            Assert.Empty(w.Diary);
         }
 
         [Fact]

@@ -80,6 +80,8 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             PushWatched        = s.PushWatched,
             PushLiked          = s.PushLiked,
             PushReviews        = s.PushReviews,
+            PushDiary          = s.PushDiary,
+            DiaryLoggingSince  = s.DiaryLoggingSince,
             LastPushedAt       = s.LastPushedAt,
             LastPushedCount    = s.LastPushedCount,
             LastPushError      = s.LastPushError
@@ -100,7 +102,8 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             string? password,
             string? rawCookies,
             string? userAgent,
-            bool pushRatings, bool pushWatched, bool pushLiked, bool pushReviews)
+            bool pushRatings, bool pushWatched, bool pushLiked, bool pushReviews,
+            bool pushDiary)
         {
             await _lock.WaitAsync().ConfigureAwait(false);
             try
@@ -139,6 +142,13 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 s.PushWatched = pushWatched;
                 s.PushLiked   = pushLiked;
                 s.PushReviews = pushReviews;
+
+                // Stamp the cutoff the first time diary logging is switched on,
+                // and clear it when switched off so re-enabling later doesn't
+                // suddenly log everything watched in the gap.
+                if (pushDiary && !s.PushDiary) s.DiaryLoggingSince = DateTime.UtcNow;
+                else if (!pushDiary)           s.DiaryLoggingSince = null;
+                s.PushDiary   = pushDiary;
 
                 await SaveAsync().ConfigureAwait(false);
                 return true;

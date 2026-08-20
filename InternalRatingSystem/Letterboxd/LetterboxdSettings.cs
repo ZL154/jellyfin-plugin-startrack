@@ -78,6 +78,28 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         /// <summary>Post written reviews alongside the diary entry.</summary>
         [JsonPropertyName("pushReviews")]        public bool     PushReviews    { get; set; }
 
+        /// <summary>
+        /// Create dated Letterboxd diary entries for new watches.
+        ///
+        /// Separate from <see cref="PushWatched"/> because the two have very
+        /// different blast radii: marking watched is idempotent, a diary entry
+        /// is appended and can only be removed by hand.
+        /// </summary>
+        [JsonPropertyName("pushDiary")]          public bool     PushDiary      { get; set; }
+
+        /// <summary>
+        /// Only watches at or after this instant get a diary entry. Stamped the
+        /// moment diary logging is switched on.
+        ///
+        /// This is deliberately NOT a backfill. A user enabling this typically
+        /// already has years of diary entries on Letterboxd that StarTrack has
+        /// no way to recognise as "the same watch" — writing history would dump
+        /// hundreds of duplicates into the one place that is tedious to clean
+        /// up. Logging only from the switch-on point forward is cheap, needs no
+        /// extra requests, and cannot duplicate anything that already exists.
+        /// </summary>
+        [JsonPropertyName("diaryLoggingSince")]  public DateTime? DiaryLoggingSince { get; set; }
+
         // ---- Push state ----
         [JsonPropertyName("lastPushedAt")]       public DateTime? LastPushedAt   { get; set; }
         [JsonPropertyName("lastPushedCount")]    public int      LastPushedCount { get; set; }

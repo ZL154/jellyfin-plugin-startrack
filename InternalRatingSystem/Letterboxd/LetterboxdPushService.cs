@@ -148,7 +148,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                     }
 
                     // ---- diary entry (append-only — ledger-guarded) ----
-                    if (writeDiaryEntries && settings.PushWatched && hasRating)
+                    if (writeDiaryEntries && hasRating && IsAfterDiaryCutoff(item, settings))
                     {
                         var day = item.RatedAt.ToLocalTime().Date;
                         if (await _ledger.HasAsync(userId, tmdbId, day).ConfigureAwait(false))
@@ -187,6 +187,19 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
 
             return result;
         }
+
+        /// <summary>
+        /// Diary entries are only written for watches at or after the moment the
+        /// user switched diary logging on.
+        ///
+        /// This is what stops StarTrack dumping a user's entire back catalogue
+        /// into a Letterboxd diary that already contains years of their own
+        /// entries. We have no way to recognise an existing entry as "the same
+        /// watch", so anything older is left alone rather than duplicated. A
+        /// missing cutoff means logging was never enabled, so nothing qualifies.
+        /// </summary>
+        private static bool IsAfterDiaryCutoff(ExternalRating item, LetterboxdUserSettings settings)
+            => settings.DiaryLoggingSince is DateTime since && item.RatedAt >= since;
 
         /// <summary>
         /// Session-level failures abort the whole run. Continuing would issue one

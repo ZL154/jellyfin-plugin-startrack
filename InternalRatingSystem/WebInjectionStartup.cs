@@ -62,6 +62,11 @@ namespace Jellyfin.Plugin.InternalRating
             // further down for ExternalSync — same local data, different sink.
             services.AddSingleton<LetterboxdPushService>();
 
+            // Runner owns the session lifetime + credential decryption; the task
+            // and the controller both drive pushes through it.
+            services.AddSingleton<LetterboxdPushRunner>();
+            services.AddSingleton<IScheduledTask, LetterboxdPushTask>();
+
             // ---- ExternalSync services ----
             // FileExportService has no dependencies (pure serialisation helper).
             services.AddSingleton<FileExportService>();
