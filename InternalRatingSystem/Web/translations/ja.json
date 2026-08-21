@@ -606,5 +606,14 @@
   "Add a diary entry when a movie or episode finishes playing": "映画やエピソードの再生が終わったら日記に記録する",
   "Records what was actually watched on this server. Without it the diary can only be filled by importing from Letterboxd.": "このサーバーで実際に視聴した内容を記録します。無効の場合、日記は Letterboxd からのインポートでしか埋まりません。",
   "Watchlist": "ウォッチリスト",
-  "lb.n_watchlisted": "件をウォッチリストに"
+  "lb.n_watchlisted": "件をウォッチリストに",
+  "Log a watch": "視聴を記録",
+  "Watched on": "視聴日",
+  "Rewatch": "再視聴",
+  "Add to diary": "日記に追加",
+  "log.saving": "追加中…",
+  "log.added": "日記に追加しました",
+  "log.failed": "追加できませんでした。",
+  "Also add a diary entry when a user rates something": "ユーザーが評価したときにも日記に記録する",
+  "Off by default: rating a film you saw years ago would be filed as watched today.": "既定でオフ：何年も前に見た映画が「今日視聴」として記録されてしまうためです。"
 }

@@ -606,5 +606,14 @@
   "Add a diary entry when a movie or episode finishes playing": "Add a diary entry when a movie or episode finishes playing",
   "Records what was actually watched on this server. Without it the diary can only be filled by importing from Letterboxd.": "Records what was actually watched on this server. Without it the diary can only be filled by importing from Letterboxd.",
   "Watchlist": "Watchlist",
-  "lb.n_watchlisted": "watchlisted"
+  "lb.n_watchlisted": "watchlisted",
+  "Log a watch": "Log a watch",
+  "Watched on": "Watched on",
+  "Rewatch": "Rewatch",
+  "Add to diary": "Add to diary",
+  "log.saving": "Adding…",
+  "log.added": "Added to your diary",
+  "log.failed": "Could not add.",
+  "Also add a diary entry when a user rates something": "Also add a diary entry when a user rates something",
+  "Off by default: rating a film you saw years ago would be filed as watched today.": "Off by default: rating a film you saw years ago would be filed as watched today."
 }

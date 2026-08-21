@@ -502,6 +502,21 @@
     function apiGet(id)              { return apiFetch(_ST_BASE + '/Plugins/StarTrack/Ratings/' + id).then(function (r) { return r ? r.json() : null; }); }
     function apiPost(id, stars, rev) { return apiFetch(_ST_BASE + '/Plugins/StarTrack/Ratings/' + id, { method: 'POST', body: JSON.stringify({ stars: stars, review: rev || null }) }).then(function (r) { return r !== null; }); }
     function apiDel(id)              { return apiFetch(_ST_BASE + '/Plugins/StarTrack/Ratings/' + id, { method: 'DELETE' }).then(function (r) { return r !== null; }); }
+    /// Logs a watch. The diary API has existed since 1.2 with no button wired
+    /// to it, which is why rating something never produced a diary entry.
+    function apiDiaryAdd(itemId, watchedAt, stars, review, rewatch) {
+        return apiFetch(_ST_BASE + '/Plugins/StarTrack/Diary', {
+            method: 'POST',
+            body: JSON.stringify({
+                itemId:    itemId,
+                watchedAt: watchedAt,
+                stars:     stars,
+                review:    review || null,
+                rewatch:   !!rewatch
+            })
+        }).then(function (r) { return r ? r.json() : null; });
+    }
+
     function apiMyRatings(limit)     { return apiFetch(_ST_BASE + '/Plugins/StarTrack/MyRatings' + (limit ? '?limit=' + limit : '')).then(function (r) { return r ? r.json() : null; }); }
 
     // ── Styles ────────────────────────────────────────────────────────────
@@ -572,6 +587,17 @@
             '.ir-submit.ir-ready:hover{background:#ffd84d!important;transform:scale(1.04)!important}',
             '.ir-flash{font-size:.78em!important;opacity:0!important;transition:opacity .3s!important;font-weight:600!important}',
             '.ir-flash.ir-show{opacity:1!important}',
+            '.ir-log-tb{width:100%!important;background:none!important;border:1px solid rgba(244,196,48,.3)!important;color:rgba(244,196,48,.85)!important;border-radius:6px!important;padding:5px 10px!important;font-size:.8em!important;cursor:pointer!important;text-align:left!important;margin-bottom:8px!important;transition:all .2s!important}',
+            '.ir-log-tb:hover{background:rgba(244,196,48,.12)!important;color:#fff!important}',
+            '.ir-log-box{background:rgba(255,255,255,.04)!important;border:1px solid rgba(255,255,255,.10)!important;border-radius:6px!important;padding:8px 10px!important;margin-bottom:10px!important}',
+            '.ir-log-row{display:flex!important;align-items:center!important;gap:8px!important;margin-bottom:6px!important;flex-wrap:wrap!important}',
+            '.ir-log-label{color:rgba(255,255,255,.6)!important;font-size:.76em!important;white-space:nowrap!important}',
+            '.ir-log-date{background:rgba(255,255,255,.06)!important;border:1px solid rgba(255,255,255,.16)!important;border-radius:5px!important;color:#fff!important;font-size:.78em!important;padding:4px 7px!important;outline:none!important;color-scheme:dark!important}',
+            '.ir-log-check{display:flex!important;align-items:center!important;gap:5px!important;color:rgba(255,255,255,.8)!important;font-size:.78em!important;cursor:pointer!important;margin-bottom:6px!important}',
+            '.ir-log-check input{accent-color:#f4c430!important}',
+            '.ir-log-go{background:#f4c430!important;color:#000!important;border:none!important;border-radius:5px!important;padding:5px 12px!important;font-size:.78em!important;font-weight:700!important;cursor:pointer!important}',
+            '.ir-log-go:hover{background:#ffd84d!important}',
+            '.ir-log-status{font-size:.76em!important;color:rgba(255,255,255,.6)!important}',
             '.ir-rb{background:none!important;border:1px solid rgba(255,70,70,.35)!important;color:rgba(255,100,100,.75)!important;border-radius:4px!important;padding:3px 8px!important;font-size:.76em!important;cursor:pointer!important;margin-left:auto!important;transition:all .2s!important}',
             '.ir-rb:hover{background:rgba(255,40,40,.15)!important;color:#ff7070!important}',
             // Ratings list
@@ -1852,6 +1878,26 @@
                         '<button class="ir-submit">\u2605 Save Rating</button>' +
                         '<span class="ir-flash"></span>' +
                         '<button class="ir-rb" style="display:none">\u2715 Remove</button>' +
+                    '</div>' +
+                    // [v1.6.5] "Log a watch" — the verb StarTrack was missing.
+                    // Rating something never created a diary entry, and the only
+                    // other sources were playback completion and a Letterboxd
+                    // import, so anything watched elsewhere could never be
+                    // recorded. This is the manual bridge.
+                    '<button class="ir-log-tb" data-tr="Log a watch">\ud83d\udcd6 Log a watch</button>' +
+                    '<div class="ir-log-box" style="display:none">' +
+                        '<div class="ir-log-row">' +
+                            '<label class="ir-log-label" data-tr="Watched on">Watched on</label>' +
+                            '<input type="date" class="ir-log-date" />' +
+                        '</div>' +
+                        '<label class="ir-log-check">' +
+                            '<input type="checkbox" class="ir-log-rewatch" /> ' +
+                            '<span data-tr="Rewatch">Rewatch</span>' +
+                        '</label>' +
+                        '<div class="ir-log-row">' +
+                            '<button class="ir-log-go" data-tr="Add to diary">Add to diary</button>' +
+                            '<span class="ir-log-status"></span>' +
+                        '</div>' +
                     '</div>' +
                     '<button class="ir-tb">Show all ratings \u25be</button>' +
                     '<div class="ir-list" style="display:none"></div>' +
@@ -6366,6 +6412,59 @@
         var actFav   = el.querySelector('.ir-act-fav');
         var open = false, listOpen = false;
 
+        // ---- log a watch (v1.6.5) ----
+        var logTb     = el.querySelector('.ir-log-tb');
+        var logBox    = el.querySelector('.ir-log-box');
+        var logDate   = el.querySelector('.ir-log-date');
+        var logRew    = el.querySelector('.ir-log-rewatch');
+        var logGo     = el.querySelector('.ir-log-go');
+        var logStatus = el.querySelector('.ir-log-status');
+
+        if (logTb) logTb.addEventListener('click', function () {
+            var opening = logBox.style.display === 'none';
+            logBox.style.display = opening ? 'block' : 'none';
+            if (opening && logDate && !logDate.value) {
+                // Default to today in the viewer's own timezone. A diary entry
+                // is a day, so the date input is the right control.
+                var d = new Date();
+                logDate.value = d.getFullYear() + '-' +
+                    String(d.getMonth() + 1).padStart(2, '0') + '-' +
+                    String(d.getDate()).padStart(2, '0');
+            }
+            if (logStatus) logStatus.textContent = '';
+        });
+
+        if (logGo) logGo.addEventListener('click', function () {
+            if (!_curId) return;
+            logGo.disabled = true;
+            if (logStatus) { logStatus.style.color = 'rgba(255,255,255,.6)'; logStatus.textContent = tr('log.saving', null, 'Adding\u2026'); }
+
+            // Send local midday rather than midnight: the server stores UTC, and
+            // midnight local can land on the previous day once converted, which
+            // would silently file the entry under the wrong date.
+            var when = null;
+            if (logDate && logDate.value) {
+                var p = logDate.value.split('-');
+                when = new Date(+p[0], +p[1] - 1, +p[2], 12, 0, 0).toISOString();
+            }
+
+            // Carry whatever is currently in the panel, so logging doubles as
+            // rating without making the user do it twice.
+            // _pendingStars is 0 when nothing is selected, so this lands on
+            // null and the entry records a watch without a rating.
+            var stars = _pendingStars || null;
+            var revTxt = (rev && rev.value) ? rev.value : null;
+
+            apiDiaryAdd(_curId, when, stars, revTxt, logRew && logRew.checked)
+                .then(function (e) {
+                    if (!e) { if (logStatus) { logStatus.style.color = '#ff8080'; logStatus.textContent = '\u2717 ' + tr('log.failed', null, 'Could not add.'); } return; }
+                    if (logStatus) { logStatus.style.color = '#52b54b'; logStatus.textContent = '\u2713 ' + tr('log.added', null, 'Added to your diary'); }
+                    if (logRew) logRew.checked = false;
+                })
+                .catch(function () { if (logStatus) { logStatus.style.color = '#ff8080'; logStatus.textContent = '\u2717 ' + tr('log.failed', null, 'Could not add.'); } })
+                .finally(function () { logGo.disabled = false; });
+        });
+
         // TV only: trap D-pad focus inside the panel while it is open, and let
         // Back/Escape close it and hand focus back to the pill.
         _stBindPanelFocusTrap(panel, pill, function () {
@@ -8207,6 +8306,7 @@
         if (rsz) rsz.value = _adminPickKey(c, 'RatingSize') || 'normal';
         _adminSetCheckbox(root.querySelector('#stPostPlaybackPopup'),    _adminPickKey(c, 'PostPlaybackRatingPopup'));
         _adminSetCheckbox(root.querySelector('#stLogWatchesToDiary'),   _adminPickKey(c, 'LogWatchesToDiary'));
+        _adminSetCheckbox(root.querySelector('#stLogDiaryOnRating'),   _adminPickKey(c, 'LogDiaryOnRating'));
         _adminSetCheckbox(root.querySelector('#stCommunityRecentMode'),  _adminPickKey(c, 'CommunityRecentMode'));
 
         // Hidden views come through as a comma-separated string. Check
@@ -8254,6 +8354,7 @@
         if (_rsz) c.RatingSize = (_rsz.value === 'large' || _rsz.value === 'largetv') ? _rsz.value : 'normal';
         c.PostPlaybackRatingPopup   = !!(root.querySelector('#stPostPlaybackPopup')    && root.querySelector('#stPostPlaybackPopup').checked);
         c.LogWatchesToDiary         = !!(root.querySelector('#stLogWatchesToDiary')   && root.querySelector('#stLogWatchesToDiary').checked);
+        c.LogDiaryOnRating          = !!(root.querySelector('#stLogDiaryOnRating')    && root.querySelector('#stLogDiaryOnRating').checked);
         c.CommunityRecentMode       = !!(root.querySelector('#stCommunityRecentMode')  && root.querySelector('#stCommunityRecentMode').checked);
 
         // Hidden views — collect every st-cb[data-view] that's checked and

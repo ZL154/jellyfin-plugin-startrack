@@ -606,5 +606,14 @@
   "Add a diary entry when a movie or episode finishes playing": "Adicionar uma entrada no diário quando um filme ou episódio termina",
   "Records what was actually watched on this server. Without it the diary can only be filled by importing from Letterboxd.": "Regista o que foi realmente visto neste servidor. Sem isto, o diário só pode ser preenchido importando do Letterboxd.",
   "Watchlist": "Lista para ver",
-  "lb.n_watchlisted": "na lista"
+  "lb.n_watchlisted": "na lista",
+  "Log a watch": "Registar uma visualização",
+  "Watched on": "Visto a",
+  "Rewatch": "Revisão",
+  "Add to diary": "Adicionar ao diário",
+  "log.saving": "A adicionar…",
+  "log.added": "Adicionado ao seu diário",
+  "log.failed": "Não foi possível adicionar.",
+  "Also add a diary entry when a user rates something": "Adicionar também uma entrada no diário quando um utilizador avalia algo",
+  "Off by default: rating a film you saw years ago would be filed as watched today.": "Desligado por omissão: avaliar um filme visto há anos ficaria registado como visto hoje."
 }

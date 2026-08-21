@@ -137,9 +137,54 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 .ConfigureAwait(false);
 
             MirrorNativeRating(userId.Value, itemId, request.Stars);
+            await MaybeLogDiaryAsync(userId.Value.ToString("N"), itemId, request.Stars, request.Review).ConfigureAwait(false);
 
             _logger.LogInformation("[StarTrack] {User} rated {Item}: {Stars}★", userName, itemId, request.Stars);
             return Ok();
+        }
+
+        /// <summary>
+        /// Optionally records a diary entry alongside a rating.
+        ///
+        /// Off by default and deliberately so: rating and watching are different
+        /// acts, and a film rated from memory would otherwise be filed as
+        /// "watched today". It exists because most people rate straight after
+        /// watching and were surprised that rating produced no diary entry at
+        /// all — the diary previously had no connection to rating whatsoever.
+        ///
+        /// Same-day guard so re-rating or editing a review cannot stack entries.
+        /// </summary>
+        private async Task MaybeLogDiaryAsync(string userKey, string itemId, double stars, string? review)
+        {
+            try
+            {
+                if (Plugin.Instance is not { } plugin) return;
+                if (!plugin.Configuration.LogDiaryOnRating) return;
+
+                var diary = plugin.Diary;
+                var existing = await diary.GetEntriesAsync(userKey).ConfigureAwait(false);
+
+                var today = DateTime.UtcNow.ToLocalTime().Date;
+                if (existing.Any(x => string.Equals(x.ItemId, itemId, StringComparison.OrdinalIgnoreCase)
+                                   && x.WatchedAt.ToLocalTime().Date == today))
+                    return;
+
+                var rewatch = existing.Any(x => string.Equals(x.ItemId, itemId, StringComparison.OrdinalIgnoreCase));
+
+                await diary.AddEntryAsync(userKey, new Models.DiaryEntry
+                {
+                    ItemId    = itemId,
+                    WatchedAt = DateTime.UtcNow,
+                    Stars     = stars,
+                    Review    = string.IsNullOrWhiteSpace(review) ? null : review.Trim(),
+                    Rewatch   = rewatch
+                }).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                // A diary write must never fail the rating itself.
+                _logger.LogWarning(ex, "[StarTrack] Could not auto-log diary entry for {Item}", itemId);
+            }
         }
 
         /// <summary>Removes the current user's rating for an item.</summary>

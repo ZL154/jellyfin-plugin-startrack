@@ -64,6 +64,18 @@ namespace Jellyfin.Plugin.InternalRating
         public bool LogWatchesToDiary { get; set; } = true;
 
         /// <summary>
+        /// Also create a diary entry when a user rates something they have no
+        /// entry for today.
+        ///
+        /// Off by default. Rating and logging are genuinely different acts —
+        /// you can rate a film you saw years ago — so turning every rating into
+        /// a "watched today" entry would falsify the diary. It is offered
+        /// because most people rate right after watching, and were surprised
+        /// that rating produced no diary entry at all.
+        /// </summary>
+        public bool LogDiaryOnRating { get; set; }
+
+        /// <summary>
         /// When true, the 'Recent' floating pill shows recent ratings from EVERY
         /// user on the server (community feed) instead of only the current user's
         /// own ratings.
