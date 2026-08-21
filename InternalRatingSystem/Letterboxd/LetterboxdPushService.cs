@@ -152,9 +152,12 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 // rating set THERE is not stamped over by Jellyfin. One request
                 // for the whole run. Empty on failure, which fails OPEN: a
                 // first-ever sync must not be blocked by an unreadable feed.
+                // Read what Letterboxd currently has whenever ratings are in
+                // play — needed BOTH to honour the overwrite toggle and to stop
+                // the unchanged-cache hiding a remote change. One request per run.
                 IReadOnlyDictionary<string, double> remoteRatings =
                     new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
-                if (!settings.OverwriteRatings && settings.PushRatings)
+                if (settings.PushRatings)
                     remoteRatings = await writer.GetMemberRatingsAsync(ct).ConfigureAwait(false);
 
                 // Liked films are a separate list from ratings — a user can like
@@ -210,27 +213,37 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                     var signature = LetterboxdPushLedger.Signature(
                         item.Stars, isLiked, settings.PushRatings, settings.PushWatched, settings.PushLiked);
 
-                    if (await _ledger.IsUnchangedAsync(userId, tmdbId, signature).ConfigureAwait(false))
+                    // Resolve FIRST: the remote rating is keyed by slug, and the
+                    // unchanged check below is only trustworthy once we know
+                    // whether Letterboxd still agrees. Resolution is cached
+                    // globally, so after the first run this costs nothing.
+                    var film = await ResolveCachedAsync(writer, tmdbId, ct).ConfigureAwait(false);
+                    if (film == null) { result.Unmatched++; continue; }
+
+                    // Does Letterboxd disagree with us right now?
+                    var remoteDiffers = settings.PushRatings && hasRating
+                        && remoteRatings.TryGetValue(film.Slug, out var remoteStars)
+                        && Math.Abs(remoteStars - item.Stars) > 0.01;
+
+                    // The cache records what WE last pushed, so on its own it
+                    // cannot see a rating changed on Letterboxd directly — which
+                    // made "overwrite" do nothing at all, because the film was
+                    // skipped as unchanged before the toggle was ever consulted.
+                    // A remote disagreement means there IS work to do.
+                    if (!remoteDiffers
+                        && await _ledger.IsUnchangedAsync(userId, tmdbId, signature).ConfigureAwait(false))
                     {
                         result.Unchanged++;
                         continue;
                     }
 
-                    // Resolution is cached globally: which Letterboxd film a TMDb
-                    // id maps to is the same for every user, and resolving costs a
-                    // redirect plus a full HTML page.
-                    var film = await ResolveCachedAsync(writer, tmdbId, ct).ConfigureAwait(false);
-                    if (film == null) { result.Unmatched++; continue; }
-
                     // ---- rating (idempotent) ----
                     if (settings.PushRatings && hasRating)
                     {
-                        // Letterboxd already has a DIFFERENT rating and the user
-                        // asked us not to overwrite: leave it be. Equal values
-                        // fall through harmlessly (the write is idempotent).
-                        if (!settings.OverwriteRatings
-                            && remoteRatings.TryGetValue(film.Slug, out var theirs)
-                            && Math.Abs(theirs - item.Stars) > 0.01)
+                        // Letterboxd disagrees and the user asked us not to
+                        // overwrite: leave it alone. With overwrite ON we fall
+                        // through and replace it, which is the whole point.
+                        if (remoteDiffers && !settings.OverwriteRatings)
                         {
                             result.KeptRemote++;
                             await _ledger.SetStateAsync(userId, tmdbId, signature).ConfigureAwait(false);

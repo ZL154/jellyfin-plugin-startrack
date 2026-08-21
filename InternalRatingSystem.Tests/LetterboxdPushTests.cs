@@ -653,6 +653,46 @@ namespace InternalRatingSystem.Tests
             Assert.Equal(0, res.KeptRemote);   // no conflict to protect against
         }
 
+        [Fact]
+        public async Task RemoteChange_DefeatsTheUnchangedCache_SoOverwriteActuallyFires()
+        {
+            // The bug: after a successful push the film was cached as unchanged,
+            // and the cache only tracks what WE sent. Changing the rating on
+            // Letterboxd directly left the film "unchanged" forever, so the
+            // overwrite toggle silently did nothing.
+            var w = new FakeWriter();
+            var st = Settings(); st.OverwriteRatings = true;
+            var svc = Service(new FakeRatingGatherer(Movie(11423, 4.0)));
+
+            await svc.PushAsync(User, w, st, writeDiaryEntries: false, delayMs: 0);
+            Assert.Single(w.Rated);
+
+            // Someone re-rates it 5 on Letterboxd itself.
+            w.RemoteRatings["film-11423"] = 5.0;
+
+            var res = await svc.PushAsync(User, w, st, writeDiaryEntries: false, delayMs: 0);
+
+            Assert.Equal(0, res.Unchanged);        // must NOT be skipped
+            Assert.Equal(2, w.Rated.Count);        // ours is re-asserted
+            Assert.Equal(4.0, w.Rated[1].Stars);
+        }
+
+        [Fact]
+        public async Task RemoteChange_IsRespected_WhenOverwriteIsOff()
+        {
+            var w = new FakeWriter();
+            var st = Settings(); st.OverwriteRatings = false;
+            var svc = Service(new FakeRatingGatherer(Movie(11423, 4.0)));
+
+            await svc.PushAsync(User, w, st, writeDiaryEntries: false, delayMs: 0);
+            w.RemoteRatings["film-11423"] = 5.0;
+
+            var res = await svc.PushAsync(User, w, st, writeDiaryEntries: false, delayMs: 0);
+
+            Assert.Equal(1, res.KeptRemote);
+            Assert.Single(w.Rated);                // theirs left intact
+        }
+
         // ---- watchlist ----
 
         [Fact]
