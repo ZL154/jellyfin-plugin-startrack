@@ -147,7 +147,12 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 // Stamp the cutoff the first time diary logging is switched on,
                 // and clear it when switched off so re-enabling later doesn't
                 // suddenly log everything watched in the gap.
-                if (pushDiary && !s.PushDiary) s.DiaryLoggingSince = DateTime.UtcNow;
+                // Start of TODAY, not this instant. Enabling the toggle at 19:00
+                // otherwise excludes something logged at 11:00 the same morning,
+                // which reads as "it just doesn't work". Today still counts;
+                // the back catalogue still does not.
+                if (pushDiary && !s.PushDiary)
+                    s.DiaryLoggingSince = DateTime.UtcNow.ToLocalTime().Date.ToUniversalTime();
                 else if (!pushDiary)           s.DiaryLoggingSince = null;
                 s.PushDiary     = pushDiary;
                 s.PushWatchlist = pushWatchlist;

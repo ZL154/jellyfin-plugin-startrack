@@ -625,6 +625,37 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "startrack-letterboxd.csv");
         }
 
+        /// <summary>
+        /// Admin diagnostic: asks Letterboxd which action names actually exist
+        /// for a film, using the caller's linked account. Used to establish the
+        /// watchlist endpoint, which no reference implementation provides.
+        /// </summary>
+        [HttpPost("ProbeActions")]
+        [Authorize(Policy = "RequiresElevation")]
+        [ProducesResponseType(typeof(Dictionary<string, string>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> ProbeActions(
+            [FromQuery] int tmdbId = 786, [FromQuery] string? actions = null, [FromQuery] string? userId = null)
+        {
+            // Accept an explicit user so an admin API key (which carries no user
+            // context) can run the diagnostic against a linked account.
+            var target = userId;
+            if (string.IsNullOrWhiteSpace(target))
+            {
+                var current = await GetCurrentUserIdAsync().ConfigureAwait(false);
+                if (current == null) return Unauthorized();
+                target = current.Value.ToString("N");
+            }
+            target = target.Replace("-", string.Empty);
+
+            var list = string.IsNullOrWhiteSpace(actions)
+                ? new[] { "watchlist", "add-to-watchlist", "addtowatchlist", "watch-list", "toggle-watchlist", "wishlist" }
+                : actions.Split(',', StringSplitOptions.RemoveEmptyEntries);
+
+            var report = await _runner.ProbeAsync(target, tmdbId, list, HttpContext.RequestAborted)
+                                      .ConfigureAwait(false);
+            return Ok(report);
+        }
+
         public sealed class SetSettingsRequest
         {
             public string? Username       { get; set; }

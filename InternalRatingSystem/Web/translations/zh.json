@@ -609,11 +609,11 @@
   "lb.n_watchlisted": "已加入待看",
   "Log a watch": "记录一次观看",
   "Watched on": "观看日期",
-  "Rewatch": "重看",
   "Add to diary": "加入日记",
   "log.saving": "正在添加…",
   "log.added": "已加入日记",
   "log.failed": "无法添加。",
   "Also add a diary entry when a user rates something": "用户评分时也写入日记",
-  "Off by default: rating a film you saw years ago would be filed as watched today.": "默认关闭：为多年前看过的影片评分会被记为今天观看。"
+  "Off by default: rating a film you saw years ago would be filed as watched today.": "默认关闭：为多年前看过的影片评分会被记为今天观看。",
+  "Rewatches are detected automatically.": "重看会自动识别。"
 }

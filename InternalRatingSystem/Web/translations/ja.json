@@ -609,11 +609,11 @@
   "lb.n_watchlisted": "件をウォッチリストに",
   "Log a watch": "視聴を記録",
   "Watched on": "視聴日",
-  "Rewatch": "再視聴",
   "Add to diary": "日記に追加",
   "log.saving": "追加中…",
   "log.added": "日記に追加しました",
   "log.failed": "追加できませんでした。",
   "Also add a diary entry when a user rates something": "ユーザーが評価したときにも日記に記録する",
-  "Off by default: rating a film you saw years ago would be filed as watched today.": "既定でオフ：何年も前に見た映画が「今日視聴」として記録されてしまうためです。"
+  "Off by default: rating a film you saw years ago would be filed as watched today.": "既定でオフ：何年も前に見た映画が「今日視聴」として記録されてしまうためです。",
+  "Rewatches are detected automatically.": "再視聴は自動的に判定されます。"
 }

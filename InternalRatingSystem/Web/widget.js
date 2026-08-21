@@ -598,6 +598,7 @@
             '.ir-log-go{background:#f4c430!important;color:#000!important;border:none!important;border-radius:5px!important;padding:5px 12px!important;font-size:.78em!important;font-weight:700!important;cursor:pointer!important}',
             '.ir-log-go:hover{background:#ffd84d!important}',
             '.ir-log-status{font-size:.76em!important;color:rgba(255,255,255,.6)!important}',
+            '.ir-log-hint{font-size:.72em!important;color:rgba(255,255,255,.45)!important;margin-bottom:6px!important}',
             '.ir-rb{background:none!important;border:1px solid rgba(255,70,70,.35)!important;color:rgba(255,100,100,.75)!important;border-radius:4px!important;padding:3px 8px!important;font-size:.76em!important;cursor:pointer!important;margin-left:auto!important;transition:all .2s!important}',
             '.ir-rb:hover{background:rgba(255,40,40,.15)!important;color:#ff7070!important}',
             // Ratings list
@@ -1890,10 +1891,10 @@
                             '<label class="ir-log-label" data-tr="Watched on">Watched on</label>' +
                             '<input type="date" class="ir-log-date" />' +
                         '</div>' +
-                        '<label class="ir-log-check">' +
-                            '<input type="checkbox" class="ir-log-rewatch" /> ' +
-                            '<span data-tr="Rewatch">Rewatch</span>' +
-                        '</label>' +
+                        // No rewatch checkbox: the server already knows whether
+                        // this item has been logged before, so asking is both
+                        // redundant and a chance for the user to get it wrong.
+                        '<div class="ir-log-hint" data-tr="Rewatches are detected automatically.">Rewatches are detected automatically.</div>' +
                         '<div class="ir-log-row">' +
                             '<button class="ir-log-go" data-tr="Add to diary">Add to diary</button>' +
                             '<span class="ir-log-status"></span>' +
@@ -1985,7 +1986,6 @@
                             '<label class="ir-lb-check"><input type="checkbox" class="ir-lb-p-ratings" checked /><span data-tr="Ratings">Ratings</span></label>' +
                             '<label class="ir-lb-check"><input type="checkbox" class="ir-lb-p-watched" checked /><span data-tr="Mark watched">Mark watched</span></label>' +
                             '<label class="ir-lb-check"><input type="checkbox" class="ir-lb-p-liked" checked /><span data-tr="Likes">Likes</span></label>' +
-                            '<label class="ir-lb-check"><input type="checkbox" class="ir-lb-p-watchlist" /><span data-tr="Watchlist">Watchlist</span></label>' +
                         '</div>' +
                         '<div class="ir-lb-row">' +
                             '<label class="ir-lb-check">' +
@@ -2287,7 +2287,6 @@
                             '<label class="ir-ov-lb-check"><input type="checkbox" class="ir-ov-lb-p-ratings" checked /> <span data-tr="Ratings">Ratings</span></label>' +
                             '<label class="ir-ov-lb-check"><input type="checkbox" class="ir-ov-lb-p-watched" checked /> <span data-tr="Mark watched">Mark watched</span></label>' +
                             '<label class="ir-ov-lb-check"><input type="checkbox" class="ir-ov-lb-p-liked" checked /> <span data-tr="Likes">Likes</span></label>' +
-                            '<label class="ir-ov-lb-check"><input type="checkbox" class="ir-ov-lb-p-watchlist" /> <span data-tr="Watchlist">Watchlist</span></label>' +
                             '<label class="ir-ov-lb-check"><input type="checkbox" class="ir-ov-lb-p-diary" /> <span data-tr="Log new watches to your diary (from now on)">Log new watches to your diary (from now on)</span></label>' +
                             '<span class="ir-ov-lb-hint" data-tr="Diary entries cannot be edited by a later sync, so only films you rate from now on are logged. Your existing diary is left alone.">Diary entries cannot be edited by a later sync, so only films you rate from now on are logged. Your existing diary is left alone.</span>' +
                         '</div>' +
@@ -2409,7 +2408,6 @@
         var ovPushWat  = _overlay.querySelector('.ir-ov-lb-p-watched');
         var ovPushLik  = _overlay.querySelector('.ir-ov-lb-p-liked');
         var ovPushDia  = _overlay.querySelector('.ir-ov-lb-p-diary');
-        var ovPushWl   = _overlay.querySelector('.ir-ov-lb-p-watchlist');
         var ovPushCk   = _overlay.querySelector('.ir-ov-lb-cookies');
         var ovPushUa   = _overlay.querySelector('.ir-ov-lb-ua');
         var ovPushVer  = _overlay.querySelector('.ir-ov-lb-verify');
@@ -2441,7 +2439,6 @@
                 if (ovPushWat) ovPushWat.checked = !!a.pushWatched;
                 if (ovPushLik) ovPushLik.checked = !!a.pushLiked;
                 if (ovPushDia) ovPushDia.checked = !!a.pushDiary;
-                if (ovPushWl)  ovPushWl.checked  = !!a.pushWatchlist;
                 if (ovPushUa)  ovPushUa.value    = a.userAgent || '';
                 if (ovPushPw)  ovPushPw.placeholder = a.hasPassword
                     ? tr('lb.pw_saved', null, 'Saved - leave blank to keep') : '';
@@ -2459,7 +2456,11 @@
                 pushWatched: !!(ovPushWat && ovPushWat.checked),
                 pushLiked:   !!(ovPushLik && ovPushLik.checked),
                 pushDiary:     !!(ovPushDia && ovPushDia.checked),
-                pushWatchlist: !!(ovPushWl && ovPushWl.checked),
+                // Letterboxd exposes no reachable watchlist write endpoint —
+                // 13 candidate URLs across two shapes all 404, and the film
+                // page renders its watchlist button in JS. Pinned false rather
+                // than offering a switch that silently does nothing.
+                pushWatchlist: false,
                 pushReviews: false
             };
             if (ovPushPw && ovPushPw.value) b.password   = ovPushPw.value;
@@ -6416,7 +6417,6 @@
         var logTb     = el.querySelector('.ir-log-tb');
         var logBox    = el.querySelector('.ir-log-box');
         var logDate   = el.querySelector('.ir-log-date');
-        var logRew    = el.querySelector('.ir-log-rewatch');
         var logGo     = el.querySelector('.ir-log-go');
         var logStatus = el.querySelector('.ir-log-status');
 
@@ -6455,11 +6455,11 @@
             var stars = _pendingStars || null;
             var revTxt = (rev && rev.value) ? rev.value : null;
 
-            apiDiaryAdd(_curId, when, stars, revTxt, logRew && logRew.checked)
+            // rewatch omitted: the server derives it
+            apiDiaryAdd(_curId, when, stars, revTxt, null)
                 .then(function (e) {
                     if (!e) { if (logStatus) { logStatus.style.color = '#ff8080'; logStatus.textContent = '\u2717 ' + tr('log.failed', null, 'Could not add.'); } return; }
                     if (logStatus) { logStatus.style.color = '#52b54b'; logStatus.textContent = '\u2713 ' + tr('log.added', null, 'Added to your diary'); }
-                    if (logRew) logRew.checked = false;
                 })
                 .catch(function () { if (logStatus) { logStatus.style.color = '#ff8080'; logStatus.textContent = '\u2717 ' + tr('log.failed', null, 'Could not add.'); } })
                 .finally(function () { logGo.disabled = false; });
@@ -6649,7 +6649,6 @@
         var lbPWatched = el.querySelector('.ir-lb-p-watched');
         var lbPLiked   = el.querySelector('.ir-lb-p-liked');
         var lbPDiary   = el.querySelector('.ir-lb-p-diary');
-        var lbPWl      = el.querySelector('.ir-lb-p-watchlist');
         var lbCookies  = el.querySelector('.ir-lb-cookies');
         var lbUa       = el.querySelector('.ir-lb-ua');
         var lbVerify   = el.querySelector('.ir-lb-verify');
@@ -6695,7 +6694,6 @@
                 if (lbPWatched) lbPWatched.checked = !!a.pushWatched;
                 if (lbPLiked)   lbPLiked.checked   = !!a.pushLiked;
                 if (lbPDiary)   lbPDiary.checked   = !!a.pushDiary;
-                if (lbPWl)      lbPWl.checked      = !!a.pushWatchlist;
                 if (lbUa)       lbUa.value         = a.userAgent || '';
                 if (lbPw)       lbPw.placeholder   = a.hasPassword
                     ? tr('lb.pw_saved', null, 'Saved - leave blank to keep')
@@ -6721,7 +6719,7 @@
                 pushWatched: !!(lbPWatched && lbPWatched.checked),
                 pushLiked:   !!(lbPLiked   && lbPLiked.checked),
                 pushDiary:     !!(lbPDiary && lbPDiary.checked),
-                pushWatchlist: !!(lbPWl && lbPWl.checked),
+                pushWatchlist: false,
                 pushReviews: false
             };
             if (lbPw && lbPw.value)           body.password   = lbPw.value;

@@ -1,4 +1,6 @@
 using System;
+using System.Linq;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -97,6 +99,36 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             using var session = new LetterboxdSession(_logger, userAgent);
             session.SeedRawCookies(rawCookies);
             return await session.AuthenticateAsync(username, password, ct).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Signs in and probes candidate action names for one TMDb film, so the
+        /// correct watchlist URL can be established from the site itself rather
+        /// than guessed release after release.
+        /// </summary>
+        public async Task<Dictionary<string, string>> ProbeAsync(
+            string userId, int tmdbId, IEnumerable<string> actions, CancellationToken ct = default)
+        {
+            var settings = await _settings.GetAsync(userId).ConfigureAwait(false);
+            var password = LetterboxdSecretProtector.Unprotect(settings.PasswordEnc);
+            if (string.IsNullOrWhiteSpace(settings.Username) || string.IsNullOrEmpty(password))
+                return new Dictionary<string, string> { ["_error"] = "no linked account" };
+
+            using var session = new LetterboxdSession(_logger, settings.UserAgent);
+            session.SeedRawCookies(LetterboxdSecretProtector.Unprotect(settings.RawCookiesEnc));
+
+            var auth = await session.AuthenticateAsync(settings.Username, password, ct).ConfigureAwait(false);
+            if (!auth.Ok) return new Dictionary<string, string> { ["_error"] = auth.Message ?? auth.Status.ToString() };
+
+            var writer = new LetterboxdWriteService(session, _logger);
+            var film = await writer.ResolveFilmAsync(tmdbId, ct).ConfigureAwait(false);
+            if (film == null) return new Dictionary<string, string> { ["_error"] = "film not found on Letterboxd" };
+
+            var report = actions.Any(a => a == "_inspect")
+                ? await writer.InspectWatchlistMarkupAsync(film, ct).ConfigureAwait(false)
+                : await writer.ProbeActionsAsync(film, actions, ct).ConfigureAwait(false);
+            report["_film"] = film.Slug + " (id " + film.FilmId + ")";
+            return report;
         }
 
         private Task PersistAsync(string userId, LetterboxdPushResult r) =>

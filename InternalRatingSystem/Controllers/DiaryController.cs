@@ -64,13 +64,23 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             if (watchedAt.Year < 1900 || watchedAt > DateTime.UtcNow.AddDays(1))
                 return BadRequest("Watched date is outside the allowed range.");
 
+            // Rewatch is DERIVED, never asked for. The server already knows
+            // whether this item has been logged before, so making the user tick
+            // a box is both redundant and a chance to get it wrong. An explicit
+            // value in the request still wins, so a client can override for a
+            // genuine correction.
+            var priorEntries = await _repo.GetEntriesAsync(userId.Value.ToString("N")).ConfigureAwait(false);
+            var seenBefore = priorEntries.Any(x =>
+                string.Equals(x.ItemId, req.ItemId, StringComparison.OrdinalIgnoreCase)
+                && x.WatchedAt < watchedAt);
+
             var entry = new DiaryEntry
             {
                 ItemId    = req.ItemId!,
                 WatchedAt = watchedAt,
                 Stars     = req.Stars,
                 Review    = string.IsNullOrWhiteSpace(req.Review) ? null : req.Review.Trim(),
-                Rewatch   = req.Rewatch ?? false
+                Rewatch   = req.Rewatch ?? seenBefore
             };
             var saved = await _repo.AddEntryAsync(userId.Value.ToString("N"), entry).ConfigureAwait(false);
             return Ok(saved);

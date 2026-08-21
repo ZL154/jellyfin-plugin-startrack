@@ -235,6 +235,115 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             => PostFormAsync(film, "watchlist", new Dictionary<string, string> { ["watchlist"] = "true" }, ct);
 
         /// <summary>
+        /// Pulls the film page and reports every watchlist-related URL, form
+        /// action and data attribute it can find.
+        ///
+        /// Guessing action names found nothing — the watchlist is simply not
+        /// under /s/film:{id}/{action}/. Asking the page what its own button
+        /// posts to is the only honest way to settle it.
+        /// </summary>
+        public async Task<Dictionary<string, string>> InspectWatchlistMarkupAsync(
+            LetterboxdFilm film, CancellationToken ct = default)
+        {
+            var report = new Dictionary<string, string>(StringComparer.Ordinal);
+            try
+            {
+                using var res = await _session.Http.GetAsync($"/film/{film.Slug}/", ct).ConfigureAwait(false);
+                var html = await res.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                report["_status"] = ((int)res.StatusCode).ToString();
+                report["_length"] = html.Length.ToString();
+
+                var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var n = 0;
+
+                // Any URL-ish token mentioning watchlist, plus the surrounding
+                // attribute so the shape is obvious.
+                foreach (Match m in Regex.Matches(html,
+                    @"[\w-]+\s*=\s*[""'][^""']*watchlist[^""']*[""']", RegexOptions.IgnoreCase))
+                {
+                    var v = m.Value.Trim();
+                    if (v.Length > 200) v = v.Substring(0, 200);
+                    if (seen.Add(v)) report["attr" + (++n)] = v;
+                    if (n >= 25) break;
+                }
+
+                // Bare paths mentioning watchlist that the attribute scan missed.
+                foreach (Match m in Regex.Matches(html, @"/[\w:/.-]*watchlist[\w:/.-]*", RegexOptions.IgnoreCase))
+                {
+                    var v = m.Value.Trim();
+                    if (seen.Add(v)) report["path" + (++n)] = v;
+                    if (n >= 40) break;
+                }
+
+                if (n == 0) report["_note"] = "no watchlist markup found (signed out? button may be JS-rendered)";
+            }
+            catch (Exception ex)
+            {
+                report["_error"] = ex.GetType().Name + ": " + ex.Message;
+            }
+            return report;
+        }
+
+        /// <summary>
+        /// Tries a set of candidate action names against one film and reports the
+        /// HTTP status of each.
+        ///
+        /// Exists because the watchlist URL is the one write StarTrack cannot
+        /// copy from a working implementation — no reference project writes the
+        /// Letterboxd watchlist. Rather than keep guessing a name and shipping a
+        /// release to find out, this asks the site directly and reports back.
+        /// Admin-triggered and read-mostly: the candidates are all idempotent
+        /// "add" style actions, and adding to a watchlist is trivially undone.
+        /// </summary>
+        public async Task<Dictionary<string, string>> ProbeActionsAsync(
+            LetterboxdFilm film, IEnumerable<string> actions, CancellationToken ct = default)
+        {
+            var report = new Dictionary<string, string>(StringComparer.Ordinal);
+            if (!_session.IsAuthenticated)
+            {
+                report["_error"] = "not signed in";
+                return report;
+            }
+
+            foreach (var action in actions)
+            {
+                ct.ThrowIfCancellationRequested();
+                try
+                {
+                    var fields = new Dictionary<string, string>
+                    {
+                        ["__csrf"]    = _session.Csrf,
+                        ["watchlist"] = "true",
+                        ["watched"]   = "true"
+                    };
+                    using var req = new HttpRequestMessage(HttpMethod.Post, $"/s/film:{film.FilmId}/{action}/")
+                    {
+                        Content = new FormUrlEncodedContent(fields)
+                    };
+                    req.Headers.Referrer = new Uri($"{LetterboxdSession.BaseUrl}/film/{film.Slug}/");
+                    req.Headers.TryAddWithoutValidation("X-Requested-With", "XMLHttpRequest");
+
+                    using var res = await _session.Http.SendAsync(req, ct).ConfigureAwait(false);
+                    var body = await res.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                    report[action] = ((int)res.StatusCode) + " " + Truncate(body, 120);
+                }
+                catch (Exception ex)
+                {
+                    report[action] = "EX " + ex.GetType().Name;
+                }
+            }
+
+            return report;
+        }
+
+        private static string Truncate(string? s, int n)
+        {
+            if (string.IsNullOrEmpty(s)) return string.Empty;
+            s = s.Replace("\n", " ").Replace("\r", " ").Trim();
+            return s.Length <= n ? s : s.Substring(0, n);
+        }
+
+        /// <summary>
         /// Shared plumbing for the form-encoded <c>/s/film:{id}/{action}/</c>
         /// endpoints, which take the CSRF token in the body rather than a header.
         /// </summary>

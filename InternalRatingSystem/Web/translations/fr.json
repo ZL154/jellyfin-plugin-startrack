@@ -609,11 +609,11 @@
   "lb.n_watchlisted": "ajoutés à la liste",
   "Log a watch": "Enregistrer un visionnage",
   "Watched on": "Vu le",
-  "Rewatch": "Revisionnage",
   "Add to diary": "Ajouter au journal",
   "log.saving": "Ajout…",
   "log.added": "Ajouté à votre journal",
   "log.failed": "Impossible d'ajouter.",
   "Also add a diary entry when a user rates something": "Ajouter aussi une entrée au journal quand un utilisateur note quelque chose",
-  "Off by default: rating a film you saw years ago would be filed as watched today.": "Désactivé par défaut : noter un film vu il y a des années le classerait comme vu aujourd'hui."
+  "Off by default: rating a film you saw years ago would be filed as watched today.": "Désactivé par défaut : noter un film vu il y a des années le classerait comme vu aujourd'hui.",
+  "Rewatches are detected automatically.": "Les revisionnages sont détectés automatiquement."
 }
