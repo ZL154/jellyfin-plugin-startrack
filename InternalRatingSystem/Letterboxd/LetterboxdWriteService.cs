@@ -56,6 +56,9 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         /// <summary>Marks a film watched. Idempotent.</summary>
         Task<LetterboxdWriteResult> SetWatchedAsync(LetterboxdFilm film, CancellationToken ct = default);
 
+        /// <summary>Likes a film. Idempotent. Never un-likes — see the implementation.</summary>
+        Task<LetterboxdWriteResult> SetLikedAsync(LetterboxdFilm film, CancellationToken ct = default);
+
         /// <summary>Creates a dated diary entry. NOT idempotent — callers must dedupe.</summary>
         Task<LetterboxdWriteResult> LogEntryAsync(
             LetterboxdFilm film, DateTime watchedAt, double? rating, bool liked, bool rewatch,
@@ -192,6 +195,24 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         /// <summary>Marks a film watched. Idempotent.</summary>
         public Task<LetterboxdWriteResult> SetWatchedAsync(LetterboxdFilm film, CancellationToken ct = default)
             => PostFormAsync(film, "watch", new Dictionary<string, string> { ["watched"] = "true" }, ct);
+
+        /// <summary>
+        /// Likes a film, using the same /s/film:{id}/{action}/ shape as rate and
+        /// watch. Idempotent.
+        ///
+        /// ONLY EVER ADDS A LIKE. StarTrack does not un-like on Letterboxd when a
+        /// heart is cleared locally: likes are a curated list on someone's public
+        /// profile, and silently removing entries because a Jellyfin toggle
+        /// changed is a destructive surprise. Adding is recoverable by the user
+        /// in one click; deleting something they curated is not.
+        ///
+        /// Unlike rate and watch, this endpoint is inferred from the shared URL
+        /// pattern rather than observed, so a 404 is treated as "this Letterboxd
+        /// build does not expose it" — non-fatal, and the caller simply does not
+        /// count a like it cannot prove happened.
+        /// </summary>
+        public Task<LetterboxdWriteResult> SetLikedAsync(LetterboxdFilm film, CancellationToken ct = default)
+            => PostFormAsync(film, "like", new Dictionary<string, string> { ["liked"] = "true" }, ct);
 
         /// <summary>
         /// Shared plumbing for the form-encoded <c>/s/film:{id}/{action}/</c>

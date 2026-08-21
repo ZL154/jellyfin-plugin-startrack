@@ -147,6 +147,20 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                         if (w.Ok) result.Watched++;
                     }
 
+                    // ---- liked (idempotent, additive only) ----
+                    // Previously a like only rode along as a field on a diary
+                    // entry, so with diary logging off (the default) likes were
+                    // never sent at all — while the counter still reported them.
+                    if (settings.PushLiked && isLiked)
+                    {
+                        var lk = await writer.SetLikedAsync(film, ct).ConfigureAwait(false);
+                        if (IsFatal(lk, result)) return result;
+                        // Counted only on a confirmed write. A 404 here means this
+                        // Letterboxd build has no standalone like endpoint, and
+                        // reporting a success we cannot prove is worse than a zero.
+                        if (lk.Ok) result.Liked++;
+                    }
+
                     // ---- diary entry (append-only — ledger-guarded) ----
                     if (writeDiaryEntries && hasRating && IsAfterDiaryCutoff(item, settings))
                     {
@@ -172,7 +186,6 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                         }
                     }
 
-                    if (isLiked) result.Liked++;
                 }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)

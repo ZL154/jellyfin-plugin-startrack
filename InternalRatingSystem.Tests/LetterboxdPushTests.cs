@@ -66,6 +66,19 @@ namespace InternalRatingSystem.Tests
             return R();
         }
 
+        public List<string> LikedFilms { get; } = new();
+
+        /// <summary>Set to simulate a Letterboxd build with no standalone like endpoint.</summary>
+        public bool LikeUnsupported { get; set; }
+
+        public Task<LetterboxdWriteResult> SetLikedAsync(LetterboxdFilm film, CancellationToken ct = default)
+        {
+            if (LikeUnsupported)
+                return Task.FromResult(new LetterboxdWriteResult(LetterboxdWriteStatus.FilmNotFound));
+            if (WriteStatus == LetterboxdWriteStatus.Ok) LikedFilms.Add(film.Slug);
+            return R();
+        }
+
         public Task<LetterboxdWriteResult> LogEntryAsync(
             LetterboxdFilm film, DateTime watchedAt, double? rating, bool liked, bool rewatch,
             string? review = null, bool containsSpoilers = false, CancellationToken ct = default)
@@ -273,15 +286,54 @@ namespace InternalRatingSystem.Tests
         // ---- liked films ----
 
         [Fact]
-        public async Task LikedFilm_IsPushed_EvenWhenNeverRated()
+        public async Task LikedFilm_IsActuallyWritten_EvenWhenNeverRated()
         {
             // Liked and rated are separate lists — a union, not a filter.
+            // This previously asserted only on the COUNTER, which passed while
+            // no like was ever sent: likes rode along as a field on a diary
+            // entry, so with diary logging off nothing reached Letterboxd.
+            // Assert on the write, not the tally.
             var w = new FakeWriter();
             var res = await Service(new FakeRatingGatherer(), new FakeLikedGatherer(Movie(77, 0)))
-                .PushAsync(User, w, Settings(), false);
+                .PushAsync(User, w, Settings(), writeDiaryEntries: false);
 
             Assert.Contains(77, w.Resolved);
+            Assert.Single(w.LikedFilms);
             Assert.Equal(1, res.Liked);
+        }
+
+        [Fact]
+        public async Task LikedFilm_IsWritten_EvenWithDiaryLoggingOff()
+        {
+            var w = new FakeWriter();
+            await Service(new FakeRatingGatherer(Movie(5, 4.0)), new FakeLikedGatherer(Movie(5, 4.0)))
+                .PushAsync(User, w, Settings(), writeDiaryEntries: false);
+
+            Assert.Single(w.LikedFilms);
+            Assert.Empty(w.Diary);
+        }
+
+        [Fact]
+        public async Task LikeCount_StaysZero_WhenLetterboxdRejectsTheEndpoint()
+        {
+            // Reporting a success we cannot prove is worse than reporting zero.
+            var w = new FakeWriter { LikeUnsupported = true };
+            var res = await Service(new FakeRatingGatherer(), new FakeLikedGatherer(Movie(88, 0)))
+                .PushAsync(User, w, Settings(), writeDiaryEntries: false);
+
+            Assert.Empty(w.LikedFilms);
+            Assert.Equal(0, res.Liked);
+            Assert.Null(res.Error);       // unsupported is not a run-ending failure
+        }
+
+        [Fact]
+        public async Task LikedFilm_IsNotWritten_WhenPushLikedIsOff()
+        {
+            var w = new FakeWriter();
+            await Service(new FakeRatingGatherer(), new FakeLikedGatherer(Movie(99, 0)))
+                .PushAsync(User, w, Settings(liked: false), writeDiaryEntries: false);
+
+            Assert.Empty(w.LikedFilms);
         }
 
         // ---- abort behaviour ----
