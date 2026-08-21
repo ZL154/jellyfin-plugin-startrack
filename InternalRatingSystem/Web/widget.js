@@ -1987,6 +1987,7 @@
                             '<label class="ir-lb-check"><input type="checkbox" class="ir-lb-p-watched" checked /><span data-tr="Mark watched">Mark watched</span></label>' +
                             '<label class="ir-lb-check"><input type="checkbox" class="ir-lb-p-liked" checked /><span data-tr="Likes">Likes</span></label>' +
                             '<label class="ir-lb-check"><input type="checkbox" class="ir-lb-p-watchlist" /><span data-tr="Watchlist">Watchlist</span></label>' +
+                            '<label class="ir-lb-check"><input type="checkbox" class="ir-lb-overwrite" /><span data-tr="Overwrite Letterboxd ratings">Overwrite Letterboxd ratings</span></label>' +
                         '</div>' +
                         '<div class="ir-lb-row">' +
                             '<label class="ir-lb-check">' +
@@ -2289,6 +2290,7 @@
                             '<label class="ir-ov-lb-check"><input type="checkbox" class="ir-ov-lb-p-watched" checked /> <span data-tr="Mark watched">Mark watched</span></label>' +
                             '<label class="ir-ov-lb-check"><input type="checkbox" class="ir-ov-lb-p-liked" checked /> <span data-tr="Likes">Likes</span></label>' +
                             '<label class="ir-ov-lb-check"><input type="checkbox" class="ir-ov-lb-p-watchlist" /> <span data-tr="Watchlist">Watchlist</span></label>' +
+                            '<label class="ir-ov-lb-check"><input type="checkbox" class="ir-ov-lb-overwrite" /> <span data-tr="Overwrite Letterboxd ratings">Overwrite Letterboxd ratings</span></label>' +
                             '<label class="ir-ov-lb-check"><input type="checkbox" class="ir-ov-lb-p-diary" /> <span data-tr="Log new watches to your diary (from now on)">Log new watches to your diary (from now on)</span></label>' +
                             '<span class="ir-ov-lb-hint" data-tr="Diary entries cannot be edited by a later sync, so only films you rate from now on are logged. Your existing diary is left alone.">Diary entries cannot be edited by a later sync, so only films you rate from now on are logged. Your existing diary is left alone.</span>' +
                         '</div>' +
@@ -2411,6 +2413,7 @@
         var ovPushLik  = _overlay.querySelector('.ir-ov-lb-p-liked');
         var ovPushDia  = _overlay.querySelector('.ir-ov-lb-p-diary');
         var ovPushWl   = _overlay.querySelector('.ir-ov-lb-p-watchlist');
+        var ovPushOw   = _overlay.querySelector('.ir-ov-lb-overwrite');
         var ovPushCk   = _overlay.querySelector('.ir-ov-lb-cookies');
         var ovPushUa   = _overlay.querySelector('.ir-ov-lb-ua');
         var ovPushVer  = _overlay.querySelector('.ir-ov-lb-verify');
@@ -2443,6 +2446,7 @@
                 if (ovPushLik) ovPushLik.checked = !!a.pushLiked;
                 if (ovPushDia) ovPushDia.checked = !!a.pushDiary;
                 if (ovPushWl)  ovPushWl.checked  = !!a.pushWatchlist;
+                if (ovPushOw)  ovPushOw.checked  = !!a.overwriteRatings;
                 if (ovPushUa)  ovPushUa.value    = a.userAgent || '';
                 if (ovPushPw)  ovPushPw.placeholder = a.hasPassword
                     ? tr('lb.pw_saved', null, 'Saved - leave blank to keep') : '';
@@ -2460,7 +2464,8 @@
                 pushWatched: !!(ovPushWat && ovPushWat.checked),
                 pushLiked:   !!(ovPushLik && ovPushLik.checked),
                 pushDiary:     !!(ovPushDia && ovPushDia.checked),
-                pushWatchlist: !!(ovPushWl && ovPushWl.checked),
+                pushWatchlist:    !!(ovPushWl && ovPushWl.checked),
+                overwriteRatings: !!(ovPushOw && ovPushOw.checked),
                 pushReviews: false
             };
             if (ovPushPw && ovPushPw.value) b.password   = ovPushPw.value;
@@ -2532,6 +2537,7 @@
                 if (r.liked)        parts.push(r.liked + ' ' + tr('lb.n_liked', null, 'liked'));
                 if (r.diaryEntries) parts.push(r.diaryEntries + ' ' + tr('lb.n_diary', null, 'diary'));
                 if (r.watchlisted)  parts.push(r.watchlisted + ' ' + tr('lb.n_watchlisted', null, 'watchlisted'));
+                if (r.keptRemote)   parts.push(r.keptRemote + ' ' + tr('lb.n_kept', null, 'kept from Letterboxd'));
                 if (r.unmatched)    parts.push(r.unmatched + ' ' + tr('lb.n_unmatched', null, 'not on Letterboxd'));
                 var msg = parts.length ? parts.join(', ') : tr('lb.nothing_to_push', null, 'Nothing new to push');
                 if (r.remaining) msg += ' \u2014 ' + r.remaining + ' ' + tr('lb.n_remaining', null, 'left, continuing automatically');
@@ -6650,6 +6656,7 @@
         var lbPLiked   = el.querySelector('.ir-lb-p-liked');
         var lbPDiary   = el.querySelector('.ir-lb-p-diary');
         var lbPWl      = el.querySelector('.ir-lb-p-watchlist');
+        var lbOw       = el.querySelector('.ir-lb-overwrite');
         var lbCookies  = el.querySelector('.ir-lb-cookies');
         var lbUa       = el.querySelector('.ir-lb-ua');
         var lbVerify   = el.querySelector('.ir-lb-verify');
@@ -6696,6 +6703,7 @@
                 if (lbPLiked)   lbPLiked.checked   = !!a.pushLiked;
                 if (lbPDiary)   lbPDiary.checked   = !!a.pushDiary;
                 if (lbPWl)      lbPWl.checked      = !!a.pushWatchlist;
+                if (lbOw)       lbOw.checked       = !!a.overwriteRatings;
                 if (lbUa)       lbUa.value         = a.userAgent || '';
                 if (lbPw)       lbPw.placeholder   = a.hasPassword
                     ? tr('lb.pw_saved', null, 'Saved - leave blank to keep')
@@ -6721,7 +6729,8 @@
                 pushWatched: !!(lbPWatched && lbPWatched.checked),
                 pushLiked:   !!(lbPLiked   && lbPLiked.checked),
                 pushDiary:     !!(lbPDiary && lbPDiary.checked),
-                pushWatchlist: !!(lbPWl && lbPWl.checked),
+                pushWatchlist:    !!(lbPWl && lbPWl.checked),
+                overwriteRatings: !!(lbOw && lbOw.checked),
                 pushReviews: false
             };
             if (lbPw && lbPw.value)           body.password   = lbPw.value;

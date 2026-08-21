@@ -42,6 +42,9 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         /// <summary>Films skipped entirely because nothing about them changed since the last push.</summary>
         [JsonPropertyName("unchanged")]            public int Unchanged { get; set; }
 
+        /// <summary>Ratings left alone because Letterboxd already had a different one.</summary>
+        [JsonPropertyName("keptRemote")]           public int KeptRemote { get; set; }
+
         /// <summary>Films added to the Letterboxd watchlist.</summary>
         [JsonPropertyName("watchlisted")]          public int Watchlisted { get; set; }
 
@@ -145,6 +148,15 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             {
                 var rated = await _ratings.GatherAsync(userId).ConfigureAwait(false);
 
+                // With overwrite off, read what Letterboxd already has so a
+                // rating set THERE is not stamped over by Jellyfin. One request
+                // for the whole run. Empty on failure, which fails OPEN: a
+                // first-ever sync must not be blocked by an unreadable feed.
+                IReadOnlyDictionary<string, double> remoteRatings =
+                    new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+                if (!settings.OverwriteRatings && settings.PushRatings)
+                    remoteRatings = await writer.GetMemberRatingsAsync(ct).ConfigureAwait(false);
+
                 // Liked films are a separate list from ratings — a user can like
                 // something they never rated, so this is a union, not a filter.
                 var likedKeys = new HashSet<int>();
@@ -213,6 +225,18 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                     // ---- rating (idempotent) ----
                     if (settings.PushRatings && hasRating)
                     {
+                        // Letterboxd already has a DIFFERENT rating and the user
+                        // asked us not to overwrite: leave it be. Equal values
+                        // fall through harmlessly (the write is idempotent).
+                        if (!settings.OverwriteRatings
+                            && remoteRatings.TryGetValue(film.Slug, out var theirs)
+                            && Math.Abs(theirs - item.Stars) > 0.01)
+                        {
+                            result.KeptRemote++;
+                            await _ledger.SetStateAsync(userId, tmdbId, signature).ConfigureAwait(false);
+                            continue;
+                        }
+
                         var r = await writer.SetRatingAsync(film, item.Stars, ct).ConfigureAwait(false);
                         if (IsFatal(r, result)) return result;
                         if (r.Ok) result.Rated++;

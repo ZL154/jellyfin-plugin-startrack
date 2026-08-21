@@ -82,6 +82,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             PushReviews        = s.PushReviews,
             PushDiary          = s.PushDiary,
             PushWatchlist      = s.PushWatchlist,
+            OverwriteRatings   = s.OverwriteRatings,
             DiaryLoggingSince  = s.DiaryLoggingSince,
             LastPushedAt       = s.LastPushedAt,
             LastPushedCount    = s.LastPushedCount,
@@ -104,7 +105,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             string? rawCookies,
             string? userAgent,
             bool pushRatings, bool pushWatched, bool pushLiked, bool pushReviews,
-            bool pushDiary, bool pushWatchlist)
+            bool pushDiary, bool pushWatchlist, bool overwriteRatings)
         {
             await _lock.WaitAsync().ConfigureAwait(false);
             try
@@ -155,7 +156,8 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                     s.DiaryLoggingSince = DateTime.UtcNow.ToLocalTime().Date.ToUniversalTime();
                 else if (!pushDiary)           s.DiaryLoggingSince = null;
                 s.PushDiary     = pushDiary;
-                s.PushWatchlist = pushWatchlist;
+                s.PushWatchlist    = pushWatchlist;
+                s.OverwriteRatings = overwriteRatings;
 
                 await SaveAsync().ConfigureAwait(false);
                 return true;

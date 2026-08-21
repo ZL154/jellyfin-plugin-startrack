@@ -96,6 +96,12 @@ namespace InternalRatingSystem.Tests
             return R();
         }
 
+        /// <summary>Ratings the member already has on Letterboxd, by slug.</summary>
+        public Dictionary<string, double> RemoteRatings { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+        public Task<IReadOnlyDictionary<string, double>> GetMemberRatingsAsync(CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyDictionary<string, double>>(RemoteRatings);
+
         public List<string> Watchlisted { get; } = new();
 
         /// <summary>Set to simulate a Letterboxd build with no watchlist endpoint.</summary>
@@ -587,6 +593,64 @@ namespace InternalRatingSystem.Tests
             await Service(new FakeRatingGatherer(), diary: new FakeDiary(entry))
                 .PushAsync(User, on, stOn, writeDiaryEntries: true, delayMs: 0);
             Assert.Equal("Superb.", on.DiaryDetail[0].Review);
+        }
+
+        // ---- overwrite guard ----
+
+        [Fact]
+        public async Task Rating_IsLeftAlone_WhenLetterboxdHasADifferentOne()
+        {
+            // "if I rate fight club 4 on jellyfin and 5 on letterboxd and I push
+            // while overwrite is off, it just won't touch it".
+            var w = new FakeWriter();
+            w.RemoteRatings["film-42"] = 5.0;
+            var st = Settings(); st.OverwriteRatings = false;
+
+            var res = await Service(new FakeRatingGatherer(Movie(42, 4.0)))
+                .PushAsync(User, w, st, writeDiaryEntries: false, delayMs: 0);
+
+            Assert.Empty(w.Rated);
+            Assert.Equal(1, res.KeptRemote);
+        }
+
+        [Fact]
+        public async Task Rating_IsOverwritten_WhenTheUserAsksForIt()
+        {
+            var w = new FakeWriter();
+            w.RemoteRatings["film-42"] = 5.0;
+            var st = Settings(); st.OverwriteRatings = true;
+
+            await Service(new FakeRatingGatherer(Movie(42, 4.0)))
+                .PushAsync(User, w, st, writeDiaryEntries: false, delayMs: 0);
+
+            Assert.Single(w.Rated);
+            Assert.Equal(4.0, w.Rated[0].Stars);
+        }
+
+        [Fact]
+        public async Task Rating_IsPushed_WhenLetterboxdHasNone()
+        {
+            // The guard must not block a first-ever sync.
+            var w = new FakeWriter();
+            var st = Settings(); st.OverwriteRatings = false;
+
+            await Service(new FakeRatingGatherer(Movie(42, 4.0)))
+                .PushAsync(User, w, st, writeDiaryEntries: false, delayMs: 0);
+
+            Assert.Single(w.Rated);
+        }
+
+        [Fact]
+        public async Task Rating_IsPushed_WhenBothSidesAlreadyAgree()
+        {
+            var w = new FakeWriter();
+            w.RemoteRatings["film-42"] = 4.0;
+            var st = Settings(); st.OverwriteRatings = false;
+
+            var res = await Service(new FakeRatingGatherer(Movie(42, 4.0)))
+                .PushAsync(User, w, st, writeDiaryEntries: false, delayMs: 0);
+
+            Assert.Equal(0, res.KeptRemote);   // no conflict to protect against
         }
 
         // ---- watchlist ----

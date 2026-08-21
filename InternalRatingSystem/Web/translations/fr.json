@@ -615,5 +615,7 @@
   "log.failed": "Impossible d'ajouter.",
   "Also add a diary entry when a user rates something": "Ajouter aussi une entrée au journal quand un utilisateur note quelque chose",
   "Off by default: rating a film you saw years ago would be filed as watched today.": "Désactivé par défaut : noter un film vu il y a des années le classerait comme vu aujourd'hui.",
-  "Rewatches are detected automatically.": "Les revisionnages sont détectés automatiquement."
+  "Rewatches are detected automatically.": "Les revisionnages sont détectés automatiquement.",
+  "Overwrite Letterboxd ratings": "Remplacer les notes Letterboxd",
+  "lb.n_kept": "conservées depuis Letterboxd"
 }

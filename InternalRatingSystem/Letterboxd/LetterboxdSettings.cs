@@ -82,6 +82,16 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         [JsonPropertyName("pushWatchlist")]      public bool     PushWatchlist  { get; set; }
 
         /// <summary>
+        /// Replace a rating that already exists on Letterboxd.
+        ///
+        /// OFF by default. The push is one-way and has no conflict resolution,
+        /// so with this off a film you rated 5 on Letterboxd is left alone even
+        /// if Jellyfin says 4 — Letterboxd wins for films you rated there.
+        /// Turn it on to make Jellyfin authoritative.
+        /// </summary>
+        [JsonPropertyName("overwriteRatings")]   public bool     OverwriteRatings { get; set; }
+
+        /// <summary>
         /// Create dated Letterboxd diary entries for new watches.
         ///
         /// Separate from <see cref="PushWatched"/> because the two have very

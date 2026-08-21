@@ -615,5 +615,7 @@
   "log.failed": "追加できませんでした。",
   "Also add a diary entry when a user rates something": "ユーザーが評価したときにも日記に記録する",
   "Off by default: rating a film you saw years ago would be filed as watched today.": "既定でオフ：何年も前に見た映画が「今日視聴」として記録されてしまうためです。",
-  "Rewatches are detected automatically.": "再視聴は自動的に判定されます。"
+  "Rewatches are detected automatically.": "再視聴は自動的に判定されます。",
+  "Overwrite Letterboxd ratings": "Letterboxd の評価を上書きする",
+  "lb.n_kept": "件は Letterboxd の評価を維持"
 }

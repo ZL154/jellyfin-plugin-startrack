@@ -62,6 +62,12 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         /// <summary>Adds a film to the member's watchlist. Idempotent. Never removes.</summary>
         Task<LetterboxdWriteResult> AddToWatchlistAsync(LetterboxdFilm film, CancellationToken ct = default);
 
+        /// <summary>
+        /// The member's own recent Letterboxd ratings, keyed by film slug.
+        /// Used to avoid overwriting a rating they set on Letterboxd itself.
+        /// </summary>
+        Task<IReadOnlyDictionary<string, double>> GetMemberRatingsAsync(CancellationToken ct = default);
+
         /// <summary>Creates a dated diary entry. NOT idempotent — callers must dedupe.</summary>
         Task<LetterboxdWriteResult> LogEntryAsync(
             LetterboxdFilm film, DateTime watchedAt, double? rating, bool liked, bool rewatch,
@@ -277,6 +283,63 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             => PostPathAsync(film, $"/film/{film.Slug}/add-to-watchlist/", ct);
 
         /// <summary>
+        /// Reads the member's recent ratings from their public RSS feed, keyed
+        /// by film slug.
+        ///
+        /// Why RSS: the signed-in film page renders the viewer's own rating in
+        /// JavaScript, and so does the member page for that film, so neither
+        /// can be scraped. RSS is server-generated, already parsed elsewhere in
+        /// this plugin, and costs one request for the whole check.
+        ///
+        /// LIMITATION, stated plainly: the feed carries roughly the 50 most
+        /// recent entries. A rating set on Letterboxd long ago and never
+        /// touched since will not appear here, so the guard cannot see it. It
+        /// covers the case that actually happens — you rated something on
+        /// Letterboxd recently and do not want Jellyfin stamping over it.
+        /// </summary>
+        public async Task<IReadOnlyDictionary<string, double>> GetMemberRatingsAsync(CancellationToken ct = default)
+        {
+            var map = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+            var who = _session.Username;
+            if (string.IsNullOrWhiteSpace(who)) return map;
+
+            try
+            {
+                using var res = await _session.Http.GetAsync($"/{who}/rss/", ct).ConfigureAwait(false);
+                if (!res.IsSuccessStatusCode) return map;
+                var xml = await res.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+
+                // <item> blocks pair a /film/{slug}/ link with a memberRating.
+                foreach (Match item in Regex.Matches(xml, "<item>(.*?)</item>",
+                             RegexOptions.Singleline | RegexOptions.IgnoreCase))
+                {
+                    var block = item.Groups[1].Value;
+
+                    var slug = Regex.Match(block, "/film/([a-z0-9\\-_]+)", RegexOptions.IgnoreCase);
+                    if (!slug.Success) continue;
+
+                    var rating = Regex.Match(block, "memberRating>\\s*([0-9.]+)\\s*<", RegexOptions.IgnoreCase);
+                    if (!rating.Success) continue;
+
+                    if (double.TryParse(rating.Groups[1].Value, NumberStyles.Float,
+                                        CultureInfo.InvariantCulture, out var stars))
+                    {
+                        // Newest first, so keep the first value seen per film.
+                        if (!map.ContainsKey(slug.Groups[1].Value))
+                            map[slug.Groups[1].Value] = stars;
+                    }
+                }
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "[StarTrack] Could not read Letterboxd member ratings");
+            }
+
+            return map;
+        }
+
+        /// <summary>
         /// POSTs to an absolute site path with just the CSRF token, for the
         /// slug-based endpoints that do not follow the /s/film:{id}/ shape.
         /// </summary>
@@ -393,6 +456,46 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 ct.ThrowIfCancellationRequested();
                 try
                 {
+                    // "_myrating" hunts for the viewer's OWN rating on the film
+                    // page. Needed for the opt-out overwrite guard: to leave a
+                    // Letterboxd rating alone we first have to be able to read it.
+                    if (action == "_myrating")
+                    {
+                        // The MEMBER page for this film, not the public film
+                        // page: the public one renders the viewer rating in JS,
+                        // but /{user}/film/{slug}/ is server-rendered per member.
+                        var who = _session.Username;
+                        using var rreq = new HttpRequestMessage(HttpMethod.Get, $"/{who}/film/{film.Slug}/");
+                        using var rres = await _session.Http.SendAsync(rreq, ct).ConfigureAwait(false);
+                        var rhtml = await rres.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+
+                        var hits = new List<string>();
+                        foreach (var pattern in new[]
+                        {
+                            "data-rateable-uid=\"[^\"]*\"[^>]*",
+                            "[\\w-]+=\"[^\"]*rated-[^\"]*\"",
+                            "class=\"[^\"]*rating[^\"]*rated[^\"]*\"",
+                            "data-rating=\"[^\"]*\"",
+                            "&quot;rating&quot;\\s*:\\s*[0-9.]+",
+                            "\"rating\"\\s*:\\s*[0-9.]+"
+                        })
+                        {
+                            foreach (Match mm in Regex.Matches(rhtml, pattern, RegexOptions.IgnoreCase))
+                            {
+                                var v = mm.Value.Trim();
+                                if (v.Length > 120) v = v.Substring(0, 120);
+                                if (!hits.Contains(v)) hits.Add(v);
+                                if (hits.Count >= 12) break;
+                            }
+                            if (hits.Count >= 12) break;
+                        }
+
+                        report["_status"] = ((int)rres.StatusCode).ToString();
+                        for (var hi = 0; hi < hits.Count; hi++) report["hit" + hi] = hits[hi];
+                        if (hits.Count == 0) report[action] = "no rating markup found";
+                        continue;
+                    }
+
                     // "_pN" variants walk the production-log-entries payload
                     // forward one validation error at a time. The endpoint
                     // returns precise JSON complaints ("Unknown property at:
