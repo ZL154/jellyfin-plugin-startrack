@@ -1499,6 +1499,21 @@
     // clones (see _stripOldPageBadges) even after the value changes.
     var _lastBadgeText = null;
 
+    // [v1.6.5] (#8, locksoft follow-up video) State for re-placing the badge.
+    // He reported it "sometimes go here, sometimes it disappears... if I close
+    // and open again it went back to the correct position" — that randomness is
+    // a race, not a rendering quirk. See _reconcilePageBadge.
+    var _lastBadgeData     = null;   // data used to build the current badge
+    var _lastBadgeItemId   = null;   // item it belongs to; guards against stale re-placement
+    var _badgeRetryCount   = 0;      // bounded, so an anchor-less page can't spin forever
+
+    // The preferred anchor: Jellyfin's native community rating, so StarTrack
+    // reads immediately before it. Shared by the placer and the reconciler so
+    // they can never disagree about what "correct position" means.
+    var _BADGE_RATING_ANCHOR =
+        '.itemMiscInfo .mdblist-rating-container, .mediaInfoItems .mdblist-rating-container,' +
+        '.itemMiscInfo .starRatingContainer, .mediaInfoItems .starRatingContainer';
+
     // Remove EVERY prior badge. v1.6.1 removed by `#ir-page-badge` only, but
     // Jellyfin clones the detail-header DOM across navigation / rating re-renders
     // and some clones drop the id+class entirely, rendering as plain, unclickable
@@ -1580,23 +1595,100 @@
         _syncNativeDetailRating(scope, hasRatings && _STARTRACK_CONFIG.replaceMediaDetailsRating);
     }
 
+    // [v1.6.5] (#8, locksoft) Keep the badge in the RIGHT place, and present at all.
+    //
+    // upsertPageBadge picks an anchor once, at whatever instant it happens to
+    // run. Jellyfin mounts its native community-rating node asynchronously —
+    // the very reason _refreshNativeDetailRating exists — so the badge lands in
+    // the preferred slot or a fallback purely depending on who won that race.
+    // That is exactly the reported symptom: the position varies run to run, and
+    // reopening the page "fixes" it because the second pass finds the node
+    // already there. Nothing ever moved the badge afterwards.
+    //
+    // Separately, Jellyfin re-renders detail containers, which can destroy a
+    // badge that was placed successfully. The old retry only covered "never
+    // placed", so a destroyed badge stayed gone — his "sometimes it disappears".
+    //
+    // Runs from the navigation heartbeat, so both cases self-correct within a tick.
+    function _reconcilePageBadge() {
+        // Never resurrect a badge for an item the user has navigated away from.
+        if (!_lastBadgeData || _lastBadgeItemId !== _curId) return;
+
+        var existing = document.getElementById('ir-page-badge');
+
+        // Case 1: it was placed, then Jellyfin re-rendered it away.
+        if (!existing) {
+            if (_badgeRetryCount++ < 5) upsertPageBadge(_lastBadgeData);
+            return;
+        }
+
+        _badgeRetryCount = 0;
+
+        // Case 2: it settled for a fallback slot because the native rating node
+        // had not mounted yet, and that node exists now. Move it.
+        if (existing.getAttribute('data-st-anchor') === 'fallback') {
+            var scope = _visiblePageScope();
+            if (scope.querySelector(_BADGE_RATING_ANCHOR)) upsertPageBadge(_lastBadgeData);
+        }
+    }
+
+    // The badge's visible text for this data — computed before any DOM work so
+    // an already-correct badge can be left completely alone.
+    function _badgeTextFor(data, hasRatings) {
+        if (!hasRatings) return tr('widget.badge_rate_prompt', null, '\u2606 Rate');
+        return _STARTRACK_CONFIG.compactMediaBadge
+            ? '\u2605 ' + data.averageRating.toFixed(1)
+            : '\u2605 ' + data.averageRating.toFixed(1) + '  StarTrack' +
+              (data.totalRatings > 1 ? ' (' + data.totalRatings + ')' : '');
+    }
+
     function upsertPageBadge(data) {
-        _stripOldPageBadges();
         var hasRatings = !!(data && data.totalRatings > 0);
         var scope = _visiblePageScope();
+
+        // [v1.6.5] (#8, locksoft) FAST PATH — do nothing when the badge is
+        // already correct.
+        //
+        // This function used to strip and rebuild unconditionally, which throws
+        // away a DOM node the TV remote may currently have FOCUSED. A keypress
+        // that lands on the detached node does nothing, and the user presses
+        // again — his "click one nothing, click two it opens". It also fought
+        // the heartbeat, since every refresh replaced a perfectly good badge.
+        //
+        // Leaving a correct badge untouched keeps focus, keeps the first press,
+        // and means the reconciler can run on every tick for free.
+        if (hasRatings || _ST_IS_TV) {
+            var cur = document.getElementById('ir-page-badge');
+            // Compare with whitespace collapsed: the rendered badge is built from
+            // sibling <span>s (single spaces between them) while _badgeTextFor
+            // emits a double space before the label. Comparing raw would never
+            // match, silently disabling this whole fast path.
+            var norm = function (t) { return (t || '').replace(/\s+/g, ' ').trim(); };
+            if (cur &&
+                cur.getAttribute('data-st-anchor') === 'rating' &&
+                norm(cur.textContent) === norm(_badgeTextFor(data, hasRatings)) &&
+                cur.classList.contains('ir-page-badge-empty') === !hasRatings) {
+                _lastBadgeData   = data;
+                _lastBadgeItemId = _curId;
+                _syncNativeDetailRating(scope, hasRatings && _STARTRACK_CONFIG.replaceMediaDetailsRating);
+                return;
+            }
+        }
+
+        _stripOldPageBadges();
         _syncNativeDetailRating(scope, hasRatings && _STARTRACK_CONFIG.replaceMediaDetailsRating);
         // [v1.6.2] (#8, locksoft) On TV, ALWAYS show a focusable badge next to the
         // title (dimmed when there are no ratings yet) so the remote D-pad has a
         // rate target — the floating pill can't be reached with a remote. On
         // non-TV clients with no ratings we stay out of the way (the pill is easy
         // to click).
-        if (!hasRatings && !_ST_IS_TV) { _lastBadgeText = null; return; }
+        if (!hasRatings && !_ST_IS_TV) { _lastBadgeText = null; _lastBadgeData = null; return; }
 
-        var text = hasRatings
-            ? (_STARTRACK_CONFIG.compactMediaBadge
-                ? '★ ' + data.averageRating.toFixed(1)
-                : '★ ' + data.averageRating.toFixed(1) + '  StarTrack' + (data.totalRatings > 1 ? ' (' + data.totalRatings + ')' : ''))
-            : tr('widget.badge_rate_prompt', null, '☆ Rate');
+        // Remember what built this badge so the reconciler can rebuild or move it.
+        _lastBadgeData   = data;
+        _lastBadgeItemId = _curId;
+
+        var text = _badgeTextFor(data, hasRatings);
         _lastBadgeText = text;
 
         // A real <button> with Jellyfin's `focusable` class so the TV remote's
@@ -1634,9 +1726,13 @@
         // reads first. Scoped to the visible detail-header meta row so it can't latch
         // onto a rating inside a card elsewhere, or a hidden cached view. If the
         // native rating isn't found (e.g. supplied by a third-party plugin), fall through.
-        var ratingAnchor = scope.querySelector('.itemMiscInfo .mdblist-rating-container, .mediaInfoItems .mdblist-rating-container, .itemMiscInfo .starRatingContainer, .mediaInfoItems .starRatingContainer');
+        // Which tier of anchor we ended up on is recorded on the element, so the
+        // reconciler can tell "this is where it belongs" from "this is where it
+        // landed because the native rating had not mounted yet".
+        var ratingAnchor = scope.querySelector(_BADGE_RATING_ANCHOR);
         if (ratingAnchor && ratingAnchor.parentNode) {
             badge.style.cssText += ';display:inline-flex!important;margin-bottom:0!important;vertical-align:middle!important';
+            badge.setAttribute('data-st-anchor', 'rating');
             ratingAnchor.parentNode.insertBefore(badge, ratingAnchor);
             return;
         }
@@ -1645,7 +1741,12 @@
         var anchors = ['.itemMiscInfo', '.mediaInfoItems', '.itemTags', '.externalLinks', '.itemExternalLinks', '.ratings'];
         for (var i = 0; i < anchors.length; i++) {
             var anchor = scope.querySelector(anchors[i]);
-            if (anchor && anchor.parentNode) { anchor.parentNode.insertBefore(badge, anchor); placed = true; break; }
+            if (anchor && anchor.parentNode) {
+                badge.setAttribute('data-st-anchor', 'fallback');
+                anchor.parentNode.insertBefore(badge, anchor);
+                placed = true;
+                break;
+            }
         }
         if (!placed) setTimeout(function () { if (!document.getElementById('ir-page-badge')) upsertPageBadge(data); }, 1000);
     }
@@ -6979,6 +7080,9 @@
             var p = _el.querySelector('.ir-panel'); if (p) p.classList.remove('ir-open');
         }
         _curId = null;
+        // Drop the re-placement state too, or the reconciler would rebuild a
+        // badge for the item we just navigated away from.
+        _lastBadgeData = null; _lastBadgeItemId = null; _badgeRetryCount = 0;
         var b = document.getElementById('ir-page-badge'); if (b) b.remove();
     }
 
@@ -7073,7 +7177,7 @@
         // Keep replacement correct even when Jellyfin mounts its native rating
         // after the initial StarTrack render. This intentionally runs before the
         // unchanged-route fast path below.
-        if (id) _refreshNativeDetailRating();
+        if (id) { _refreshNativeDetailRating(); _reconcilePageBadge(); }
 
         if (idStr === _lastId && hash === _lastHash) return;
         _lastId = idStr; _lastHash = hash;
