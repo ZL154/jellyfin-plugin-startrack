@@ -604,5 +604,7 @@
   "lb.n_imported": "imported",
   "lb.n_not_in_library": "not in library",
   "Add a diary entry when a movie or episode finishes playing": "Add a diary entry when a movie or episode finishes playing",
-  "Records what was actually watched on this server. Without it the diary can only be filled by importing from Letterboxd.": "Records what was actually watched on this server. Without it the diary can only be filled by importing from Letterboxd."
+  "Records what was actually watched on this server. Without it the diary can only be filled by importing from Letterboxd.": "Records what was actually watched on this server. Without it the diary can only be filled by importing from Letterboxd.",
+  "Watchlist": "Watchlist",
+  "lb.n_watchlisted": "watchlisted"
 }

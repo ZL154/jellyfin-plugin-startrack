@@ -15,7 +15,17 @@ namespace Jellyfin.Plugin.InternalRating.Data
     /// (rewatches). File lives at
     /// &lt;jellyfin-data&gt;/data/InternalRating/diary.json.
     /// </summary>
-    public sealed class DiaryRepository : IDisposable
+    /// <summary>
+    /// Read side of the diary, so the Letterboxd push can be unit-tested with a
+    /// fake instead of a real JSON file on disk.
+    /// </summary>
+    public interface IWatchDiaryReader
+    {
+        /// <summary>Diary entries for a user, newest first.</summary>
+        Task<List<DiaryEntry>> GetEntriesAsync(string userId, int limit = 10000);
+    }
+
+    public sealed class DiaryRepository : IDisposable, IWatchDiaryReader
     {
         private readonly string _filePath;
         private readonly SemaphoreSlim _lock = new(1, 1);

@@ -64,6 +64,11 @@ namespace Jellyfin.Plugin.InternalRating
 
             // Push orchestrator. Takes IRatingGatherer/ILikedGatherer registered
             // further down for ExternalSync — same local data, different sink.
+            // Diary + watchlist readers and the id resolver are optional
+            // constructor deps, so DI supplies the real ones here while tests
+            // can leave them null or fake them.
+            services.AddSingleton<IWatchDiaryReader>(_ => Plugin.Instance!.Diary);
+            services.AddSingleton<IWatchlistReader>(_ => Plugin.Instance!.Interactions);
             services.AddSingleton<LetterboxdPushService>();
 
             // Runner owns the session lifetime + credential decryption; the task

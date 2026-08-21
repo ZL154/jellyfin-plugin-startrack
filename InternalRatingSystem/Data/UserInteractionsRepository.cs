@@ -15,7 +15,14 @@ namespace Jellyfin.Plugin.InternalRating.Data
     /// single JSON file at &lt;jellyfin-data&gt;/data/InternalRating/user_interactions.json.
     /// Same SemaphoreSlim-guarded async pattern as <see cref="RatingRepository"/>.
     /// </summary>
-    public sealed class UserInteractionsRepository : IDisposable
+    /// <summary>Read side of the watchlist, so the push can be faked in tests.</summary>
+    public interface IWatchlistReader
+    {
+        /// <summary>The user's watchlist entries.</summary>
+        Task<List<WatchlistEntryDto>> GetWatchlistAsync(string userId);
+    }
+
+    public sealed class UserInteractionsRepository : IDisposable, IWatchlistReader
     {
         private readonly string _filePath;
         private readonly SemaphoreSlim _lock = new(1, 1);

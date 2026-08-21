@@ -59,6 +59,9 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         /// <summary>Likes a film. Idempotent. Never un-likes — see the implementation.</summary>
         Task<LetterboxdWriteResult> SetLikedAsync(LetterboxdFilm film, CancellationToken ct = default);
 
+        /// <summary>Adds a film to the member's watchlist. Idempotent. Never removes.</summary>
+        Task<LetterboxdWriteResult> AddToWatchlistAsync(LetterboxdFilm film, CancellationToken ct = default);
+
         /// <summary>Creates a dated diary entry. NOT idempotent — callers must dedupe.</summary>
         Task<LetterboxdWriteResult> LogEntryAsync(
             LetterboxdFilm film, DateTime watchedAt, double? rating, bool liked, bool rewatch,
@@ -213,6 +216,23 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         /// </summary>
         public Task<LetterboxdWriteResult> SetLikedAsync(LetterboxdFilm film, CancellationToken ct = default)
             => PostFormAsync(film, "like", new Dictionary<string, string> { ["liked"] = "true" }, ct);
+
+        /// <summary>
+        /// Adds a film to the member's watchlist.
+        ///
+        /// ONLY EVER ADDS. StarTrack does not remove films from a Letterboxd
+        /// watchlist when they leave the local one — a watchlist is a personal
+        /// queue, and silently deleting from it because something was watched
+        /// or unstarred in Jellyfin is a destructive surprise.
+        ///
+        /// UNVERIFIED ENDPOINT: unlike rate and watch, no reference
+        /// implementation writes the Letterboxd watchlist, so this URL is
+        /// inferred from the shared /s/film:{id}/{action}/ pattern. A 404 is
+        /// therefore treated as "not supported here" rather than an error, and
+        /// the caller does not count what it cannot prove.
+        /// </summary>
+        public Task<LetterboxdWriteResult> AddToWatchlistAsync(LetterboxdFilm film, CancellationToken ct = default)
+            => PostFormAsync(film, "watchlist", new Dictionary<string, string> { ["watchlist"] = "true" }, ct);
 
         /// <summary>
         /// Shared plumbing for the form-encoded <c>/s/film:{id}/{action}/</c>

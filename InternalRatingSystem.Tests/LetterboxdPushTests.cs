@@ -4,7 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Jellyfin.Plugin.InternalRating.Data;
 using Jellyfin.Plugin.InternalRating.ExternalSync;
+using Jellyfin.Plugin.InternalRating.Models;
 using Jellyfin.Plugin.InternalRating.Letterboxd;
 using MediaBrowser.Common.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -79,13 +81,65 @@ namespace InternalRatingSystem.Tests
             return R();
         }
 
+        /// <summary>Every diary write, with the fields that matter for assertions.</summary>
+        public List<(string Slug, DateTime Date, double? Rating, bool Rewatch, string? Review)> DiaryDetail { get; } = new();
+
         public Task<LetterboxdWriteResult> LogEntryAsync(
             LetterboxdFilm film, DateTime watchedAt, double? rating, bool liked, bool rewatch,
             string? review = null, bool containsSpoilers = false, CancellationToken ct = default)
         {
-            if (WriteStatus == LetterboxdWriteStatus.Ok) Diary.Add((film.Slug, watchedAt));
+            if (WriteStatus == LetterboxdWriteStatus.Ok)
+            {
+                Diary.Add((film.Slug, watchedAt));
+                DiaryDetail.Add((film.Slug, watchedAt, rating, rewatch, review));
+            }
             return R();
         }
+
+        public List<string> Watchlisted { get; } = new();
+
+        /// <summary>Set to simulate a Letterboxd build with no watchlist endpoint.</summary>
+        public bool WatchlistUnsupported { get; set; }
+
+        public Task<LetterboxdWriteResult> AddToWatchlistAsync(LetterboxdFilm film, CancellationToken ct = default)
+        {
+            if (WatchlistUnsupported)
+                return Task.FromResult(new LetterboxdWriteResult(LetterboxdWriteStatus.FilmNotFound));
+            if (WriteStatus == LetterboxdWriteStatus.Ok) Watchlisted.Add(film.Slug);
+            return R();
+        }
+    }
+
+    /// <summary>Diary source. Item ids are "item-{tmdb}" so the fake resolver can map them.</summary>
+    internal sealed class FakeDiary : IWatchDiaryReader
+    {
+        private readonly List<DiaryEntry> _entries;
+        public FakeDiary(params DiaryEntry[] entries) => _entries = entries.ToList();
+        public Task<List<DiaryEntry>> GetEntriesAsync(string userId, int limit = 10000) =>
+            Task.FromResult(_entries.ToList());
+    }
+
+    internal sealed class FakeWatchlist : IWatchlistReader
+    {
+        private readonly List<WatchlistEntryDto> _items;
+        public FakeWatchlist(params int[] tmdbIds) =>
+            _items = tmdbIds.Select(t => new WatchlistEntryDto { ItemId = "item-" + t, AddedAt = DateTime.UtcNow }).ToList();
+        public Task<List<WatchlistEntryDto>> GetWatchlistAsync(string userId) => Task.FromResult(_items.ToList());
+    }
+
+    /// <summary>Maps the "item-{tmdb}" convention back to a TMDb id.</summary>
+    internal sealed class FakeResolver : IExternalIdResolver
+    {
+        public string MediaType { get; set; } = "movie";
+
+        public ExternalRating? ResolveExternalIds(string itemId, double stars, DateTime ratedAt)
+        {
+            if (!itemId.StartsWith("item-", StringComparison.Ordinal)) return null;
+            if (!int.TryParse(itemId.Substring(5), out var tmdb)) return null;
+            return new ExternalRating(null, tmdb, null, "Movie " + tmdb, 2020, MediaType, stars, ratedAt);
+        }
+
+        public string? FindItemId(ExternalRating r) => null;
     }
 
     internal sealed class FakePaths : IApplicationPaths
@@ -157,8 +211,14 @@ namespace InternalRatingSystem.Tests
                 DiaryLoggingSince = diarySince ?? new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc)
             };
 
-        private LetterboxdPushService Service(IRatingGatherer g, ILikedGatherer? l = null) =>
-            new(g, _ledger, NullLogger<LetterboxdPushService>.Instance, l);
+        private LetterboxdPushService Service(
+            IRatingGatherer g, ILikedGatherer? l = null,
+            IWatchDiaryReader? diary = null, IWatchlistReader? wl = null) =>
+            new(g, _ledger, NullLogger<LetterboxdPushService>.Instance, l, diary, wl,
+                (diary != null || wl != null) ? new FakeResolver() : null);
+
+        private static DiaryEntry Watch(int tmdb, DateTime at, double? stars = null, bool rewatch = false, string? review = null) =>
+            new() { Id = Guid.NewGuid().ToString("N"), ItemId = "item-" + tmdb, WatchedAt = at, Stars = stars, Rewatch = rewatch, Review = review };
 
         // ---- direction gating ----
 
@@ -183,21 +243,18 @@ namespace InternalRatingSystem.Tests
             // The whole point of the ledger. A timer-driven push must not add a
             // fresh diary entry on every tick.
             var w = new FakeWriter();
-            var svc = Service(new FakeRatingGatherer(Movie(27205, 4.0)));
+            var svc = Service(new FakeRatingGatherer(), diary: new FakeDiary(Watch(27205, new DateTime(2026, 3, 1, 20, 0, 0, DateTimeKind.Utc), 4.0)));
+            var st = Settings(diarySince: new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
 
-            var first = await svc.PushAsync(User, w, Settings(), writeDiaryEntries: true, delayMs: 0);
+            var first = await svc.PushAsync(User, w, st, writeDiaryEntries: true, delayMs: 0);
             Assert.Equal(1, first.DiaryEntries);
             Assert.Single(w.Diary);
 
-            // Simulate the next four scheduled runs. Later runs short-circuit on
-            // the push-state cache (nothing about the film changed) rather than
-            // reaching the diary check, so the film is counted as Unchanged.
-            // The invariant that matters is unaffected: still ONE diary entry.
             for (var i = 0; i < 4; i++)
             {
-                var again = await svc.PushAsync(User, w, Settings(), writeDiaryEntries: true, delayMs: 0);
+                var again = await svc.PushAsync(User, w, st, writeDiaryEntries: true, delayMs: 0);
                 Assert.Equal(0, again.DiaryEntries);
-                Assert.Equal(1, again.Unchanged);
+                Assert.Equal(1, again.SkippedAlreadyLogged);
             }
 
             Assert.Single(w.Diary);   // still exactly one entry on Letterboxd
@@ -208,14 +265,14 @@ namespace InternalRatingSystem.Tests
         {
             // Recording optimistically would lose the entry forever.
             var w = new FakeWriter { WriteStatus = LetterboxdWriteStatus.Failed };
-            var svc = Service(new FakeRatingGatherer(Movie(500, 3.0)));
+            var svc = Service(new FakeRatingGatherer(), diary: new FakeDiary(Watch(500, new DateTime(2026, 3, 1, 20, 0, 0, DateTimeKind.Utc), 3.0)));
+            var st = Settings(diarySince: new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
 
-            await svc.PushAsync(User, w, Settings(), writeDiaryEntries: true, delayMs: 0);
-            Assert.False(await _ledger.HasAsync(User, 500, new DateTime(2026, 8, 1)));
+            await svc.PushAsync(User, w, st, writeDiaryEntries: true, delayMs: 0);
+            Assert.False(await _ledger.HasAsync(User, 500, new DateTime(2026, 3, 1, 20, 0, 0, DateTimeKind.Utc).ToLocalTime().Date));
 
-            // Recovers on a later run once Letterboxd is reachable again.
             w.WriteStatus = LetterboxdWriteStatus.Ok;
-            var res = await svc.PushAsync(User, w, Settings(), writeDiaryEntries: true, delayMs: 0);
+            var res = await svc.PushAsync(User, w, st, writeDiaryEntries: true, delayMs: 0);
             Assert.Equal(1, res.DiaryEntries);
         }
 
@@ -476,15 +533,114 @@ namespace InternalRatingSystem.Tests
         [Fact]
         public async Task DiaryEntry_IsWritten_ForWatchesAfterTheCutoff()
         {
-            var recent = Movie(2, 4.0, new DateTime(2026, 3, 1, 12, 0, 0, DateTimeKind.Utc));
             var w = new FakeWriter();
-
-            var res = await Service(new FakeRatingGatherer(recent)).PushAsync(
-                User, w, Settings(diarySince: new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)),
-                writeDiaryEntries: true, delayMs: 0);
+            var res = await Service(new FakeRatingGatherer(), diary: new FakeDiary(Watch(2, new DateTime(2026, 3, 1, 20, 0, 0, DateTimeKind.Utc), 4.0)))
+                .PushAsync(User, w, Settings(diarySince: new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)), writeDiaryEntries: true, delayMs: 0);
 
             Assert.Single(w.Diary);
             Assert.Equal(1, res.DiaryEntries);
+        }
+
+        [Fact]
+        public async Task DiaryEntry_UsesTheRealWatchDate_NotTheRatingDate()
+        {
+            // The old implementation derived the diary date from when a RATING
+            // was created, so an imported back catalogue logged every film on
+            // the day it was imported. The diary is now the source of truth.
+            var watched = new DateTime(2026, 5, 9, 21, 30, 0, DateTimeKind.Utc);
+            var w = new FakeWriter();
+
+            await Service(new FakeRatingGatherer(), diary: new FakeDiary(Watch(42, watched, 4.5)))
+                .PushAsync(User, w, Settings(diarySince: new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)), writeDiaryEntries: true, delayMs: 0);
+
+            Assert.Equal(watched.ToLocalTime().Date, w.DiaryDetail[0].Date);
+            Assert.Equal(4.5, w.DiaryDetail[0].Rating);
+        }
+
+        [Fact]
+        public async Task DiaryEntry_CarriesTheRewatchFlag()
+        {
+            var w = new FakeWriter();
+            await Service(new FakeRatingGatherer(), diary: new FakeDiary(Watch(7, new DateTime(2026, 3, 1, 20, 0, 0, DateTimeKind.Utc), 4.0, rewatch: true)))
+                .PushAsync(User, w, Settings(diarySince: new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)), writeDiaryEntries: true, delayMs: 0);
+
+            Assert.True(w.DiaryDetail[0].Rewatch);
+        }
+
+        [Fact]
+        public async Task Review_IsSentOnlyWhenPushReviewsIsOn()
+        {
+            // pushReviews was a toggle that did nothing: the push hardcoded
+            // review: null, so a review was never sent however it was set.
+            var entry = Watch(9, new DateTime(2026, 3, 1, 20, 0, 0, DateTimeKind.Utc), 4.0, review: "Superb.");
+
+            var off = new FakeWriter();
+            var stOff = Settings(diarySince: new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)); stOff.PushReviews = false;
+            await Service(new FakeRatingGatherer(), diary: new FakeDiary(entry))
+                .PushAsync(User, off, stOff, writeDiaryEntries: true, delayMs: 0);
+            Assert.Null(off.DiaryDetail[0].Review);
+
+            await _ledger.ClearAsync(User);
+
+            var on = new FakeWriter();
+            var stOn = Settings(diarySince: new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)); stOn.PushReviews = true;
+            await Service(new FakeRatingGatherer(), diary: new FakeDiary(entry))
+                .PushAsync(User, on, stOn, writeDiaryEntries: true, delayMs: 0);
+            Assert.Equal("Superb.", on.DiaryDetail[0].Review);
+        }
+
+        // ---- watchlist ----
+
+        [Fact]
+        public async Task Watchlist_IsPushed_WhenEnabled()
+        {
+            var w = new FakeWriter();
+            var st = Settings(); st.PushWatchlist = true;
+
+            var res = await Service(new FakeRatingGatherer(), wl: new FakeWatchlist(101, 102))
+                .PushAsync(User, w, st, writeDiaryEntries: false, delayMs: 0);
+
+            Assert.Equal(2, w.Watchlisted.Count);
+            Assert.Equal(2, res.Watchlisted);
+        }
+
+        [Fact]
+        public async Task Watchlist_IsNotPushed_WhenDisabled()
+        {
+            var w = new FakeWriter();
+            await Service(new FakeRatingGatherer(), wl: new FakeWatchlist(101))
+                .PushAsync(User, w, Settings(), writeDiaryEntries: false, delayMs: 0);
+
+            Assert.Empty(w.Watchlisted);
+        }
+
+        [Fact]
+        public async Task Watchlist_FilmIsOfferedOnlyOnce()
+        {
+            var w = new FakeWriter();
+            var st = Settings(); st.PushWatchlist = true;
+            var svc = Service(new FakeRatingGatherer(), wl: new FakeWatchlist(101));
+
+            await svc.PushAsync(User, w, st, writeDiaryEntries: false, delayMs: 0);
+            await svc.PushAsync(User, w, st, writeDiaryEntries: false, delayMs: 0);
+
+            Assert.Single(w.Watchlisted);   // no request wasted on later runs
+        }
+
+        [Fact]
+        public async Task WatchlistCount_StaysZero_WhenLetterboxdRejectsTheEndpoint()
+        {
+            // The watchlist URL is inferred, not observed. If it 404s the run
+            // must carry on and must not claim a success it cannot prove.
+            var w = new FakeWriter { WatchlistUnsupported = true };
+            var st = Settings(); st.PushWatchlist = true;
+
+            var res = await Service(new FakeRatingGatherer(), wl: new FakeWatchlist(101))
+                .PushAsync(User, w, st, writeDiaryEntries: false, delayMs: 0);
+
+            Assert.Empty(w.Watchlisted);
+            Assert.Equal(0, res.Watchlisted);
+            Assert.Null(res.Error);
         }
 
         [Fact]

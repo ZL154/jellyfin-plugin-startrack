@@ -604,5 +604,7 @@
   "lb.n_imported": "条已导入",
   "lb.n_not_in_library": "不在媒体库中",
   "Add a diary entry when a movie or episode finishes playing": "影片或剧集播放结束后写入日记",
-  "Records what was actually watched on this server. Without it the diary can only be filled by importing from Letterboxd.": "记录本服务器上实际观看的内容。未启用时，日记只能通过从 Letterboxd 导入来填充。"
+  "Records what was actually watched on this server. Without it the diary can only be filled by importing from Letterboxd.": "记录本服务器上实际观看的内容。未启用时，日记只能通过从 Letterboxd 导入来填充。",
+  "Watchlist": "待看清单",
+  "lb.n_watchlisted": "已加入待看"
 }

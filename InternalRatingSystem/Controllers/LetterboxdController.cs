@@ -503,6 +503,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 PushLiked         = s.PushLiked,
                 PushReviews       = s.PushReviews,
                 PushDiary         = s.PushDiary,
+                PushWatchlist     = s.PushWatchlist,
                 DiaryLoggingSince = s.DiaryLoggingSince,
                 LastPushedAt      = s.LastPushedAt,
                 LastPushedCount   = s.LastPushedCount,
@@ -543,7 +544,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 req.RawCookies,
                 req.UserAgent,
                 req.PushRatings, req.PushWatched, req.PushLiked, req.PushReviews,
-                req.PushDiary).ConfigureAwait(false);
+                req.PushDiary, req.PushWatchlist).ConfigureAwait(false);
 
             if (!ok)
                 return BadRequest("Could not encrypt the credentials for storage, so nothing was saved. StarTrack will not fall back to storing them in plain text.");
@@ -643,6 +644,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             [JsonPropertyName("pushLiked")]         public bool      PushLiked         { get; set; }
             [JsonPropertyName("pushReviews")]       public bool      PushReviews       { get; set; }
             [JsonPropertyName("pushDiary")]         public bool      PushDiary         { get; set; }
+            [JsonPropertyName("pushWatchlist")]     public bool      PushWatchlist     { get; set; }
             [JsonPropertyName("diaryLoggingSince")] public DateTime? DiaryLoggingSince { get; set; }
             [JsonPropertyName("lastPushedAt")]      public DateTime? LastPushedAt      { get; set; }
             [JsonPropertyName("lastPushedCount")]   public int       LastPushedCount   { get; set; }
@@ -669,6 +671,9 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             public bool    PushLiked   { get; set; } = true;
             public bool    PushReviews { get; set; }
             public bool    PushDiary   { get; set; }
+
+            /// <summary>Mirror the StarTrack watchlist into Letterboxd. Additive only.</summary>
+            public bool    PushWatchlist { get; set; }
         }
 
         /// <summary>Credentials to test. Empty fields fall back to what is stored.</summary>

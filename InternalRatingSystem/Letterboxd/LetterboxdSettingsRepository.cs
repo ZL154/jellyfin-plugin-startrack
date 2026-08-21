@@ -81,6 +81,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             PushLiked          = s.PushLiked,
             PushReviews        = s.PushReviews,
             PushDiary          = s.PushDiary,
+            PushWatchlist      = s.PushWatchlist,
             DiaryLoggingSince  = s.DiaryLoggingSince,
             LastPushedAt       = s.LastPushedAt,
             LastPushedCount    = s.LastPushedCount,
@@ -103,7 +104,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             string? rawCookies,
             string? userAgent,
             bool pushRatings, bool pushWatched, bool pushLiked, bool pushReviews,
-            bool pushDiary)
+            bool pushDiary, bool pushWatchlist)
         {
             await _lock.WaitAsync().ConfigureAwait(false);
             try
@@ -148,7 +149,8 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 // suddenly log everything watched in the gap.
                 if (pushDiary && !s.PushDiary) s.DiaryLoggingSince = DateTime.UtcNow;
                 else if (!pushDiary)           s.DiaryLoggingSince = null;
-                s.PushDiary   = pushDiary;
+                s.PushDiary     = pushDiary;
+                s.PushWatchlist = pushWatchlist;
 
                 await SaveAsync().ConfigureAwait(false);
                 return true;

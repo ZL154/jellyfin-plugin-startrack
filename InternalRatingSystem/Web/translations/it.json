@@ -604,5 +604,7 @@
   "lb.n_imported": "importate",
   "lb.n_not_in_library": "non in libreria",
   "Add a diary entry when a movie or episode finishes playing": "Aggiungi una voce al diario quando un film o un episodio finisce",
-  "Records what was actually watched on this server. Without it the diary can only be filled by importing from Letterboxd.": "Registra ciò che è stato davvero guardato su questo server. Senza, il diario può essere riempito solo importando da Letterboxd."
+  "Records what was actually watched on this server. Without it the diary can only be filled by importing from Letterboxd.": "Registra ciò che è stato davvero guardato su questo server. Senza, il diario può essere riempito solo importando da Letterboxd.",
+  "Watchlist": "Watchlist",
+  "lb.n_watchlisted": "in watchlist"
 }

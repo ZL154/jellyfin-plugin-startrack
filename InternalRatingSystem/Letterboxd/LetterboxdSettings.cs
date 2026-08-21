@@ -78,6 +78,9 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         /// <summary>Post written reviews alongside the diary entry.</summary>
         [JsonPropertyName("pushReviews")]        public bool     PushReviews    { get; set; }
 
+        /// <summary>Mirror the StarTrack watchlist into the Letterboxd watchlist. Additive only.</summary>
+        [JsonPropertyName("pushWatchlist")]      public bool     PushWatchlist  { get; set; }
+
         /// <summary>
         /// Create dated Letterboxd diary entries for new watches.
         ///

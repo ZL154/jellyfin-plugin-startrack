@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using Jellyfin.Plugin.InternalRating.Data;
 using Jellyfin.Plugin.InternalRating.ExternalSync;
 using Microsoft.Extensions.Logging;
 
@@ -41,6 +42,9 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         /// <summary>Films skipped entirely because nothing about them changed since the last push.</summary>
         [JsonPropertyName("unchanged")]            public int Unchanged { get; set; }
 
+        /// <summary>Films added to the Letterboxd watchlist.</summary>
+        [JsonPropertyName("watchlisted")]          public int Watchlisted { get; set; }
+
         /// <summary>
         /// Films still needing work when this run hit its cap. Non-zero simply
         /// means the next run will continue; it is not an error.
@@ -54,7 +58,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         [JsonPropertyName("error")]                public string? Error { get; set; }
 
         /// <summary>Total successful writes.</summary>
-        [JsonPropertyName("totalWritten")]         public int TotalWritten => Rated + Watched + Liked + DiaryEntries;
+        [JsonPropertyName("totalWritten")]         public int TotalWritten => Rated + Watched + Liked + DiaryEntries + Watchlisted;
     }
 
     /// <summary>
@@ -81,17 +85,26 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         private readonly ILikedGatherer? _liked;
         private readonly LetterboxdPushLedger _ledger;
         private readonly ILogger<LetterboxdPushService> _logger;
+        private readonly IWatchDiaryReader? _diary;
+        private readonly IWatchlistReader? _watchlist;
+        private readonly IExternalIdResolver? _resolver;
 
         public LetterboxdPushService(
             IRatingGatherer ratings,
             LetterboxdPushLedger ledger,
             ILogger<LetterboxdPushService> logger,
-            ILikedGatherer? liked = null)
+            ILikedGatherer? liked = null,
+            IWatchDiaryReader? diary = null,
+            IWatchlistReader? watchlist = null,
+            IExternalIdResolver? resolver = null)
         {
-            _ratings = ratings;
-            _ledger  = ledger;
-            _logger  = logger;
-            _liked   = liked;
+            _ratings   = ratings;
+            _ledger    = ledger;
+            _logger    = logger;
+            _liked     = liked;
+            _diary     = diary;
+            _watchlist = watchlist;
+            _resolver  = resolver;
         }
 
         /// <summary>
@@ -185,10 +198,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                     var signature = LetterboxdPushLedger.Signature(
                         item.Stars, isLiked, settings.PushRatings, settings.PushWatched, settings.PushLiked);
 
-                    var diaryPending = writeDiaryEntries && hasRating && IsAfterDiaryCutoff(item, settings)
-                                       && !await _ledger.HasAsync(userId, tmdbId, item.RatedAt.ToLocalTime().Date).ConfigureAwait(false);
-
-                    if (!diaryPending && await _ledger.IsUnchangedAsync(userId, tmdbId, signature).ConfigureAwait(false))
+                    if (await _ledger.IsUnchangedAsync(userId, tmdbId, signature).ConfigureAwait(false))
                     {
                         result.Unchanged++;
                         continue;
@@ -197,18 +207,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                     // Resolution is cached globally: which Letterboxd film a TMDb
                     // id maps to is the same for every user, and resolving costs a
                     // redirect plus a full HTML page.
-                    LetterboxdFilm? film;
-                    var cached = await _ledger.GetFilmAsync(tmdbId).ConfigureAwait(false);
-                    if (cached is { } c)
-                    {
-                        film = new LetterboxdFilm(c.Slug, c.FilmId, c.ProductionId);
-                    }
-                    else
-                    {
-                        film = await writer.ResolveFilmAsync(tmdbId, ct).ConfigureAwait(false);
-                        if (film != null)
-                            await _ledger.SetFilmAsync(tmdbId, film.Slug, film.FilmId, film.ProductionId).ConfigureAwait(false);
-                    }
+                    var film = await ResolveCachedAsync(writer, tmdbId, ct).ConfigureAwait(false);
                     if (film == null) { result.Unmatched++; continue; }
 
                     // ---- rating (idempotent) ----
@@ -241,31 +240,6 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                         if (lk.Ok) result.Liked++;
                     }
 
-                    // ---- diary entry (append-only — ledger-guarded) ----
-                    if (writeDiaryEntries && hasRating && IsAfterDiaryCutoff(item, settings))
-                    {
-                        var day = item.RatedAt.ToLocalTime().Date;
-                        if (await _ledger.HasAsync(userId, tmdbId, day).ConfigureAwait(false))
-                        {
-                            result.SkippedAlreadyLogged++;
-                        }
-                        else
-                        {
-                            var d = await writer.LogEntryAsync(
-                                film, day, item.Stars, isLiked, rewatch: false,
-                                review: null, containsSpoilers: false, ct: ct).ConfigureAwait(false);
-                            if (IsFatal(d, result)) return result;
-                            if (d.Ok)
-                            {
-                                // Recorded ONLY after Letterboxd confirms, so a
-                                // failed write is retried next run rather than
-                                // being silently marked done.
-                                await _ledger.AddAsync(userId, tmdbId, day).ConfigureAwait(false);
-                                result.DiaryEntries++;
-                            }
-                        }
-                    }
-
                     // Remember what this film now looks like remotely, so the next
                     // run can skip it without a request.
                     await _ledger.SetStateAsync(userId, tmdbId, signature).ConfigureAwait(false);
@@ -275,6 +249,15 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                     touched++;
                     if (delayMs > 0) await Task.Delay(delayMs, ct).ConfigureAwait(false);
                 }
+
+                // Diary and watchlist are separate passes over different local
+                // data, so they run after the rating sweep rather than being
+                // squeezed into it.
+                if (writeDiaryEntries)
+                    if (await PushDiaryAsync(userId, writer, settings, result, delayMs, ct).ConfigureAwait(false)) return result;
+
+                if (settings.PushWatchlist)
+                    if (await PushWatchlistAsync(userId, writer, result, delayMs, ct).ConfigureAwait(false)) return result;
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -287,6 +270,119 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Pushes real diary entries.
+        ///
+        /// This used to derive a diary date from when a rating was CREATED,
+        /// which is not when the film was watched — an imported back catalogue
+        /// would have logged every film on the day it was imported. Now that
+        /// PlaybackDiaryService records genuine watches, the diary is the
+        /// source of truth: real date, real rewatch flag, and the review that
+        /// was actually written for that viewing.
+        /// </summary>
+        /// <returns>True when the whole run should abort.</returns>
+        private async Task<bool> PushDiaryAsync(
+            string userId, ILetterboxdWriter writer, LetterboxdUserSettings settings,
+            LetterboxdPushResult result, int delayMs, CancellationToken ct)
+        {
+            if (_diary == null || _resolver == null) return false;
+            if (settings.DiaryLoggingSince is not DateTime since) return false;
+
+            var entries = await _diary.GetEntriesAsync(userId).ConfigureAwait(false);
+
+            // Oldest first, so a partial run leaves the diary in chronological
+            // order rather than scattering entries as the cap cuts in.
+            foreach (var entry in entries.Where(e => e.WatchedAt >= since).OrderBy(e => e.WatchedAt))
+            {
+                ct.ThrowIfCancellationRequested();
+
+                var mapped = _resolver.ResolveExternalIds(entry.ItemId, entry.Stars ?? 0, entry.WatchedAt);
+                if (mapped == null || mapped.MediaType != "movie" || mapped.Tmdb is not int tmdbId) continue;
+
+                var day = entry.WatchedAt.ToLocalTime().Date;
+                if (await _ledger.HasAsync(userId, tmdbId, day).ConfigureAwait(false))
+                {
+                    result.SkippedAlreadyLogged++;
+                    continue;
+                }
+
+                var film = await ResolveCachedAsync(writer, tmdbId, ct).ConfigureAwait(false);
+                if (film == null) { result.Unmatched++; continue; }
+
+                var d = await writer.LogEntryAsync(
+                    film, day, entry.Stars, liked: false, rewatch: entry.Rewatch,
+                    review: settings.PushReviews ? entry.Review : null,
+                    containsSpoilers: false, ct: ct).ConfigureAwait(false);
+
+                if (IsFatal(d, result)) return true;
+                if (d.Ok)
+                {
+                    // Recorded only after Letterboxd confirms, so a failure is
+                    // retried next run instead of being silently marked done.
+                    await _ledger.AddAsync(userId, tmdbId, day).ConfigureAwait(false);
+                    result.DiaryEntries++;
+                    if (delayMs > 0) await Task.Delay(delayMs, ct).ConfigureAwait(false);
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Mirrors the StarTrack watchlist into the Letterboxd watchlist.
+        /// Additive only — see AddToWatchlistAsync for why nothing is removed.
+        /// </summary>
+        /// <returns>True when the whole run should abort.</returns>
+        private async Task<bool> PushWatchlistAsync(
+            string userId, ILetterboxdWriter writer,
+            LetterboxdPushResult result, int delayMs, CancellationToken ct)
+        {
+            if (_watchlist == null || _resolver == null) return false;
+
+            var items = await _watchlist.GetWatchlistAsync(userId).ConfigureAwait(false);
+
+            foreach (var w in items)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                var mapped = _resolver.ResolveExternalIds(w.ItemId, 0, w.AddedAt);
+                if (mapped == null || mapped.MediaType != "movie" || mapped.Tmdb is not int tmdbId) continue;
+
+                // Reuse the diary ledger keyed on a fixed sentinel date, so a
+                // film is only ever offered to the watchlist once. Adding is
+                // idempotent on Letterboxd's side, but there is no reason to
+                // spend a request per film on every run.
+                var key = new DateTime(1900, 1, 1);
+                if (await _ledger.HasAsync(userId + ":wl", tmdbId, key).ConfigureAwait(false)) continue;
+
+                var film = await ResolveCachedAsync(writer, tmdbId, ct).ConfigureAwait(false);
+                if (film == null) { result.Unmatched++; continue; }
+
+                var r = await writer.AddToWatchlistAsync(film, ct).ConfigureAwait(false);
+                if (IsFatal(r, result)) return true;
+                if (r.Ok)
+                {
+                    await _ledger.AddAsync(userId + ":wl", tmdbId, key).ConfigureAwait(false);
+                    result.Watchlisted++;
+                    if (delayMs > 0) await Task.Delay(delayMs, ct).ConfigureAwait(false);
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>Film lookup with the global resolution cache in front of it.</summary>
+        private async Task<LetterboxdFilm?> ResolveCachedAsync(ILetterboxdWriter writer, int tmdbId, CancellationToken ct)
+        {
+            var cached = await _ledger.GetFilmAsync(tmdbId).ConfigureAwait(false);
+            if (cached is { } c) return new LetterboxdFilm(c.Slug, c.FilmId, c.ProductionId);
+
+            var film = await writer.ResolveFilmAsync(tmdbId, ct).ConfigureAwait(false);
+            if (film != null)
+                await _ledger.SetFilmAsync(tmdbId, film.Slug, film.FilmId, film.ProductionId).ConfigureAwait(false);
+            return film;
         }
 
         /// <summary>
