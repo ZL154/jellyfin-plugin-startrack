@@ -189,12 +189,15 @@ namespace InternalRatingSystem.Tests
             Assert.Equal(1, first.DiaryEntries);
             Assert.Single(w.Diary);
 
-            // Simulate the next four scheduled runs.
+            // Simulate the next four scheduled runs. Later runs short-circuit on
+            // the push-state cache (nothing about the film changed) rather than
+            // reaching the diary check, so the film is counted as Unchanged.
+            // The invariant that matters is unaffected: still ONE diary entry.
             for (var i = 0; i < 4; i++)
             {
                 var again = await svc.PushAsync(User, w, Settings(), writeDiaryEntries: true);
                 Assert.Equal(0, again.DiaryEntries);
-                Assert.Equal(1, again.SkippedAlreadyLogged);
+                Assert.Equal(1, again.Unchanged);
             }
 
             Assert.Single(w.Diary);   // still exactly one entry on Letterboxd
@@ -231,17 +234,76 @@ namespace InternalRatingSystem.Tests
         // ---- idempotent writes repeat freely ----
 
         [Fact]
-        public async Task RatingAndWatched_AreResentEveryRun_BecauseTheyAreIdempotent()
+        public async Task UnchangedFilm_CostsNoRequestsOnLaterRuns()
         {
+            // The writes are idempotent, so resending would be CORRECT — but a
+            // 1300-film library would re-resolve and re-write everything every
+            // hour, thousands of requests at a site behind Cloudflare. An
+            // unchanged film must not cost even a lookup.
             var w = new FakeWriter();
             var svc = Service(new FakeRatingGatherer(Movie(42, 4.5)));
 
             await svc.PushAsync(User, w, Settings(), writeDiaryEntries: false);
-            await svc.PushAsync(User, w, Settings(), writeDiaryEntries: false);
+            Assert.Single(w.Rated);
+            Assert.Single(w.Watched);
+            Assert.Single(w.Resolved);
+
+            var again = await svc.PushAsync(User, w, Settings(), writeDiaryEntries: false);
+
+            Assert.Equal(1, again.Unchanged);
+            Assert.Single(w.Rated);      // no second write
+            Assert.Single(w.Watched);
+            Assert.Single(w.Resolved);   // and no second film lookup
+        }
+
+        [Fact]
+        public async Task ChangedRating_IsPushedAgain()
+        {
+            // The flip side: the cache must never strand a real edit.
+            var w = new FakeWriter();
+
+            await Service(new FakeRatingGatherer(Movie(42, 4.5)))
+                .PushAsync(User, w, Settings(), writeDiaryEntries: false);
+            Assert.Single(w.Rated);
+
+            await Service(new FakeRatingGatherer(Movie(42, 2.0)))
+                .PushAsync(User, w, Settings(), writeDiaryEntries: false);
 
             Assert.Equal(2, w.Rated.Count);
-            Assert.Equal(2, w.Watched.Count);
-            Assert.All(w.Rated, r => Assert.Equal(4.5, r.Stars));
+            Assert.Equal(2.0, w.Rated[1].Stars);
+        }
+
+        [Fact]
+        public async Task ResolvedFilm_IsCached_AcrossRatingChanges()
+        {
+            // Resolution costs a redirect plus a full HTML page, and which
+            // Letterboxd film a TMDb id maps to never changes.
+            var w = new FakeWriter();
+
+            await Service(new FakeRatingGatherer(Movie(42, 4.5)))
+                .PushAsync(User, w, Settings(), writeDiaryEntries: false);
+            await Service(new FakeRatingGatherer(Movie(42, 1.5)))
+                .PushAsync(User, w, Settings(), writeDiaryEntries: false);
+
+            Assert.Equal(2, w.Rated.Count);   // the edit went out
+            Assert.Single(w.Resolved);        // but the film was only looked up once
+        }
+
+        [Fact]
+        public async Task EnablingAToggleLater_RepushesTheFilm()
+        {
+            // Signature includes the per-kind toggles, so turning one on does not
+            // leave the whole library stuck as "unchanged".
+            var w = new FakeWriter();
+
+            await Service(new FakeRatingGatherer(Movie(7, 4.0)))
+                .PushAsync(User, w, Settings(watched: false), writeDiaryEntries: false);
+            Assert.Empty(w.Watched);
+
+            await Service(new FakeRatingGatherer(Movie(7, 4.0)))
+                .PushAsync(User, w, Settings(watched: true), writeDiaryEntries: false);
+
+            Assert.Single(w.Watched);
         }
 
         // ---- matching safety ----

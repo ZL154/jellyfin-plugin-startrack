@@ -21,6 +21,9 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         public int DiaryEntries { get; set; }
         /// <summary>Items skipped because the ledger says they're already logged.</summary>
         public int SkippedAlreadyLogged { get; set; }
+
+        /// <summary>Films skipped entirely because nothing about them changed since the last push.</summary>
+        public int Unchanged { get; set; }
         /// <summary>Items Letterboxd doesn't have, or with no TMDb id to match on.</summary>
         public int Unmatched { get; set; }
         /// <summary>Fatal error, if the run stopped early.</summary>
@@ -125,11 +128,43 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                         continue;
                     }
 
-                    var film = await writer.ResolveFilmAsync(tmdbId, ct).ConfigureAwait(false);
-                    if (film == null) { result.Unmatched++; continue; }
-
                     var isLiked = likedKeys.Contains(tmdbId);
                     var hasRating = item.Stars >= 0.5;
+
+                    // Skip untouched films BEFORE spending a single request.
+                    //
+                    // The writes are idempotent, so re-sending is harmless for
+                    // correctness — but a 1300-film library would re-resolve and
+                    // re-write everything every hour, thousands of requests at a
+                    // site behind Cloudflare. Steady state has to be free.
+                    var signature = LetterboxdPushLedger.Signature(
+                        item.Stars, isLiked, settings.PushRatings, settings.PushWatched, settings.PushLiked);
+
+                    var diaryPending = writeDiaryEntries && hasRating && IsAfterDiaryCutoff(item, settings)
+                                       && !await _ledger.HasAsync(userId, tmdbId, item.RatedAt.ToLocalTime().Date).ConfigureAwait(false);
+
+                    if (!diaryPending && await _ledger.IsUnchangedAsync(userId, tmdbId, signature).ConfigureAwait(false))
+                    {
+                        result.Unchanged++;
+                        continue;
+                    }
+
+                    // Resolution is cached globally: which Letterboxd film a TMDb
+                    // id maps to is the same for every user, and resolving costs a
+                    // redirect plus a full HTML page.
+                    LetterboxdFilm? film;
+                    var cached = await _ledger.GetFilmAsync(tmdbId).ConfigureAwait(false);
+                    if (cached is { } c)
+                    {
+                        film = new LetterboxdFilm(c.Slug, c.FilmId, c.ProductionId);
+                    }
+                    else
+                    {
+                        film = await writer.ResolveFilmAsync(tmdbId, ct).ConfigureAwait(false);
+                        if (film != null)
+                            await _ledger.SetFilmAsync(tmdbId, film.Slug, film.FilmId, film.ProductionId).ConfigureAwait(false);
+                    }
+                    if (film == null) { result.Unmatched++; continue; }
 
                     // ---- rating (idempotent) ----
                     if (settings.PushRatings && hasRating)
@@ -186,6 +221,9 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                         }
                     }
 
+                    // Remember what this film now looks like remotely, so the next
+                    // run can skip it without a request.
+                    await _ledger.SetStateAsync(userId, tmdbId, signature).ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
