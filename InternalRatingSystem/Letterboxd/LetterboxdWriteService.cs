@@ -110,6 +110,19 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         private static readonly Regex ProductionIdPattern =
             new("data-production-id=\"([^\"]+)\"", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+        // Letterboxd dropped data-film-slug / data-film-id in mid-2026 for a
+        // data-postered-identifier JSON blob carrying BOTH ids:
+        //   {"lid":"2a8i","uid":"film:51561", ...}
+        // lid is the productionId (short alphanumeric), and the numeric tail of
+        // uid is the legacy filmId. The diary endpoint wants the FORMER; sending
+        // the latter earns "Production not found for ID: 51568".
+        private static readonly Regex PosteredIdentifierPattern =
+            new("data-postered-identifier=\"([^\"]+)\"", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        private static readonly Regex LidPattern =
+            new("&quot;lid&quot;\\s*:\\s*&quot;([^&]+)&quot;|\"lid\"\\s*:\\s*\"([^\"]+)\"",
+                RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
         private static readonly Regex SlugFromPath =
             new("/film/([a-z0-9\\-_]+)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
@@ -162,8 +175,37 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                     return null;
                 }
 
-                var prod = ProductionIdPattern.Match(html);
-                return new LetterboxdFilm(slug, filmId, prod.Success ? prod.Groups[1].Value : null);
+                // productionId, in order of reliability:
+                //   1. the x-letterboxd-identifier response header
+                //   2. "lid" inside data-postered-identifier (new markup)
+                //   3. the legacy data-production-id attribute
+                string? productionId = null;
+                if (res.Headers.TryGetValues("x-letterboxd-identifier", out var idHeader))
+                {
+                    foreach (var v in idHeader) { productionId = v; break; }
+                }
+
+                if (string.IsNullOrEmpty(productionId))
+                {
+                    var postered = PosteredIdentifierPattern.Match(html);
+                    if (postered.Success)
+                    {
+                        var lid = LidPattern.Match(postered.Groups[1].Value);
+                        if (lid.Success)
+                            productionId = lid.Groups[1].Success ? lid.Groups[1].Value : lid.Groups[2].Value;
+                    }
+                }
+
+                if (string.IsNullOrEmpty(productionId))
+                {
+                    var prod = ProductionIdPattern.Match(html);
+                    if (prod.Success) productionId = prod.Groups[1].Value;
+                }
+
+                _logger.LogDebug("[StarTrack] Letterboxd TMDb {Tmdb} -> {Slug} film={FilmId} production={Prod}",
+                    tmdbId, slug, filmId, productionId ?? "none");
+
+                return new LetterboxdFilm(slug, filmId, productionId);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (Exception ex)
@@ -351,6 +393,116 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 ct.ThrowIfCancellationRequested();
                 try
                 {
+                    // "_pN" variants walk the production-log-entries payload
+                    // forward one validation error at a time. The endpoint
+                    // returns precise JSON complaints ("Unknown property at:
+                    // filmId"), so the API itself is the documentation.
+                    if (action.StartsWith("_p", StringComparison.Ordinal) && action.Length <= 4)
+                    {
+                        object probeBody = action switch
+                        {
+                            "_p1" => new Dictionary<string, object?>
+                            {
+                                ["productionId"] = film.FilmId,
+                                ["diaryDetails"] = new Dictionary<string, object> { ["diaryDate"] = DateTime.Now.ToString("yyyy-MM-dd"), ["rewatch"] = false },
+                                ["tags"] = Array.Empty<string>(),
+                                ["like"] = false,
+                                ["rating"] = 4.0
+                            },
+                            "_p2" => new Dictionary<string, object?>
+                            {
+                                ["productionId"] = "film:" + film.FilmId,
+                                ["diaryDetails"] = new Dictionary<string, object> { ["diaryDate"] = DateTime.Now.ToString("yyyy-MM-dd"), ["rewatch"] = false },
+                                ["tags"] = Array.Empty<string>(),
+                                ["like"] = false,
+                                ["rating"] = 4.0
+                            },
+                            "_p3" => new Dictionary<string, object?>
+                            {
+                                ["productionId"] = film.FilmId
+                            },
+                            _ => new Dictionary<string, object?>
+                            {
+                                ["filmId"] = film.FilmId,
+                                ["diaryDetails"] = new Dictionary<string, object> { ["diaryDate"] = DateTime.Now.ToString("yyyy-MM-dd"), ["rewatch"] = false },
+                                ["tags"] = Array.Empty<string>(),
+                                ["like"] = false,
+                                ["rating"] = 4.0
+                            }
+                        };
+
+                        using var preq = new HttpRequestMessage(HttpMethod.Post, "/api/v0/production-log-entries")
+                        {
+                            Content = new StringContent(JsonSerializer.Serialize(probeBody), Encoding.UTF8, "application/json")
+                        };
+                        preq.Headers.Referrer = new Uri($"{LetterboxdSession.BaseUrl}/film/{film.Slug}/");
+                        preq.Headers.TryAddWithoutValidation("X-Requested-With", "XMLHttpRequest");
+                        var pcsrf = _session.Csrf;
+                        if (!string.IsNullOrEmpty(pcsrf)) preq.Headers.TryAddWithoutValidation("X-CSRF-Token", pcsrf);
+
+                        using var pres = await _session.Http.SendAsync(preq, ct).ConfigureAwait(false);
+                        var pbody = await pres.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                        report[action] = ((int)pres.StatusCode) + " | " + Truncate(pbody, 110);
+                        continue;
+                    }
+
+                    // "_logentries" exercises the EXACT path the real diary
+                    // code takes: JSON to /api/v0/log-entries. That call has
+                    // never run in anger because the toggle was always off, so
+                    // this is the only way to find out what it returns.
+                    if (action == "_logentries" || action == "_logentriesprod")
+                    {
+                        var endpoint = action == "_logentriesprod"
+                            ? "/api/v0/production-log-entries"
+                            : "/api/v0/log-entries";
+                        var payload = BuildPayload(endpoint, film, DateTime.Now, 4.0,
+                                                   liked: false, rewatch: false,
+                                                   review: null, containsSpoilers: false);
+                        using var jreq = new HttpRequestMessage(HttpMethod.Post, endpoint)
+                        {
+                            Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
+                        };
+                        jreq.Headers.Referrer = new Uri($"{LetterboxdSession.BaseUrl}/film/{film.Slug}/");
+                        jreq.Headers.TryAddWithoutValidation("X-Requested-With", "XMLHttpRequest");
+                        var jcsrf = _session.Csrf;
+                        if (!string.IsNullOrEmpty(jcsrf)) jreq.Headers.TryAddWithoutValidation("X-CSRF-Token", jcsrf);
+
+                        using var jres = await _session.Http.SendAsync(jreq, ct).ConfigureAwait(false);
+                        var jbody = await jres.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                        report[action] = ((int)jres.StatusCode) + " | " + Truncate(jbody, 90);
+                        continue;
+                    }
+
+                    // "_diaryfull" posts the complete save-diary-entry payload.
+                    // The earlier bare-__csrf probe 404d against this endpoint,
+                    // which looked like a dead URL but is just what it returns
+                    // when the required fields are absent.
+                    if (action == "_diaryfull")
+                    {
+                        var diaryFields = new Dictionary<string, string>
+                        {
+                            ["__csrf"]           = _session.Csrf,
+                            ["filmId"]           = film.FilmId,
+                            ["specifiedDate"]    = "true",
+                            ["viewingDateStr"]   = DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                            ["rating"]           = "8",
+                            ["liked"]            = "false",
+                            ["review"]           = string.Empty,
+                            ["containsSpoilers"] = "false",
+                            ["rewatch"]          = "false",
+                            ["tag"]              = string.Empty
+                        };
+                        using var dreq = new HttpRequestMessage(HttpMethod.Post, "/s/save-diary-entry")
+                        {
+                            Content = new FormUrlEncodedContent(diaryFields)
+                        };
+                        dreq.Headers.Referrer = new Uri($"{LetterboxdSession.BaseUrl}/film/{film.Slug}/");
+                        using var dres = await _session.Http.SendAsync(dreq, ct).ConfigureAwait(false);
+                        var dbody = await dres.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                        report[action] = ((int)dres.StatusCode) + " | " + Truncate(dbody, 90);
+                        continue;
+                    }
+
                     // An action containing "/" is a FULL PATH template, so URL
                     // shapes can be probed and not just action names. Without
                     // this, a template was pasted into the /s/film:{id}/ form
@@ -476,9 +628,12 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             // Two endpoint spellings exist depending on whether Letterboxd has a
             // "production" record for the film. Try the production form first
             // when we have that id, then fall back.
+            // production-log-entries is the one that actually answers: plain
+            // /api/v0/log-entries returns a 403 from the edge. Verified by
+            // probing both against a real account.
             var endpoints = film.ProductionId != null
-                ? new[] { "/api/v0/production-log-entries", "/api/v0/log-entries" }
-                : new[] { "/api/v0/log-entries", "/api/v0/production-log-entries" };
+                ? new[] { "/api/v0/production-log-entries" }
+                : new[] { "/api/v0/production-log-entries", "/api/v0/log-entries" };
 
             LetterboxdWriteResult last = new(LetterboxdWriteStatus.Failed, "No endpoint attempted.");
 
