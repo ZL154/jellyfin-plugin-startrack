@@ -596,5 +596,11 @@
   "Verify login": "ログインを確認",
   "Save": "保存",
   "Push now": "今すぐ送信",
-  "lb.n_remaining": "件が残り、自動的に続行します"
+  "lb.n_remaining": "件が残り、自動的に続行します",
+  "The CSV needs no password and always works.": "CSV はパスワード不要で、常に利用できます。",
+  "Cloudflare ties these to one browser and IP and they expire quickly.": "Cloudflare はこれらを 1 つのブラウザーと IP に結び付け、すぐに失効します。",
+  "lb.n_liked": "件をいいね",
+  "lb.last_synced": "最終同期",
+  "lb.n_imported": "件をインポート",
+  "lb.n_not_in_library": "件はライブラリにありません"
 }

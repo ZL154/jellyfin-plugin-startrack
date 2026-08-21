@@ -27,6 +27,37 @@
     })();
     if (_ST_BASE) console.log('[StarTrack] base path: "' + _ST_BASE + '"');
 
+    // [v1.6.5] Cache-busting token for translation bundles.
+    //
+    // widget.js is fetched as /Plugins/StarTrack/Widget?v=<contenthash>, so a new
+    // build always reaches the browser. The translation bundles were fetched with
+    // no token at all, so browsers (and any CDN in front) kept serving the bundle
+    // from whenever the user first loaded the page. Every string added in a later
+    // release then fell back to its English default FOREVER, which looks exactly
+    // like a missing translation and is impossible to tell apart from one.
+    //
+    // Reuse the widget's own token: it changes on every build that changes
+    // widget.js, and the translations ship in the same assembly.
+    var _ST_VER = (function () {
+        try {
+            var src = (document.currentScript && document.currentScript.src) || '';
+            if (!src) {
+                var sc = document.getElementsByTagName('script');
+                for (var i = 0; i < sc.length; i++) {
+                    if (sc[i].src && sc[i].src.indexOf('/Plugins/StarTrack/Widget') !== -1) { src = sc[i].src; break; }
+                }
+            }
+            var m = /[?&]v=([A-Za-z0-9]+)/.exec(src || '');
+            return m ? m[1] : '';
+        } catch (e) { return ''; }
+    })();
+
+    /// Appends the build token so a new release's strings are actually fetched.
+    function _trUrl(lang) {
+        return _ST_BASE + '/Plugins/StarTrack/Translations/' + encodeURIComponent(lang) +
+               (_ST_VER ? '?v=' + _ST_VER : '');
+    }
+
     // [v1.6.2] (#8, locksoft) Detect a TV / big-screen client (LG webOS, Tizen,
     // Android TV, Apple TV web, etc.). On TV we always show a focusable rating
     // badge next to the title and enlarge the controls, because the floating pill
@@ -219,7 +250,7 @@
     }
 
     function loadTranslations(lang) {
-        return fetch(_ST_BASE + '/Plugins/StarTrack/Translations/' + encodeURIComponent(lang))
+        return fetch(_trUrl(lang))
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(function (j) {
                 if (j) _STARTRACK_STRINGS = j;
@@ -229,7 +260,7 @@
     }
 
     function loadEnglishThenActive(lang) {
-        return fetch(_ST_BASE + '/Plugins/StarTrack/Translations/en')
+        return fetch(_trUrl('en'))
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(function (en) {
                 _STARTRACK_STRINGS_EN = en || {};
@@ -671,6 +702,19 @@
             '.ir-ov-lb-panel{background:#141414!important;border:1px solid rgba(244,196,48,.22)!important;border-radius:10px!important;padding:14px 18px!important;margin:0 0 14px!important}',
             '.ir-ov-lb-row{display:flex!important;align-items:center!important;gap:10px!important;margin-bottom:10px!important;flex-wrap:wrap!important}',
             '.ir-ov-lb-row:last-child{margin-bottom:0!important}',
+            '.ir-ov-lb-sep{height:1px!important;background:rgba(255,255,255,.10)!important;margin:14px 0!important}',
+            '.ir-ov-lb-warn{background:rgba(244,196,48,.10)!important;border:1px solid rgba(244,196,48,.35)!important;border-radius:6px!important;padding:8px 12px!important;font-size:.78em!important;line-height:1.5!important;color:#f0d68a!important;margin-bottom:10px!important}',
+            '.ir-ov-lb-csv{background:rgba(255,255,255,.08)!important;color:#fff!important;border:1px solid rgba(255,255,255,.22)!important;border-radius:6px!important;padding:7px 14px!important;font-size:.78em!important;font-weight:600!important;cursor:pointer!important;transition:all .15s!important}',
+            '.ir-ov-lb-csv:hover{background:rgba(255,255,255,.16)!important;border-color:rgba(255,255,255,.45)!important}',
+            '.ir-ov-lb-pw,.ir-ov-lb-cookies,.ir-ov-lb-ua{background:rgba(255,255,255,.05)!important;border:1px solid rgba(255,255,255,.14)!important;border-radius:6px!important;color:#fff!important;font-size:.85em!important;padding:7px 12px!important;outline:none!important;min-width:200px!important;flex:1!important;max-width:340px!important}',
+            '.ir-ov-lb-pw:focus,.ir-ov-lb-cookies:focus,.ir-ov-lb-ua:focus{border-color:rgba(244,196,48,.5)!important}',
+            '.ir-ov-lb-verify,.ir-ov-lb-push-save,.ir-ov-lb-push-now{background:#f4c430!important;color:#000!important;border:none!important;border-radius:6px!important;padding:7px 16px!important;font-size:.8em!important;font-weight:700!important;cursor:pointer!important;transition:transform .1s,background .15s!important}',
+            '.ir-ov-lb-verify{background:rgba(255,255,255,.10)!important;color:#fff!important;border:1px solid rgba(255,255,255,.22)!important}',
+            '.ir-ov-lb-verify:hover{background:rgba(255,255,255,.18)!important}',
+            '.ir-ov-lb-push-save:hover,.ir-ov-lb-push-now:hover{background:#ffd84d!important;transform:scale(1.04)!important}',
+            '.ir-ov-lb-adv{margin:6px 0!important;font-size:.8em!important}',
+            '.ir-ov-lb-adv summary{cursor:pointer!important;color:#f4c430!important;padding:4px 0!important}',
+            '.ir-ov-lb-push-status{font-size:.8em!important;line-height:1.5!important;margin-top:8px!important;min-height:1.2em!important}',
             '.ir-ov-lb-label{color:rgba(255,255,255,.6)!important;font-size:.75em!important;text-transform:uppercase!important;letter-spacing:.05em!important;font-weight:700!important;white-space:nowrap!important}',
             '.ir-ov-lb-user{background:rgba(255,255,255,.05)!important;border:1px solid rgba(255,255,255,.14)!important;border-radius:6px!important;color:#fff!important;font-size:.85em!important;padding:7px 12px!important;outline:none!important;transition:border-color .2s!important;min-width:180px!important;flex:1!important;max-width:280px!important}',
             '.ir-ov-lb-user:focus{border-color:rgba(244,196,48,.5)!important}',
@@ -2170,6 +2214,45 @@
                         '</label>' +
                         '<span class="ir-ov-lb-hint">Download your data from letterboxd.com \u2192 Settings \u2192 Import &amp; Export, then drop the ZIP here.</span>' +
                     '</div>' +
+                    '<div class="ir-ov-lb-sep"></div>' +
+                    '<div class="ir-ov-lb-row">' +
+                        '<label class="ir-ov-lb-label" data-tr="Send to Letterboxd">Send to Letterboxd</label>' +
+                        '<button class="ir-ov-lb-csv" data-tr="Download CSV for letterboxd.com/import">\u2b07 Download CSV for letterboxd.com/import</button>' +
+                        '<label class="ir-ov-lb-check">' +
+                            '<input type="checkbox" class="ir-ov-lb-push-on" /> ' +
+                            '<span data-tr="Also push automatically (needs password)">Also push automatically (needs password)</span>' +
+                        '</label>' +
+                        '<span class="ir-ov-lb-hint" data-tr="The CSV needs no password and always works.">The CSV needs no password and always works.</span>' +
+                    '</div>' +
+                    '<div class="ir-ov-lb-push" style="display:none">' +
+                        '<div class="ir-ov-lb-warn" data-tr="StarTrack will store your Letterboxd password, encrypted, so it can sign in as you. Two-factor accounts cannot work this way - use the CSV instead.">' +
+                            'StarTrack will store your Letterboxd password, encrypted, so it can sign in as you. ' +
+                            'Two-factor accounts cannot work this way - use the CSV instead.' +
+                        '</div>' +
+                        '<div class="ir-ov-lb-row">' +
+                            '<label class="ir-ov-lb-label" data-tr="Letterboxd password">Letterboxd password</label>' +
+                            '<input type="password" class="ir-ov-lb-pw" autocomplete="new-password" />' +
+                            '<button class="ir-ov-lb-verify" data-tr="Verify login">Verify login</button>' +
+                            '<button class="ir-ov-lb-push-save" data-tr="Save">Save</button>' +
+                            '<button class="ir-ov-lb-push-now" data-tr="Push now">Push now</button>' +
+                        '</div>' +
+                        '<div class="ir-ov-lb-row">' +
+                            '<label class="ir-ov-lb-check"><input type="checkbox" class="ir-ov-lb-p-ratings" checked /> <span data-tr="Ratings">Ratings</span></label>' +
+                            '<label class="ir-ov-lb-check"><input type="checkbox" class="ir-ov-lb-p-watched" checked /> <span data-tr="Mark watched">Mark watched</span></label>' +
+                            '<label class="ir-ov-lb-check"><input type="checkbox" class="ir-ov-lb-p-liked" checked /> <span data-tr="Likes">Likes</span></label>' +
+                            '<label class="ir-ov-lb-check"><input type="checkbox" class="ir-ov-lb-p-diary" /> <span data-tr="Log new watches to your diary (from now on)">Log new watches to your diary (from now on)</span></label>' +
+                            '<span class="ir-ov-lb-hint" data-tr="Diary entries cannot be edited by a later sync, so only films you rate from now on are logged. Your existing diary is left alone.">Diary entries cannot be edited by a later sync, so only films you rate from now on are logged. Your existing diary is left alone.</span>' +
+                        '</div>' +
+                        '<details class="ir-ov-lb-adv">' +
+                            '<summary data-tr="Blocked by Cloudflare?">Blocked by Cloudflare?</summary>' +
+                            '<div class="ir-ov-lb-row">' +
+                                '<input type="text" class="ir-ov-lb-cookies" placeholder="cf_clearance=...; letterboxd.signed.in=..." />' +
+                                '<input type="text" class="ir-ov-lb-ua" placeholder="Mozilla/5.0 ..." />' +
+                            '</div>' +
+                            '<span class="ir-ov-lb-hint" data-tr="Cloudflare ties these to one browser and IP and they expire quickly.">Cloudflare ties these to one browser and IP and they expire quickly.</span>' +
+                        '</details>' +
+                        '<div class="ir-ov-lb-push-status"></div>' +
+                    '</div>' +
                     '<div class="ir-ov-lb-status"></div>' +
                 '</div>' +
             '</div>' +
@@ -2268,6 +2351,141 @@
         var ovLbFile   = _overlay.querySelector('.ir-ov-lb-file');
         var ovLbStatus = _overlay.querySelector('.ir-ov-lb-status');
 
+        // ---- write-back controls (v1.6.5) ----
+        // Same endpoints as the popover copy; this panel is full width so the
+        // controls sit on rows instead of stacking in a 320px column.
+        var ovPushOn   = _overlay.querySelector('.ir-ov-lb-push-on');
+        var ovPushBox  = _overlay.querySelector('.ir-ov-lb-push');
+        var ovPushPw   = _overlay.querySelector('.ir-ov-lb-pw');
+        var ovPushRat  = _overlay.querySelector('.ir-ov-lb-p-ratings');
+        var ovPushWat  = _overlay.querySelector('.ir-ov-lb-p-watched');
+        var ovPushLik  = _overlay.querySelector('.ir-ov-lb-p-liked');
+        var ovPushDia  = _overlay.querySelector('.ir-ov-lb-p-diary');
+        var ovPushCk   = _overlay.querySelector('.ir-ov-lb-cookies');
+        var ovPushUa   = _overlay.querySelector('.ir-ov-lb-ua');
+        var ovPushVer  = _overlay.querySelector('.ir-ov-lb-verify');
+        var ovPushSave = _overlay.querySelector('.ir-ov-lb-push-save');
+        var ovPushNow  = _overlay.querySelector('.ir-ov-lb-push-now');
+        var ovPushStat = _overlay.querySelector('.ir-ov-lb-push-status');
+        var ovPushCsv  = _overlay.querySelector('.ir-ov-lb-csv');
+
+        function ovPushStatus(text, kind) {
+            if (!ovPushStat) return;
+            ovPushStat.textContent = text;
+            ovPushStat.style.color = kind === 'ok' ? '#52b54b' : kind === 'err' ? '#ff8080' : 'rgba(255,255,255,.6)';
+        }
+
+        function ovPushDirection() {
+            var importing = !!(ovLbAuto && ovLbAuto.checked);
+            var pushing   = !!(ovPushOn && ovPushOn.checked);
+            if (importing && pushing) return 3;
+            if (pushing)              return 2;
+            return 1;
+        }
+
+        function ovPushLoad() {
+            apiLbGetAccount().then(function (a) {
+                if (!a) return;
+                if (ovPushOn)  ovPushOn.checked  = (a.direction === 2 || a.direction === 3);
+                if (ovPushBox) ovPushBox.style.display = ovPushOn && ovPushOn.checked ? '' : 'none';
+                if (ovPushRat) ovPushRat.checked = !!a.pushRatings;
+                if (ovPushWat) ovPushWat.checked = !!a.pushWatched;
+                if (ovPushLik) ovPushLik.checked = !!a.pushLiked;
+                if (ovPushDia) ovPushDia.checked = !!a.pushDiary;
+                if (ovPushUa)  ovPushUa.value    = a.userAgent || '';
+                if (ovPushPw)  ovPushPw.placeholder = a.hasPassword
+                    ? tr('lb.pw_saved', null, 'Saved - leave blank to keep') : '';
+                if (a.lastPushError) ovPushStatus('\u2717 ' + a.lastPushError, 'err');
+                else if (a.lastPushedAt) ovPushStatus(
+                    tr('lb.last_pushed', null, 'Last pushed') + ' ' + timeAgo(a.lastPushedAt) +
+                    (a.lastPushedCount ? ' \u2014 ' + a.lastPushedCount : ''), '');
+            });
+        }
+
+        function ovPushPayload() {
+            var b = {
+                direction:   ovPushDirection(),
+                pushRatings: !!(ovPushRat && ovPushRat.checked),
+                pushWatched: !!(ovPushWat && ovPushWat.checked),
+                pushLiked:   !!(ovPushLik && ovPushLik.checked),
+                pushDiary:   !!(ovPushDia && ovPushDia.checked),
+                pushReviews: false
+            };
+            if (ovPushPw && ovPushPw.value) b.password   = ovPushPw.value;
+            if (ovPushCk && ovPushCk.value) b.rawCookies = ovPushCk.value;
+            if (ovPushUa)                   b.userAgent  = ovPushUa.value || null;
+            return b;
+        }
+
+        if (ovPushOn) ovPushOn.addEventListener('change', function () {
+            if (ovPushBox) ovPushBox.style.display = ovPushOn.checked ? '' : 'none';
+        });
+
+        if (ovPushCsv) ovPushCsv.addEventListener('click', function () {
+            var auth = getAuth(); if (!auth) return;
+            ovPushStatus(tr('lb.building_csv', null, 'Building CSV\u2026'), '');
+            fetch(_ST_BASE + '/Plugins/StarTrack/Letterboxd/ExportCsv', { headers: { Authorization: auth } })
+                .then(function (r) { return r.ok ? r.blob() : null; })
+                .then(function (b) {
+                    if (!b) { ovPushStatus('\u2717 ' + tr('lb.csv_failed', null, 'Could not build the CSV.'), 'err'); return; }
+                    var url = URL.createObjectURL(b);
+                    var a = document.createElement('a');
+                    a.href = url; a.download = 'startrack-letterboxd.csv';
+                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+                    ovPushStatus('\u2713 ' + tr('lb.csv_ready', null, 'Downloaded - upload it at letterboxd.com/import'), 'ok');
+                })
+                .catch(function () { ovPushStatus('\u2717 ' + tr('lb.csv_failed', null, 'Could not build the CSV.'), 'err'); });
+        });
+
+        if (ovPushVer) ovPushVer.addEventListener('click', function () {
+            ovPushVer.disabled = true;
+            ovPushStatus(tr('lb.verifying', null, 'Checking sign-in\u2026'), '');
+            apiLbVerify({
+                username:   ovLbUser ? ovLbUser.value.trim() : '',
+                password:   ovPushPw ? ovPushPw.value : '',
+                rawCookies: ovPushCk ? ovPushCk.value : '',
+                userAgent:  ovPushUa ? ovPushUa.value : ''
+            }).then(function (r) {
+                if (!r)        ovPushStatus('\u2717 ' + tr('lb.verify_failed', null, 'Could not reach Letterboxd.'), 'err');
+                else if (r.ok) ovPushStatus('\u2713 ' + tr('lb.verify_ok', null, 'Signed in successfully.'), 'ok');
+                else           ovPushStatus('\u2717 ' + (r.message || r.status), 'err');
+            }).finally(function () { ovPushVer.disabled = false; });
+        });
+
+        if (ovPushSave) ovPushSave.addEventListener('click', function () {
+            ovPushSave.disabled = true;
+            ovPushStatus(tr('lb.saving', null, 'Saving\u2026'), '');
+            apiLbSaveAccount(ovPushPayload()).then(function (r) {
+                if (r.ok) {
+                    ovPushStatus('\u2713 ' + tr('lb.saved', null, 'Saved'), 'ok');
+                    if (ovPushPw) ovPushPw.value = '';
+                    if (ovPushCk) ovPushCk.value = '';
+                    ovPushLoad();
+                } else {
+                    ovPushStatus('\u2717 ' + (r.message || tr('lb.save_failed', null, 'Could not save.')), 'err');
+                }
+            }).finally(function () { ovPushSave.disabled = false; });
+        });
+
+        if (ovPushNow) ovPushNow.addEventListener('click', function () {
+            ovPushNow.disabled = true;
+            ovPushStatus(tr('lb.pushing', null, 'Pushing to Letterboxd\u2026'), '');
+            apiLbPushNow().then(function (r) {
+                if (!r) { ovPushStatus('\u2717 ' + tr('lb.push_failed', null, 'Push failed.'), 'err'); return; }
+                if (r.error) { ovPushStatus('\u2717 ' + r.error, 'err'); return; }
+                var parts = [];
+                if (r.rated)        parts.push(r.rated + ' ' + tr('lb.n_rated', null, 'rated'));
+                if (r.watched)      parts.push(r.watched + ' ' + tr('lb.n_watched', null, 'watched'));
+                if (r.liked)        parts.push(r.liked + ' ' + tr('lb.n_liked', null, 'liked'));
+                if (r.diaryEntries) parts.push(r.diaryEntries + ' ' + tr('lb.n_diary', null, 'diary'));
+                if (r.unmatched)    parts.push(r.unmatched + ' ' + tr('lb.n_unmatched', null, 'not on Letterboxd'));
+                var msg = parts.length ? parts.join(', ') : tr('lb.nothing_to_push', null, 'Nothing new to push');
+                if (r.remaining) msg += ' \u2014 ' + r.remaining + ' ' + tr('lb.n_remaining', null, 'left, continuing automatically');
+                ovPushStatus('\u2713 ' + msg, 'ok');
+            }).finally(function () { ovPushNow.disabled = false; });
+        });
+
         // v1.5.13: Cleanup is admin-only on the server side (returns 403 to
         // non-admins). Hide the button for non-admins so they don't see a
         // broken control. Best-effort — defaults to hidden if the admin
@@ -2310,11 +2528,12 @@
                     ovLbUser.value = s.username || '';
                     ovLbAuto.checked = !!s.enableAutoSync;
                     if (s.lastSyncedAt) {
-                        ovLbShowStatus('Last synced ' + timeAgo(s.lastSyncedAt) +
-                            (s.lastImportedCount ? ' — imported ' + s.lastImportedCount + ' rating' + (s.lastImportedCount !== 1 ? 's' : '') : '') +
-                            (s.lastUnmatchedCount ? ', ' + s.lastUnmatchedCount + ' not in library' : ''), '', null);
+                        ovLbShowStatus(tr('lb.last_synced', null, 'Last synced') + ' ' + timeAgo(s.lastSyncedAt) +
+                            (s.lastImportedCount ? ' \u2014 ' + s.lastImportedCount + ' ' + tr('lb.n_imported', null, 'imported') : '') +
+                            (s.lastUnmatchedCount ? ', ' + s.lastUnmatchedCount + ' ' + tr('lb.n_not_in_library', null, 'not in library') : ''), '', null);
                     }
                 });
+                ovPushLoad();
             }
         });
 
@@ -6489,8 +6708,8 @@
                 if (lbUser) lbUser.value = s.username || '';
                 if (lbAuto) lbAuto.checked = !!s.enableAutoSync;
                 if (s.lastSyncedAt) {
-                    showLbStatus('Last synced ' + timeAgo(s.lastSyncedAt) +
-                        (s.lastImportedCount ? ' — imported ' + s.lastImportedCount + ' rating' + (s.lastImportedCount !== 1 ? 's' : '') : ''), '');
+                    showLbStatus(tr('lb.last_synced', null, 'Last synced') + ' ' + timeAgo(s.lastSyncedAt) +
+                        (s.lastImportedCount ? ' \u2014 ' + s.lastImportedCount + ' ' + tr('lb.n_imported', null, 'imported') : ''), '');
                 }
             });
             loadPushAccount();
@@ -8111,10 +8330,10 @@
     function _adminLoadTranslations(lang) {
         return Promise.resolve().then(function () {
             if (_adminEn) return null;
-            return fetch(_ST_BASE + '/Plugins/StarTrack/Translations/en').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { _adminEn = j || {}; });
+            return fetch(_trUrl('en')).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { _adminEn = j || {}; });
         }).then(function () {
             if (lang === 'en') { _adminTr = _adminEn; return; }
-            return fetch(_ST_BASE + '/Plugins/StarTrack/Translations/' + encodeURIComponent(lang)).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { if (j) _adminTr = j; });
+            return fetch(_trUrl(lang)).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { if (j) _adminTr = j; });
         }).catch(function () { _adminTr = _adminEn; });
     }
 

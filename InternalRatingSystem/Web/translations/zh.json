@@ -596,5 +596,11 @@
   "Verify login": "验证登录",
   "Save": "保存",
   "Push now": "立即推送",
-  "lb.n_remaining": "项待推送，将自动继续"
+  "lb.n_remaining": "项待推送，将自动继续",
+  "The CSV needs no password and always works.": "CSV 无需密码，始终可用。",
+  "Cloudflare ties these to one browser and IP and they expire quickly.": "Cloudflare 将其绑定到单一浏览器和 IP，并会很快过期。",
+  "lb.n_liked": "个喜欢",
+  "lb.last_synced": "上次同步",
+  "lb.n_imported": "条已导入",
+  "lb.n_not_in_library": "不在媒体库中"
 }

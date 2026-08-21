@@ -596,5 +596,11 @@
   "Verify login": "Verifica accesso",
   "Save": "Salva",
   "Push now": "Invia ora",
-  "lb.n_remaining": "rimanenti, continua automaticamente"
+  "lb.n_remaining": "rimanenti, continua automaticamente",
+  "The CSV needs no password and always works.": "Il CSV non richiede password e funziona sempre.",
+  "Cloudflare ties these to one browser and IP and they expire quickly.": "Cloudflare li lega a un browser e a un IP e scadono in fretta.",
+  "lb.n_liked": "mi piace",
+  "lb.last_synced": "Ultima sincronizzazione",
+  "lb.n_imported": "importate",
+  "lb.n_not_in_library": "non in libreria"
 }
