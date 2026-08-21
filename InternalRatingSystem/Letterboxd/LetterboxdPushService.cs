@@ -24,6 +24,12 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
 
         /// <summary>Films skipped entirely because nothing about them changed since the last push.</summary>
         public int Unchanged { get; set; }
+
+        /// <summary>
+        /// Films still needing work when this run hit its cap. Non-zero simply
+        /// means the next run will continue; it is not an error.
+        /// </summary>
+        public int Remaining { get; set; }
         /// <summary>Items Letterboxd doesn't have, or with no TMDb id to match on.</summary>
         public int Unmatched { get; set; }
         /// <summary>Fatal error, if the run stopped early.</summary>
@@ -82,12 +88,22 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         /// diary writes cannot be undone by a later sync.
         /// </param>
         /// <param name="ct">Cancellation.</param>
+        /// <param name="maxFilms">
+        /// Most films to touch in one run. The FIRST run for an established
+        /// library has thousands of films to seed; firing them as fast as the
+        /// loop allows is indistinguishable from an attack to Cloudflare. Work
+        /// is spread across runs instead, and the CSV export exists for anyone
+        /// who wants everything at once.
+        /// </param>
+        /// <param name="delayMs">Pause between films that actually touch the network.</param>
         public async Task<LetterboxdPushResult> PushAsync(
             string userId,
             ILetterboxdWriter writer,
             LetterboxdUserSettings settings,
             bool writeDiaryEntries,
-            CancellationToken ct = default)
+            CancellationToken ct = default,
+            int maxFilms = 200,
+            int delayMs = 250)
         {
             var result = new LetterboxdPushResult();
 
@@ -115,9 +131,20 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                     if (!work.Any(w => w.Tmdb == t))
                         work.Add(new ExternalRating(null, t, null, string.Empty, null, "movie", 0, DateTime.UtcNow));
 
+                var touched = 0;
+
                 foreach (var item in work)
                 {
                     ct.ThrowIfCancellationRequested();
+
+                    // Cap reached: count what is left and stop. The next run picks
+                    // up exactly where this one stopped, because the push-state
+                    // cache makes everything already done free to skip.
+                    if (touched >= maxFilms)
+                    {
+                        result.Remaining++;
+                        continue;
+                    }
 
                     if (item.Tmdb is not int tmdbId)
                     {
@@ -224,6 +251,11 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                     // Remember what this film now looks like remotely, so the next
                     // run can skip it without a request.
                     await _ledger.SetStateAsync(userId, tmdbId, signature).ConfigureAwait(false);
+
+                    // Pace only films that actually hit the network; skipped ones
+                    // cost nothing and must not slow the sweep down.
+                    touched++;
+                    if (delayMs > 0) await Task.Delay(delayMs, ct).ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)

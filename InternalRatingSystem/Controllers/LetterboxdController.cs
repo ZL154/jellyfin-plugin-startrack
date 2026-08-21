@@ -592,7 +592,13 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
             if (userId == null) return Unauthorized();
 
-            var r = await _runner.RunForUserAsync(userId.Value.ToString("N"), HttpContext.RequestAborted).ConfigureAwait(false);
+            // Smaller cap and tighter pacing than the scheduled task: this one is
+            // a button press and has to come back while the user is still looking
+            // at it. Anything left over is reported as Remaining and picked up by
+            // the hourly task, or by pressing again.
+            var r = await _runner.RunForUserAsync(
+                userId.Value.ToString("N"), HttpContext.RequestAborted, maxFilms: 25, delayMs: 120)
+                .ConfigureAwait(false);
             _logger.LogInformation("[StarTrack] Letterboxd PushNow for {User}: written={W} error={E}",
                 userId.Value, r.TotalWritten, r.Error ?? "none");
             return Ok(r);

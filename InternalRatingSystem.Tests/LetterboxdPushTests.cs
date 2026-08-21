@@ -169,7 +169,7 @@ namespace InternalRatingSystem.Tests
         {
             var w = new FakeWriter();
             var res = await Service(new FakeRatingGatherer(Movie(1, 4.0)))
-                .PushAsync(User, w, Settings(dir), writeDiaryEntries: true);
+                .PushAsync(User, w, Settings(dir), writeDiaryEntries: true, delayMs: 0);
 
             Assert.Empty(w.Resolved);      // must not even look films up
             Assert.Equal(0, res.TotalWritten);
@@ -185,7 +185,7 @@ namespace InternalRatingSystem.Tests
             var w = new FakeWriter();
             var svc = Service(new FakeRatingGatherer(Movie(27205, 4.0)));
 
-            var first = await svc.PushAsync(User, w, Settings(), writeDiaryEntries: true);
+            var first = await svc.PushAsync(User, w, Settings(), writeDiaryEntries: true, delayMs: 0);
             Assert.Equal(1, first.DiaryEntries);
             Assert.Single(w.Diary);
 
@@ -195,7 +195,7 @@ namespace InternalRatingSystem.Tests
             // The invariant that matters is unaffected: still ONE diary entry.
             for (var i = 0; i < 4; i++)
             {
-                var again = await svc.PushAsync(User, w, Settings(), writeDiaryEntries: true);
+                var again = await svc.PushAsync(User, w, Settings(), writeDiaryEntries: true, delayMs: 0);
                 Assert.Equal(0, again.DiaryEntries);
                 Assert.Equal(1, again.Unchanged);
             }
@@ -210,12 +210,12 @@ namespace InternalRatingSystem.Tests
             var w = new FakeWriter { WriteStatus = LetterboxdWriteStatus.Failed };
             var svc = Service(new FakeRatingGatherer(Movie(500, 3.0)));
 
-            await svc.PushAsync(User, w, Settings(), writeDiaryEntries: true);
+            await svc.PushAsync(User, w, Settings(), writeDiaryEntries: true, delayMs: 0);
             Assert.False(await _ledger.HasAsync(User, 500, new DateTime(2026, 8, 1)));
 
             // Recovers on a later run once Letterboxd is reachable again.
             w.WriteStatus = LetterboxdWriteStatus.Ok;
-            var res = await svc.PushAsync(User, w, Settings(), writeDiaryEntries: true);
+            var res = await svc.PushAsync(User, w, Settings(), writeDiaryEntries: true, delayMs: 0);
             Assert.Equal(1, res.DiaryEntries);
         }
 
@@ -224,7 +224,7 @@ namespace InternalRatingSystem.Tests
         {
             var w = new FakeWriter();
             var res = await Service(new FakeRatingGatherer(Movie(1, 4.0)))
-                .PushAsync(User, w, Settings(), writeDiaryEntries: false);
+                .PushAsync(User, w, Settings(), writeDiaryEntries: false, delayMs: 0);
 
             Assert.Empty(w.Diary);
             Assert.Equal(0, res.DiaryEntries);
@@ -243,12 +243,12 @@ namespace InternalRatingSystem.Tests
             var w = new FakeWriter();
             var svc = Service(new FakeRatingGatherer(Movie(42, 4.5)));
 
-            await svc.PushAsync(User, w, Settings(), writeDiaryEntries: false);
+            await svc.PushAsync(User, w, Settings(), writeDiaryEntries: false, delayMs: 0);
             Assert.Single(w.Rated);
             Assert.Single(w.Watched);
             Assert.Single(w.Resolved);
 
-            var again = await svc.PushAsync(User, w, Settings(), writeDiaryEntries: false);
+            var again = await svc.PushAsync(User, w, Settings(), writeDiaryEntries: false, delayMs: 0);
 
             Assert.Equal(1, again.Unchanged);
             Assert.Single(w.Rated);      // no second write
@@ -263,11 +263,11 @@ namespace InternalRatingSystem.Tests
             var w = new FakeWriter();
 
             await Service(new FakeRatingGatherer(Movie(42, 4.5)))
-                .PushAsync(User, w, Settings(), writeDiaryEntries: false);
+                .PushAsync(User, w, Settings(), writeDiaryEntries: false, delayMs: 0);
             Assert.Single(w.Rated);
 
             await Service(new FakeRatingGatherer(Movie(42, 2.0)))
-                .PushAsync(User, w, Settings(), writeDiaryEntries: false);
+                .PushAsync(User, w, Settings(), writeDiaryEntries: false, delayMs: 0);
 
             Assert.Equal(2, w.Rated.Count);
             Assert.Equal(2.0, w.Rated[1].Stars);
@@ -281,9 +281,9 @@ namespace InternalRatingSystem.Tests
             var w = new FakeWriter();
 
             await Service(new FakeRatingGatherer(Movie(42, 4.5)))
-                .PushAsync(User, w, Settings(), writeDiaryEntries: false);
+                .PushAsync(User, w, Settings(), writeDiaryEntries: false, delayMs: 0);
             await Service(new FakeRatingGatherer(Movie(42, 1.5)))
-                .PushAsync(User, w, Settings(), writeDiaryEntries: false);
+                .PushAsync(User, w, Settings(), writeDiaryEntries: false, delayMs: 0);
 
             Assert.Equal(2, w.Rated.Count);   // the edit went out
             Assert.Single(w.Resolved);        // but the film was only looked up once
@@ -297,11 +297,11 @@ namespace InternalRatingSystem.Tests
             var w = new FakeWriter();
 
             await Service(new FakeRatingGatherer(Movie(7, 4.0)))
-                .PushAsync(User, w, Settings(watched: false), writeDiaryEntries: false);
+                .PushAsync(User, w, Settings(watched: false), writeDiaryEntries: false, delayMs: 0);
             Assert.Empty(w.Watched);
 
             await Service(new FakeRatingGatherer(Movie(7, 4.0)))
-                .PushAsync(User, w, Settings(watched: true), writeDiaryEntries: false);
+                .PushAsync(User, w, Settings(watched: true), writeDiaryEntries: false, delayMs: 0);
 
             Assert.Single(w.Watched);
         }
@@ -315,7 +315,7 @@ namespace InternalRatingSystem.Tests
             var noId = new ExternalRating("tt123", null, null, "Ambiguous", 2020, "movie", 4.0, DateTime.UtcNow);
             var w = new FakeWriter();
 
-            var res = await Service(new FakeRatingGatherer(noId)).PushAsync(User, w, Settings(), false);
+            var res = await Service(new FakeRatingGatherer(noId)).PushAsync(User, w, Settings(), false, delayMs: 0);
 
             Assert.Empty(w.Resolved);
             Assert.Equal(1, res.Unmatched);
@@ -328,7 +328,7 @@ namespace InternalRatingSystem.Tests
             var show = new ExternalRating(null, 1396, null, "Breaking Bad", 2008, "show", 5.0, DateTime.UtcNow);
             var w = new FakeWriter();
 
-            await Service(new FakeRatingGatherer(show)).PushAsync(User, w, Settings(), false);
+            await Service(new FakeRatingGatherer(show)).PushAsync(User, w, Settings(), false, delayMs: 0);
 
             Assert.Empty(w.Resolved);
         }
@@ -339,7 +339,7 @@ namespace InternalRatingSystem.Tests
             var w = new FakeWriter();
             w.Unknown.Add(999);
 
-            var res = await Service(new FakeRatingGatherer(Movie(999, 4.0))).PushAsync(User, w, Settings(), false);
+            var res = await Service(new FakeRatingGatherer(Movie(999, 4.0))).PushAsync(User, w, Settings(), false, delayMs: 0);
 
             Assert.Equal(1, res.Unmatched);
             Assert.Empty(w.Rated);
@@ -357,7 +357,7 @@ namespace InternalRatingSystem.Tests
             // Assert on the write, not the tally.
             var w = new FakeWriter();
             var res = await Service(new FakeRatingGatherer(), new FakeLikedGatherer(Movie(77, 0)))
-                .PushAsync(User, w, Settings(), writeDiaryEntries: false);
+                .PushAsync(User, w, Settings(), writeDiaryEntries: false, delayMs: 0);
 
             Assert.Contains(77, w.Resolved);
             Assert.Single(w.LikedFilms);
@@ -369,7 +369,7 @@ namespace InternalRatingSystem.Tests
         {
             var w = new FakeWriter();
             await Service(new FakeRatingGatherer(Movie(5, 4.0)), new FakeLikedGatherer(Movie(5, 4.0)))
-                .PushAsync(User, w, Settings(), writeDiaryEntries: false);
+                .PushAsync(User, w, Settings(), writeDiaryEntries: false, delayMs: 0);
 
             Assert.Single(w.LikedFilms);
             Assert.Empty(w.Diary);
@@ -381,7 +381,7 @@ namespace InternalRatingSystem.Tests
             // Reporting a success we cannot prove is worse than reporting zero.
             var w = new FakeWriter { LikeUnsupported = true };
             var res = await Service(new FakeRatingGatherer(), new FakeLikedGatherer(Movie(88, 0)))
-                .PushAsync(User, w, Settings(), writeDiaryEntries: false);
+                .PushAsync(User, w, Settings(), writeDiaryEntries: false, delayMs: 0);
 
             Assert.Empty(w.LikedFilms);
             Assert.Equal(0, res.Liked);
@@ -393,7 +393,7 @@ namespace InternalRatingSystem.Tests
         {
             var w = new FakeWriter();
             await Service(new FakeRatingGatherer(), new FakeLikedGatherer(Movie(99, 0)))
-                .PushAsync(User, w, Settings(liked: false), writeDiaryEntries: false);
+                .PushAsync(User, w, Settings(liked: false), writeDiaryEntries: false, delayMs: 0);
 
             Assert.Empty(w.LikedFilms);
         }
@@ -410,10 +410,45 @@ namespace InternalRatingSystem.Tests
             var w = new FakeWriter { WriteStatus = status };
             var svc = Service(new FakeRatingGatherer(Movie(1, 4.0), Movie(2, 4.0), Movie(3, 4.0)));
 
-            var res = await svc.PushAsync(User, w, Settings(), false);
+            var res = await svc.PushAsync(User, w, Settings(), false, delayMs: 0);
 
             Assert.NotNull(res.Error);
             Assert.Single(w.Resolved);   // stopped after the first film, not all three
+        }
+
+        // ---- per-run cap ----
+
+        [Fact]
+        public async Task StopsAtThePerRunCap_AndReportsWhatIsLeft()
+        {
+            // The first run for an established library has thousands of films to
+            // seed. Firing them as fast as the loop allows is indistinguishable
+            // from an attack to Cloudflare, so work spreads across runs.
+            var films = Enumerable.Range(1, 10).Select(i => Movie(i, 4.0)).ToArray();
+            var w = new FakeWriter();
+
+            var res = await Service(new FakeRatingGatherer(films))
+                .PushAsync(User, w, Settings(), writeDiaryEntries: false, maxFilms: 4, delayMs: 0);
+
+            Assert.Equal(4, w.Resolved.Count);
+            Assert.Equal(6, res.Remaining);
+            Assert.Null(res.Error);      // hitting the cap is not a failure
+        }
+
+        [Fact]
+        public async Task NextRunContinuesWhereTheCapStopped()
+        {
+            var films = Enumerable.Range(1, 6).Select(i => Movie(i, 4.0)).ToArray();
+            var w = new FakeWriter();
+            var svc = Service(new FakeRatingGatherer(films));
+
+            await svc.PushAsync(User, w, Settings(), writeDiaryEntries: false, maxFilms: 4, delayMs: 0);
+            var second = await svc.PushAsync(User, w, Settings(), writeDiaryEntries: false, maxFilms: 4, delayMs: 0);
+
+            // The four already done are free to skip, so the run reaches the rest.
+            Assert.Equal(4, second.Unchanged);
+            Assert.Equal(0, second.Remaining);
+            Assert.Equal(6, w.Rated.Count);   // all six eventually pushed, none twice
         }
 
         // ---- diary cutoff ----
@@ -431,7 +466,7 @@ namespace InternalRatingSystem.Tests
 
             var res = await Service(new FakeRatingGatherer(old)).PushAsync(
                 User, w, Settings(diarySince: new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)),
-                writeDiaryEntries: true);
+                writeDiaryEntries: true, delayMs: 0);
 
             Assert.Empty(w.Diary);
             Assert.Equal(0, res.DiaryEntries);
@@ -446,7 +481,7 @@ namespace InternalRatingSystem.Tests
 
             var res = await Service(new FakeRatingGatherer(recent)).PushAsync(
                 User, w, Settings(diarySince: new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)),
-                writeDiaryEntries: true);
+                writeDiaryEntries: true, delayMs: 0);
 
             Assert.Single(w.Diary);
             Assert.Equal(1, res.DiaryEntries);
@@ -460,7 +495,7 @@ namespace InternalRatingSystem.Tests
             st.DiaryLoggingSince = null;
             var w = new FakeWriter();
 
-            await Service(new FakeRatingGatherer(Movie(3, 4.0))).PushAsync(User, w, st, writeDiaryEntries: true);
+            await Service(new FakeRatingGatherer(Movie(3, 4.0))).PushAsync(User, w, st, writeDiaryEntries: true, delayMs: 0);
 
             Assert.Empty(w.Diary);
         }
@@ -471,7 +506,7 @@ namespace InternalRatingSystem.Tests
             var w = new FakeWriter { WriteStatus = LetterboxdWriteStatus.Failed };
             var svc = Service(new FakeRatingGatherer(Movie(1, 4.0), Movie(2, 4.0)));
 
-            var res = await svc.PushAsync(User, w, Settings(), false);
+            var res = await svc.PushAsync(User, w, Settings(), false, delayMs: 0);
 
             Assert.Null(res.Error);
             Assert.Equal(2, w.Resolved.Count);   // both attempted

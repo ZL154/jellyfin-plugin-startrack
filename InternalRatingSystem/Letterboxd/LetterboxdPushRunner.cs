@@ -35,7 +35,10 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         /// through the result and persisted to LastPushError, so the UI can show
         /// a reason instead of a silent "0 pushed".
         /// </summary>
-        public async Task<LetterboxdPushResult> RunForUserAsync(string userId, CancellationToken ct = default)
+        /// <param name="maxFilms">Per-run cap. Interactive callers pass a small value so the request returns promptly.</param>
+        /// <param name="delayMs">Pace between networked films.</param>
+        public async Task<LetterboxdPushResult> RunForUserAsync(
+            string userId, CancellationToken ct = default, int maxFilms = 200, int delayMs = 250)
         {
             var result = new LetterboxdPushResult();
             var settings = await _settings.GetAsync(userId).ConfigureAwait(false);
@@ -76,7 +79,8 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             }
 
             var writer = new LetterboxdWriteService(session, _logger);
-            result = await _push.PushAsync(userId, writer, settings, settings.PushDiary, ct).ConfigureAwait(false);
+            result = await _push.PushAsync(userId, writer, settings, settings.PushDiary, ct, maxFilms, delayMs)
+                                .ConfigureAwait(false);
 
             await PersistAsync(userId, result).ConfigureAwait(false);
             return result;
