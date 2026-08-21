@@ -595,5 +595,6 @@
   "Blocked by Cloudflare?": "被 Cloudflare 拦截？",
   "Verify login": "验证登录",
   "Save": "保存",
-  "Push now": "立即推送"
+  "Push now": "立即推送",
+  "lb.n_remaining": "项待推送，将自动继续"
 }

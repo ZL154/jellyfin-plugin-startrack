@@ -595,5 +595,6 @@
   "Blocked by Cloudflare?": "Blocked by Cloudflare?",
   "Verify login": "Verify login",
   "Save": "Save",
-  "Push now": "Push now"
+  "Push now": "Push now",
+  "lb.n_remaining": "left, continuing automatically"
 }

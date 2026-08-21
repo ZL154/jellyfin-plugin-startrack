@@ -595,5 +595,6 @@
   "Blocked by Cloudflare?": "Von Cloudflare blockiert?",
   "Verify login": "Anmeldung prüfen",
   "Save": "Speichern",
-  "Push now": "Jetzt übertragen"
+  "Push now": "Jetzt übertragen",
+  "lb.n_remaining": "übrig, wird automatisch fortgesetzt"
 }

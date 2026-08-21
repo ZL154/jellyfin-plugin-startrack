@@ -595,5 +595,6 @@
   "Blocked by Cloudflare?": "Cloudflare にブロックされましたか？",
   "Verify login": "ログインを確認",
   "Save": "保存",
-  "Push now": "今すぐ送信"
+  "Push now": "今すぐ送信",
+  "lb.n_remaining": "件が残り、自動的に続行します"
 }

@@ -6466,7 +6466,12 @@
                 if (r.watched)      parts.push(r.watched + ' ' + tr('lb.n_watched', null, 'watched'));
                 if (r.diaryEntries) parts.push(r.diaryEntries + ' ' + tr('lb.n_diary', null, 'diary'));
                 if (r.unmatched)    parts.push(r.unmatched + ' ' + tr('lb.n_unmatched', null, 'not on Letterboxd'));
-                showPushStatus('\u2713 ' + (parts.length ? parts.join(', ') : tr('lb.nothing_to_push', null, 'Nothing new to push')), 'ok');
+                var msg = parts.length ? parts.join(', ') : tr('lb.nothing_to_push', null, 'Nothing new to push');
+                // A capped run is normal, not a failure — say so, or it reads
+                // as though the push silently gave up partway through.
+                if (r.remaining) msg += ' \u2014 ' + r.remaining + ' ' +
+                    tr('lb.n_remaining', null, 'left, continuing automatically');
+                showPushStatus('\u2713 ' + msg, 'ok');
             }).finally(function () { lbPushNow.disabled = false; });
         });
 
