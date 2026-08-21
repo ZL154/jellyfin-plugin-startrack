@@ -602,5 +602,7 @@
   "lb.n_liked": "me gusta",
   "lb.last_synced": "Última sincronización",
   "lb.n_imported": "importadas",
-  "lb.n_not_in_library": "no está en la biblioteca"
+  "lb.n_not_in_library": "no está en la biblioteca",
+  "Add a diary entry when a movie or episode finishes playing": "Añadir una entrada al diario cuando termine una película o un episodio",
+  "Records what was actually watched on this server. Without it the diary can only be filled by importing from Letterboxd.": "Registra lo que realmente se vio en este servidor. Sin esto, el diario solo puede llenarse importando desde Letterboxd."
 }

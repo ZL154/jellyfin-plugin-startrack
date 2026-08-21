@@ -602,5 +602,7 @@
   "lb.n_liked": "件をいいね",
   "lb.last_synced": "最終同期",
   "lb.n_imported": "件をインポート",
-  "lb.n_not_in_library": "件はライブラリにありません"
+  "lb.n_not_in_library": "件はライブラリにありません",
+  "Add a diary entry when a movie or episode finishes playing": "映画やエピソードの再生が終わったら日記に記録する",
+  "Records what was actually watched on this server. Without it the diary can only be filled by importing from Letterboxd.": "このサーバーで実際に視聴した内容を記録します。無効の場合、日記は Letterboxd からのインポートでしか埋まりません。"
 }

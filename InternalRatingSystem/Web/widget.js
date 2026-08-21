@@ -8197,6 +8197,7 @@
         var rsz = root.querySelector('#stRatingSize');
         if (rsz) rsz.value = _adminPickKey(c, 'RatingSize') || 'normal';
         _adminSetCheckbox(root.querySelector('#stPostPlaybackPopup'),    _adminPickKey(c, 'PostPlaybackRatingPopup'));
+        _adminSetCheckbox(root.querySelector('#stLogWatchesToDiary'),   _adminPickKey(c, 'LogWatchesToDiary'));
         _adminSetCheckbox(root.querySelector('#stCommunityRecentMode'),  _adminPickKey(c, 'CommunityRecentMode'));
 
         // Hidden views come through as a comma-separated string. Check
@@ -8243,6 +8244,7 @@
         var _rsz = root.querySelector('#stRatingSize');
         if (_rsz) c.RatingSize = (_rsz.value === 'large' || _rsz.value === 'largetv') ? _rsz.value : 'normal';
         c.PostPlaybackRatingPopup   = !!(root.querySelector('#stPostPlaybackPopup')    && root.querySelector('#stPostPlaybackPopup').checked);
+        c.LogWatchesToDiary         = !!(root.querySelector('#stLogWatchesToDiary')   && root.querySelector('#stLogWatchesToDiary').checked);
         c.CommunityRecentMode       = !!(root.querySelector('#stCommunityRecentMode')  && root.querySelector('#stCommunityRecentMode').checked);
 
         // Hidden views — collect every st-cb[data-view] that's checked and

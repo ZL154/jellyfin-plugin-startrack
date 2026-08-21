@@ -33,6 +33,10 @@ namespace Jellyfin.Plugin.InternalRating
             // somehow doesn't reach it (very unusual setups).
             services.AddHostedService<WebInjectionService>();
 
+            // Records a diary entry when playback finishes. Server-side so it
+            // catches every client, not just the web UI.
+            services.AddHostedService<PlaybackDiaryService>();
+
             // Expose the existing repositories as DI singletons so controllers
             // and services can request them via constructor injection. Both are
             // constructed by Plugin.cs with the ApplicationPaths the base class

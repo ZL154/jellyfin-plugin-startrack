@@ -55,6 +55,15 @@ namespace Jellyfin.Plugin.InternalRating
         public bool PostPlaybackRatingPopup { get; set; } = true;
 
         /// <summary>
+        /// Write a diary entry when a user finishes watching a movie or episode.
+        ///
+        /// On by default: a diary that does not record what you watched on the
+        /// server it is installed in is not much of a diary, and before this the
+        /// only way to get entries was importing them from Letterboxd.
+        /// </summary>
+        public bool LogWatchesToDiary { get; set; } = true;
+
+        /// <summary>
         /// When true, the 'Recent' floating pill shows recent ratings from EVERY
         /// user on the server (community feed) instead of only the current user's
         /// own ratings.
