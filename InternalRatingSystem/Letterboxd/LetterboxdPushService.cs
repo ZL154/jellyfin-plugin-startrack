@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.InternalRating.ExternalSync;
@@ -8,35 +9,52 @@ using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.InternalRating.Letterboxd
 {
-    /// <summary>What a push run did.</summary>
+    /// <summary>
+    /// What a push run did.
+    ///
+    /// EVERY property needs an explicit JsonPropertyName. Jellyfin 10.11's host
+    /// serializer defaults to PascalCase, so without these the API returns
+    /// "Rated"/"Error" while the widget reads r.rated/r.error — every field
+    /// comes back undefined, the error never displays, and a failed push reports
+    /// "Nothing new to push". This is the same trap that made the v1.1.4
+    /// diagnose button print "undefined" (see the note atop LetterboxdSettings.cs);
+    /// it was caught here only by calling the endpoint over real HTTP, because
+    /// unit tests construct the object directly and never serialise it.
+    /// </summary>
     public sealed class LetterboxdPushResult
     {
         /// <summary>Ratings written or updated.</summary>
-        public int Rated { get; set; }
+        [JsonPropertyName("rated")]                public int Rated { get; set; }
+
         /// <summary>Films marked watched.</summary>
-        public int Watched { get; set; }
+        [JsonPropertyName("watched")]              public int Watched { get; set; }
+
         /// <summary>Films liked.</summary>
-        public int Liked { get; set; }
+        [JsonPropertyName("liked")]                public int Liked { get; set; }
+
         /// <summary>Dated diary entries created.</summary>
-        public int DiaryEntries { get; set; }
+        [JsonPropertyName("diaryEntries")]         public int DiaryEntries { get; set; }
+
         /// <summary>Items skipped because the ledger says they're already logged.</summary>
-        public int SkippedAlreadyLogged { get; set; }
+        [JsonPropertyName("skippedAlreadyLogged")] public int SkippedAlreadyLogged { get; set; }
 
         /// <summary>Films skipped entirely because nothing about them changed since the last push.</summary>
-        public int Unchanged { get; set; }
+        [JsonPropertyName("unchanged")]            public int Unchanged { get; set; }
 
         /// <summary>
         /// Films still needing work when this run hit its cap. Non-zero simply
         /// means the next run will continue; it is not an error.
         /// </summary>
-        public int Remaining { get; set; }
+        [JsonPropertyName("remaining")]            public int Remaining { get; set; }
+
         /// <summary>Items Letterboxd doesn't have, or with no TMDb id to match on.</summary>
-        public int Unmatched { get; set; }
+        [JsonPropertyName("unmatched")]            public int Unmatched { get; set; }
+
         /// <summary>Fatal error, if the run stopped early.</summary>
-        public string? Error { get; set; }
+        [JsonPropertyName("error")]                public string? Error { get; set; }
 
         /// <summary>Total successful writes.</summary>
-        public int TotalWritten => Rated + Watched + Liked + DiaryEntries;
+        [JsonPropertyName("totalWritten")]         public int TotalWritten => Rated + Watched + Liked + DiaryEntries;
     }
 
     /// <summary>
