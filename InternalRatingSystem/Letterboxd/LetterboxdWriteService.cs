@@ -225,14 +225,55 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         /// queue, and silently deleting from it because something was watched
         /// or unstarred in Jellyfin is a destructive surprise.
         ///
-        /// UNVERIFIED ENDPOINT: unlike rate and watch, no reference
-        /// implementation writes the Letterboxd watchlist, so this URL is
-        /// inferred from the shared /s/film:{id}/{action}/ pattern. A 404 is
-        /// therefore treated as "not supported here" rather than an error, and
-        /// the caller does not count what it cannot prove.
+        /// VERIFIED: returns 200 against a real account. Note the shape differs
+        /// from rate/watch/like — it is SLUG-based under /film/, not
+        /// /s/film:{id}/{action}/. Guessing variations of the /s/ form produced
+        /// nothing but 404s; this URL came from mBaratta96/letterboxd_stats,
+        /// which has been doing it this way for years. The body is only __csrf.
         /// </summary>
         public Task<LetterboxdWriteResult> AddToWatchlistAsync(LetterboxdFilm film, CancellationToken ct = default)
-            => PostFormAsync(film, "watchlist", new Dictionary<string, string> { ["watchlist"] = "true" }, ct);
+            => PostPathAsync(film, $"/film/{film.Slug}/add-to-watchlist/", ct);
+
+        /// <summary>
+        /// POSTs to an absolute site path with just the CSRF token, for the
+        /// slug-based endpoints that do not follow the /s/film:{id}/ shape.
+        /// </summary>
+        private async Task<LetterboxdWriteResult> PostPathAsync(LetterboxdFilm film, string path, CancellationToken ct)
+        {
+            if (film == null) return new LetterboxdWriteResult(LetterboxdWriteStatus.FilmNotFound);
+            if (!_session.IsAuthenticated)
+                return new LetterboxdWriteResult(LetterboxdWriteStatus.NeedsReauth, "Not signed in to Letterboxd.");
+
+            try
+            {
+                using var req = new HttpRequestMessage(HttpMethod.Post, path)
+                {
+                    Content = new FormUrlEncodedContent(new Dictionary<string, string> { ["__csrf"] = _session.Csrf })
+                };
+                req.Headers.Referrer = new Uri($"{LetterboxdSession.BaseUrl}/film/{film.Slug}/");
+
+                using var res = await _session.Http.SendAsync(req, ct).ConfigureAwait(false);
+                if (res.IsSuccessStatusCode) return new LetterboxdWriteResult(LetterboxdWriteStatus.Ok);
+
+                return res.StatusCode switch
+                {
+                    HttpStatusCode.Unauthorized => new LetterboxdWriteResult(
+                        LetterboxdWriteStatus.NeedsReauth, "Letterboxd session expired."),
+                    HttpStatusCode.Forbidden => new LetterboxdWriteResult(
+                        LetterboxdWriteStatus.Cloudflare,
+                        "Letterboxd returned 403 — Cloudflare, or the session/CSRF token expired."),
+                    HttpStatusCode.NotFound => new LetterboxdWriteResult(LetterboxdWriteStatus.FilmNotFound),
+                    _ => new LetterboxdWriteResult(LetterboxdWriteStatus.Failed,
+                        $"Letterboxd returned HTTP {(int)res.StatusCode}.")
+                };
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "[StarTrack] Letterboxd POST {Path} failed", path);
+                return new LetterboxdWriteResult(LetterboxdWriteStatus.Failed, "Could not reach Letterboxd.");
+            }
+        }
 
         /// <summary>
         /// Pulls the film page and reports every watchlist-related URL, form
@@ -310,22 +351,34 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 ct.ThrowIfCancellationRequested();
                 try
                 {
-                    var fields = new Dictionary<string, string>
-                    {
-                        ["__csrf"]    = _session.Csrf,
-                        ["watchlist"] = "true",
-                        ["watched"]   = "true"
-                    };
-                    using var req = new HttpRequestMessage(HttpMethod.Post, $"/s/film:{film.FilmId}/{action}/")
+                    // An action containing "/" is a FULL PATH template, so URL
+                    // shapes can be probed and not just action names. Without
+                    // this, a template was pasted into the /s/film:{id}/ form
+                    // and produced meaningless 404s — which is exactly how the
+                    // watchlist endpoint got wrongly written off.
+                    var path = action.Contains('/')
+                        ? action.Replace("{id}", film.FilmId).Replace("{slug}", film.Slug)
+                        : $"/s/film:{film.FilmId}/{action}/";
+
+                    // Body matches the reference implementation exactly: ONLY
+                    // __csrf, from the com.xk72.webparts.csrf cookie.
+                    var fields = new Dictionary<string, string> { ["__csrf"] = _session.Csrf };
+
+                    using var req = new HttpRequestMessage(HttpMethod.Post, path)
                     {
                         Content = new FormUrlEncodedContent(fields)
                     };
                     req.Headers.Referrer = new Uri($"{LetterboxdSession.BaseUrl}/film/{film.Slug}/");
-                    req.Headers.TryAddWithoutValidation("X-Requested-With", "XMLHttpRequest");
 
                     using var res = await _session.Http.SendAsync(req, ct).ConfigureAwait(false);
                     var body = await res.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-                    report[action] = ((int)res.StatusCode) + " " + Truncate(body, 120);
+
+                    // "landed" reveals redirect-following: a POST that Letterboxd
+                    // 302s gets replayed as a GET by HttpClient, which then 404s
+                    // and looks like a wrong URL when the URL was fine.
+                    var landed = res.RequestMessage?.RequestUri?.PathAndQuery ?? "?";
+                    report[action] = ((int)res.StatusCode) + " sent=" + path + " landed=" + landed
+                                   + " | " + Truncate(body, 60);
                 }
                 catch (Exception ex)
                 {

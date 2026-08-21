@@ -1986,6 +1986,7 @@
                             '<label class="ir-lb-check"><input type="checkbox" class="ir-lb-p-ratings" checked /><span data-tr="Ratings">Ratings</span></label>' +
                             '<label class="ir-lb-check"><input type="checkbox" class="ir-lb-p-watched" checked /><span data-tr="Mark watched">Mark watched</span></label>' +
                             '<label class="ir-lb-check"><input type="checkbox" class="ir-lb-p-liked" checked /><span data-tr="Likes">Likes</span></label>' +
+                            '<label class="ir-lb-check"><input type="checkbox" class="ir-lb-p-watchlist" /><span data-tr="Watchlist">Watchlist</span></label>' +
                         '</div>' +
                         '<div class="ir-lb-row">' +
                             '<label class="ir-lb-check">' +
@@ -2287,6 +2288,7 @@
                             '<label class="ir-ov-lb-check"><input type="checkbox" class="ir-ov-lb-p-ratings" checked /> <span data-tr="Ratings">Ratings</span></label>' +
                             '<label class="ir-ov-lb-check"><input type="checkbox" class="ir-ov-lb-p-watched" checked /> <span data-tr="Mark watched">Mark watched</span></label>' +
                             '<label class="ir-ov-lb-check"><input type="checkbox" class="ir-ov-lb-p-liked" checked /> <span data-tr="Likes">Likes</span></label>' +
+                            '<label class="ir-ov-lb-check"><input type="checkbox" class="ir-ov-lb-p-watchlist" /> <span data-tr="Watchlist">Watchlist</span></label>' +
                             '<label class="ir-ov-lb-check"><input type="checkbox" class="ir-ov-lb-p-diary" /> <span data-tr="Log new watches to your diary (from now on)">Log new watches to your diary (from now on)</span></label>' +
                             '<span class="ir-ov-lb-hint" data-tr="Diary entries cannot be edited by a later sync, so only films you rate from now on are logged. Your existing diary is left alone.">Diary entries cannot be edited by a later sync, so only films you rate from now on are logged. Your existing diary is left alone.</span>' +
                         '</div>' +
@@ -2408,6 +2410,7 @@
         var ovPushWat  = _overlay.querySelector('.ir-ov-lb-p-watched');
         var ovPushLik  = _overlay.querySelector('.ir-ov-lb-p-liked');
         var ovPushDia  = _overlay.querySelector('.ir-ov-lb-p-diary');
+        var ovPushWl   = _overlay.querySelector('.ir-ov-lb-p-watchlist');
         var ovPushCk   = _overlay.querySelector('.ir-ov-lb-cookies');
         var ovPushUa   = _overlay.querySelector('.ir-ov-lb-ua');
         var ovPushVer  = _overlay.querySelector('.ir-ov-lb-verify');
@@ -2439,6 +2442,7 @@
                 if (ovPushWat) ovPushWat.checked = !!a.pushWatched;
                 if (ovPushLik) ovPushLik.checked = !!a.pushLiked;
                 if (ovPushDia) ovPushDia.checked = !!a.pushDiary;
+                if (ovPushWl)  ovPushWl.checked  = !!a.pushWatchlist;
                 if (ovPushUa)  ovPushUa.value    = a.userAgent || '';
                 if (ovPushPw)  ovPushPw.placeholder = a.hasPassword
                     ? tr('lb.pw_saved', null, 'Saved - leave blank to keep') : '';
@@ -2456,11 +2460,7 @@
                 pushWatched: !!(ovPushWat && ovPushWat.checked),
                 pushLiked:   !!(ovPushLik && ovPushLik.checked),
                 pushDiary:     !!(ovPushDia && ovPushDia.checked),
-                // Letterboxd exposes no reachable watchlist write endpoint —
-                // 13 candidate URLs across two shapes all 404, and the film
-                // page renders its watchlist button in JS. Pinned false rather
-                // than offering a switch that silently does nothing.
-                pushWatchlist: false,
+                pushWatchlist: !!(ovPushWl && ovPushWl.checked),
                 pushReviews: false
             };
             if (ovPushPw && ovPushPw.value) b.password   = ovPushPw.value;
@@ -6649,6 +6649,7 @@
         var lbPWatched = el.querySelector('.ir-lb-p-watched');
         var lbPLiked   = el.querySelector('.ir-lb-p-liked');
         var lbPDiary   = el.querySelector('.ir-lb-p-diary');
+        var lbPWl      = el.querySelector('.ir-lb-p-watchlist');
         var lbCookies  = el.querySelector('.ir-lb-cookies');
         var lbUa       = el.querySelector('.ir-lb-ua');
         var lbVerify   = el.querySelector('.ir-lb-verify');
@@ -6694,6 +6695,7 @@
                 if (lbPWatched) lbPWatched.checked = !!a.pushWatched;
                 if (lbPLiked)   lbPLiked.checked   = !!a.pushLiked;
                 if (lbPDiary)   lbPDiary.checked   = !!a.pushDiary;
+                if (lbPWl)      lbPWl.checked      = !!a.pushWatchlist;
                 if (lbUa)       lbUa.value         = a.userAgent || '';
                 if (lbPw)       lbPw.placeholder   = a.hasPassword
                     ? tr('lb.pw_saved', null, 'Saved - leave blank to keep')
@@ -6719,7 +6721,7 @@
                 pushWatched: !!(lbPWatched && lbPWatched.checked),
                 pushLiked:   !!(lbPLiked   && lbPLiked.checked),
                 pushDiary:     !!(lbPDiary && lbPDiary.checked),
-                pushWatchlist: false,
+                pushWatchlist: !!(lbPWl && lbPWl.checked),
                 pushReviews: false
             };
             if (lbPw && lbPw.value)           body.password   = lbPw.value;
