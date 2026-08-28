@@ -281,6 +281,23 @@ Letterboxd-compatible sync pane: username input, hourly auto-sync toggle, one-cl
 
 ---
 
+## Where StarTrack works
+
+StarTrack adds itself to Jellyfin's **web interface** by injecting a script into it. That
+means it appears anywhere you use Jellyfin *in a browser*:
+
+| Works | Does not work |
+|---|---|
+| Jellyfin Web in any desktop browser | **Roku app** |
+| Jellyfin Web on phones/tablets | **Native Android / iOS apps** |
+| LG webOS and Samsung Tizen TV browsers | **Android TV / Fire TV apps** |
+| Jellyfin Media Player (desktop) | Kodi and other external clients |
+
+The native apps do not load Jellyfin's web interface, so there is nothing for StarTrack to
+attach to and no plugin can change that. Your ratings are still recorded server-side, so
+anything you rate in a browser is visible to everyone and counts everywhere — you just
+cannot rate *from* those apps.
+
 ## Requirements
 
 - **Jellyfin 10.11.x** (built against 10.11.6)
