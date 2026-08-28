@@ -7429,11 +7429,25 @@
 
     // ── Navigation ────────────────────────────────────────────────────────
 
+    // [#21, Fubar121] Jellyfin 10.11.11 leaves #videoOsdPage in the DOM after
+    // playback ends, carrying class "hide" with display:none and zero client
+    // rects. Treating mere EXISTENCE as "playing" meant the active->inactive
+    // transition never fired, so the post-playback popup never appeared.
+    // Every DOM signal now has to be genuinely visible to count.
+    function _isVisible(node) {
+        if (!node) return false;
+        if (node.classList && node.classList.contains('hide')) return false;
+        if (node.offsetParent === null) return false;
+        var r = node.getClientRects();
+        return !!(r && r.length);
+    }
+
     function isVideoPlayerPage() {
         var hash = window.location.hash;
         if (/videoosd|nowplaying|\/video\b/i.test(hash)) return true;
-        if (document.getElementById('videoOsdPage')) return true;
-        if (document.querySelector('.videoOsdPage, .videoOsd, .htmlVideoPlayerContainer')) return true;
+        if (_isVisible(document.getElementById('videoOsdPage'))) return true;
+        var osd = document.querySelector('.videoOsdPage, .videoOsd, .htmlVideoPlayerContainer');
+        if (_isVisible(osd)) return true;
         // Heuristic: a playing <video> element exists and has a src
         var vid = document.querySelector('video');
         if (vid && vid.readyState >= 2 && !vid.paused) return true;
@@ -7667,19 +7681,35 @@
         });
     }
 
+    // [#23, produceone-pixel] Both buttons are styled with display:...!important,
+    // and an INLINE style loses to an !important rule. So `b.style.display =
+    // 'none'` set the property and changed nothing on screen — the toggles have
+    // never worked in any release. Inline !important is the only thing that
+    // outranks a stylesheet !important, so setProperty with priority is
+    // required here; plain assignment cannot express that.
+    function _setHidden(node, hidden) {
+        if (!node) return;
+        if (hidden) node.style.setProperty('display', 'none', 'important');
+        else        node.style.removeProperty('display');
+    }
+
     function applyConfigVisibility() {
         var el = document.getElementById('ir-widget');
-        if (!el) return;
-        // Hide the floating Letterboxd-sync buttons system-wide
-        if (_STARTRACK_CONFIG.hideLetterboxdButton) {
-            el.querySelectorAll('.ir-lb-open-btn').forEach(function (b) { b.style.display = 'none'; });
-        } else {
-            el.querySelectorAll('.ir-lb-open-btn').forEach(function (b) { b.style.display = ''; });
+        if (el) {
+            el.querySelectorAll('.ir-lb-open-btn').forEach(function (b) {
+                _setHidden(b, !!_STARTRACK_CONFIG.hideLetterboxdButton);
+            });
         }
-        // Hide the overlay External Sync button system-wide
         var ov = document.getElementById('ir-overlay');
         if (ov) {
-            ov.querySelectorAll('.ir-ov-es').forEach(function (b) { b.style.display = _STARTRACK_CONFIG.hideExternalSyncButton ? 'none' : ''; });
+            ov.querySelectorAll('.ir-ov-es').forEach(function (b) {
+                _setHidden(b, !!_STARTRACK_CONFIG.hideExternalSyncButton);
+            });
+            // The overlay also carries a Letterboxd button; hiding only the
+            // pill's copy left this one visible, which is half the complaint.
+            ov.querySelectorAll('.ir-ov-lb').forEach(function (b) {
+                _setHidden(b, !!_STARTRACK_CONFIG.hideLetterboxdButton);
+            });
         }
     }
 
@@ -7885,7 +7915,7 @@
     // When a video player closes after playing a Movie or Episode the user
     // is rated, show a quick rating prompt if they haven't already rated it.
 
-    var _lastPlayedId = null, _wasPlaying = false;
+    var _lastPlayedId = null, _wasPlaying = false, _ppTick = 0;
     function startPostPlaybackPopup() {
         if (!_STARTRACK_CONFIG.postPlaybackRatingPopup) return;
 
@@ -7906,6 +7936,16 @@
                 if (active) {
                     var id = currentPlayingId();
                     if (id) _lastPlayedId = id;
+                    // [#21] Refresh from /Sessions while playing, so the id is
+                    // already known by the time the player closes. Throttled to
+                    // every 5th tick — the answer only changes when playback
+                    // changes, and this runs for the whole film.
+                    _ppTick = (_ppTick + 1) % 5;
+                    if (!_lastPlayedId || _ppTick === 0) {
+                        refreshNowPlayingFromSessions().then(function (sid) {
+                            if (sid) _lastPlayedId = sid;
+                        });
+                    }
                     _wasPlaying = true;
                     return;
                 }
@@ -7953,13 +7993,46 @@
                 if (sess && sess.NowPlayingItem && sess.NowPlayingItem.Id) return sess.NowPlayingItem.Id;
             }
         } catch (e) {}
+        // [#21, Fubar121] Ask the server what is actually playing. During
+        // playback the URL is #/video with no id, and the old fallback
+        // `document.querySelector('[data-itemid]')` returned whatever came
+        // first in the DOM — he measured it returning the Movies LIBRARY id,
+        // not the film. Rating the wrong item is worse than not prompting, so
+        // /Sessions (which reports NowPlayingItem.Id) is consulted instead and
+        // the blind DOM scrape is gone.
         try {
-            // Fallback: scrape the OSD title's containing element if Jellyfin
-            // exposes a data-itemid attribute on it (some skins do).
-            var el = document.querySelector('[data-itemid]');
-            if (el) return el.getAttribute('data-itemid');
+            var auth = getAuth();
+            if (auth && _lastSessionNowPlaying) return _lastSessionNowPlaying;
         } catch (e) {}
         return null;
+    }
+
+    // Cache of NowPlayingItem.Id from /Sessions, refreshed by the playback
+    // poller. Kept separate so currentPlayingId() stays synchronous.
+    var _lastSessionNowPlaying = null;
+
+    function refreshNowPlayingFromSessions() {
+        var auth = getAuth();
+        if (!auth) return Promise.resolve(null);
+        return fetch(_ST_BASE + '/Sessions', { headers: { Authorization: auth } })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (list) {
+                if (!list || !list.length) return null;
+                // Match this browser's own session where possible; otherwise
+                // take any session that is playing something.
+                var devId = null;
+                try { devId = window.ApiClient && window.ApiClient.deviceId && window.ApiClient.deviceId(); } catch (e) {}
+                var mine = null;
+                for (var i = 0; i < list.length; i++) {
+                    var sn = list[i];
+                    if (!sn || !sn.NowPlayingItem || !sn.NowPlayingItem.Id) continue;
+                    if (devId && sn.DeviceId === devId) { mine = sn; break; }
+                    if (!mine) mine = sn;
+                }
+                _lastSessionNowPlaying = mine ? mine.NowPlayingItem.Id : null;
+                return _lastSessionNowPlaying;
+            })
+            .catch(function () { return null; });
     }
 
     function showPostPlaybackPrompt(itemId) {

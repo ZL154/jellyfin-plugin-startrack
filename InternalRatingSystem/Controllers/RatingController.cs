@@ -164,12 +164,23 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 var diary = plugin.Diary;
                 var existing = await diary.GetEntriesAsync(userKey).ConfigureAwait(false);
 
+                var mine = existing
+                    .Where(x => string.Equals(x.ItemId, itemId, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
                 var today = DateTime.UtcNow.ToLocalTime().Date;
-                if (existing.Any(x => string.Equals(x.ItemId, itemId, StringComparison.OrdinalIgnoreCase)
-                                   && x.WatchedAt.ToLocalTime().Date == today))
+                var loggedToday = mine.Where(x => x.WatchedAt.ToLocalTime().Date == today).ToList();
+
+                // Re-rating a film already logged today is a REWATCH, not a
+                // duplicate. Watching something twice in a day is a normal
+                // thing to do, and refusing to record it made re-rating look
+                // broken. What must not stack is the same viewing being logged
+                // repeatedly, so only an entry that already carries this exact
+                // rating is treated as the same event and skipped.
+                if (loggedToday.Any(x => x.Stars.HasValue && Math.Abs(x.Stars.Value - stars) < 0.01))
                     return;
 
-                var rewatch = existing.Any(x => string.Equals(x.ItemId, itemId, StringComparison.OrdinalIgnoreCase));
+                var rewatch = mine.Count > 0;
 
                 await diary.AddEntryAsync(userKey, new Models.DiaryEntry
                 {

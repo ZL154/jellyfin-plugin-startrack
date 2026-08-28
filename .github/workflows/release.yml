@@ -32,9 +32,51 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           ZIP="Jellyfin.Plugin.InternalRating_${VERSION}.zip"
-          zip -j "$ZIP" publish/Jellyfin.Plugin.InternalRating.dll
+
+          # Ship meta.json INSIDE the zip.
+          #
+          # Issue #22: the archive used to contain nothing but the DLL. A
+          # catalogue install is fine because Jellyfin writes meta.json from
+          # manifest.json, but a MANUAL install leaves the plugin with no
+          # metadata at all and Jellyfin then decides targetAbi for itself —
+          # which is how a server on 10.11.5 ends up reporting "Not supported"
+          # for a plugin whose manifest says 10.11.0.0.
+          #
+          # targetAbi MUST match manifest.json (10.11.0.0). StarTrack does not
+          # use any 10.11.10-only API, so pinning it higher only locks out
+          # servers that would have run it perfectly well.
+          cat > publish/meta.json <<META
+          {
+            "category": "General",
+            "guid": "a8b5e2f3-4c1d-4e8a-b2f9-6d3c7e1a5b2f",
+            "name": "StarTrack",
+            "description": "Community star ratings for movies and TV shows - stored privately on your Jellyfin server.",
+            "owner": "ZL154",
+            "overview": "Letterboxd-style ratings, reviews, watchlist, diary and lists for Jellyfin.",
+            "targetAbi": "10.11.0.0",
+            "version": "${VERSION}",
+            "status": "Active",
+            "autoUpdate": false,
+            "imagePath": "",
+            "assemblies": []
+          }
+          META
+
+          zip -j "$ZIP" publish/Jellyfin.Plugin.InternalRating.dll publish/meta.json
           echo "ZIP=$ZIP" >> $GITHUB_ENV
           echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Verify the packaged targetAbi matches manifest.json
+        run: |
+          # A drift here is invisible until a user on an older 10.11.x reports
+          # "Not supported", so fail the build instead of shipping it.
+          ZIP_ABI=$(grep -o '"targetAbi": *"[^"]*"' publish/meta.json | head -1 | sed 's/.*"\([0-9.]*\)"$/\1/')
+          MAN_ABI=$(grep -o '"targetAbi": *"[^"]*"' manifest.json | head -1 | sed 's/.*"\([0-9.]*\)"$/\1/')
+          echo "zip=$ZIP_ABI manifest=$MAN_ABI"
+          if [ "$ZIP_ABI" != "$MAN_ABI" ]; then
+            echo "::error::targetAbi mismatch: zip=$ZIP_ABI manifest=$MAN_ABI"
+            exit 1
+          fi
 
       - name: Compute MD5 checksum
         id: checksum

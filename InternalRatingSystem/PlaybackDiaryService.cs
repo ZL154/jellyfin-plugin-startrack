@@ -106,6 +106,11 @@ namespace Jellyfin.Plugin.InternalRating
             // Same item, same calendar day — treat as one viewing. Stopping and
             // resuming, or the client firing stop twice, must not produce two
             // entries for one sitting.
+            //
+            // Deliberately stricter than the rating path, which DOES log a
+            // second entry when the rating changes: a changed rating is a
+            // deliberate signal from the user, whereas two stop events are
+            // usually one film.
             var day = watchedAt.ToLocalTime().Date;
             if (existing.Any(x => string.Equals(x.ItemId, itemKey, StringComparison.OrdinalIgnoreCase)
                                && x.WatchedAt.ToLocalTime().Date == day))
