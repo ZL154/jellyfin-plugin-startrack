@@ -47,8 +47,16 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync
             foreach (var row in rows)
             {
                 var er = _resolver.ResolveExternalIds(row.ItemId, row.Stars, row.RatedAt);
-                if (er != null)
-                    result.Add(er);
+                if (er == null) continue;
+
+                // Season ratings stop here. Of everything StarTrack syncs with,
+                // only Serializd has a concept of rating a season, and it reads
+                // them straight from the repository rather than through this
+                // gatherer. Letting one through would reach providers that have
+                // no branch for it and would file it as a movie or a show.
+                if (er.MediaType == "season") continue;
+
+                result.Add(er);
             }
 
             return result;

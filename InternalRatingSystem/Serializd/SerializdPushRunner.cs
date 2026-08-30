@@ -38,7 +38,8 @@ namespace Jellyfin.Plugin.InternalRating.Serializd
             var result = new SerializdPushResult();
             var settings = await _settings.GetAsync(userId).ConfigureAwait(false);
 
-            if (settings.Direction != SerializdDirection.ExportOnly) return result;
+            if (settings.Direction is not (SerializdDirection.ExportOnly or SerializdDirection.TwoWay))
+                return result;
 
             if (string.IsNullOrWhiteSpace(settings.Email))
             {

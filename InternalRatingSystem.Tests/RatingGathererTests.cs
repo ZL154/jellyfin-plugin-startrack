@@ -44,6 +44,28 @@ namespace Jellyfin.Plugin.InternalRating.Tests
     public class RatingGathererTests
     {
         [Fact]
+        public async Task GatherAsync_DropsSeasonRatings_SoTheyNeverReachFilmOrShowServices()
+        {
+            // Seasons became rateable in 1.7.0 and only Serializd understands
+            // them. Letterboxd's CSV keeps everything that is not "movie" out,
+            // but Trakt, Simkl and Yamtrack branch with an else, so a season
+            // arriving there would be filed as a show or a movie. This gatherer
+            // is the single chokepoint that guarantees it never arrives.
+            var seasonRating = new ExternalRating(null, 1399, null, "Season 2", 2013, "season", 4.5, DateTime.UtcNow);
+
+            var rows = new List<UserRatingEntry>
+            {
+                new UserRatingEntry { ItemId = "season-1", Stars = 4.5, RatedAt = DateTime.UtcNow }
+            };
+
+            var gatherer = new RatingGatherer(
+                new FakeRatingReader(rows),
+                new FakeExternalIdResolver("season-1", seasonRating));
+
+            Assert.Empty(await gatherer.GatherAsync("user-1"));
+        }
+
+        [Fact]
         public async Task GatherAsync_SkipsUnresolvableItems_ReturnsOnlyResolved()
         {
             // Arrange

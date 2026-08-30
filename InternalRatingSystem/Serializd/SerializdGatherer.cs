@@ -24,8 +24,14 @@ namespace Jellyfin.Plugin.InternalRating.Serializd
         double Stars,
         string? Review)
     {
-        /// <summary>True when this is a single episode rather than a whole series.</summary>
+        /// <summary>A single episode.</summary>
         public bool IsEpisode => SeasonNumber.HasValue && EpisodeNumber.HasValue;
+
+        /// <summary>A whole season — Serializd's native unit.</summary>
+        public bool IsSeason  => SeasonNumber.HasValue && !EpisodeNumber.HasValue;
+
+        /// <summary>A whole series.</summary>
+        public bool IsSeries  => !SeasonNumber.HasValue;
     }
 
     /// <summary>Read side, so the push can be tested without a Jellyfin library.</summary>
@@ -80,6 +86,21 @@ namespace Jellyfin.Plugin.InternalRating.Serializd
                         {
                             if (TmdbOf(series) is int showId)
                                 result.Add(new SerializdRating(showId, null, null, row.Stars, Clean(row.Review)));
+                            break;
+                        }
+
+                        case MediaBrowser.Controller.Entities.TV.Season season:
+                        {
+                            // Serializd addresses a season as (show, season
+                            // number), so the parent series carries the id.
+                            var parentSeries = season.Series;
+                            if (parentSeries == null) break;
+                            if (TmdbOf(parentSeries) is not int seasonShowId) break;
+
+                            var seasonNo = season.IndexNumber;
+                            if (seasonNo is null or <= 0) break;   // specials, as below
+
+                            result.Add(new SerializdRating(seasonShowId, seasonNo, null, row.Stars, Clean(row.Review)));
                             break;
                         }
 

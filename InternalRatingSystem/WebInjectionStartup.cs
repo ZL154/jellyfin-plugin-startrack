@@ -85,6 +85,13 @@ namespace Jellyfin.Plugin.InternalRating
             services.AddSingleton<Serializd.SerializdPushRunner>();
             services.AddSingleton<IScheduledTask, Serializd.SerializdPushTask>();
 
+            // Import half. Needs no credentials at all - the Serializd diary
+            // endpoint is public - so it is registered independently of the
+            // push path and works for a user who only ever typed a username.
+            services.AddSingleton<Serializd.SerializdPullService>();
+            services.AddSingleton<Serializd.SerializdSyncRunner>();
+            services.AddSingleton<IScheduledTask, Serializd.SerializdSyncTask>();
+
             // ---- ExternalSync services ----
             // FileExportService has no dependencies (pure serialisation helper).
             services.AddSingleton<FileExportService>();

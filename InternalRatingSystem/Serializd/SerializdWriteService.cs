@@ -38,6 +38,9 @@ namespace Jellyfin.Plugin.InternalRating.Serializd
         /// <summary>Rates a whole series by TMDb id.</summary>
         Task<SerializdWriteResult> RateShowAsync(int showTmdbId, double stars, string? review, CancellationToken ct = default);
 
+        /// <summary>Rates a whole season — Serializd's native unit.</summary>
+        Task<SerializdWriteResult> RateSeasonAsync(int showTmdbId, int seasonNumber, double stars, string? review, CancellationToken ct = default);
+
         /// <summary>Rates a single episode.</summary>
         Task<SerializdWriteResult> RateEpisodeAsync(int showTmdbId, int seasonNumber, int episodeNumber, double stars, string? review, CancellationToken ct = default);
     }
@@ -92,6 +95,22 @@ namespace Jellyfin.Plugin.InternalRating.Serializd
             // log, while a bare rating stays a rating and creates no diary noise.
             var payload = BuildPayload(showTmdbId, null, null, stars, review, isLog: hasText, isRewatch: false);
             return PostReviewAsync(payload, ct);
+        }
+
+        /// <inheritdoc />
+        public async Task<SerializdWriteResult> RateSeasonAsync(
+            int showTmdbId, int seasonNumber, double stars, string? review, CancellationToken ct = default)
+        {
+            var seasonId = await ResolveSeasonIdAsync(showTmdbId, seasonNumber, ct).ConfigureAwait(false);
+            if (seasonId == null)
+                return new SerializdWriteResult(SerializdWriteStatus.NotFound,
+                    $"Serializd has no season {seasonNumber} for show {showTmdbId}.");
+
+            var hasText = !string.IsNullOrWhiteSpace(review);
+            // episode_number stays null: that is exactly what distinguishes a
+            // season review from an episode one.
+            var payload = BuildPayload(showTmdbId, seasonId, null, stars, review, isLog: hasText, isRewatch: false);
+            return await PostReviewAsync(payload, ct).ConfigureAwait(false);
         }
 
         /// <inheritdoc />

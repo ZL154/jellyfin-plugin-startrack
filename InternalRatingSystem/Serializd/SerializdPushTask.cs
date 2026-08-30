@@ -67,7 +67,7 @@ namespace Jellyfin.Plugin.InternalRating.Serializd
                 progress.Report(100.0 * i / all.Count);
 
                 var s = kv.Value;
-                if (s.Direction != SerializdDirection.ExportOnly) continue;
+                if (s.Direction is not (SerializdDirection.ExportOnly or SerializdDirection.TwoWay)) continue;
                 if (string.IsNullOrWhiteSpace(s.Email)) continue;
 
                 try

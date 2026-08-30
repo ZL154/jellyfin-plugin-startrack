@@ -80,6 +80,11 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync
                 Movie   => "movie",
                 Series  => "show",
                 Episode => "episode",
+                // Seasons became rateable in 1.7.0. They MUST be named, not left
+                // to the default: falling through to "movie" would put
+                // "The Mandalorian Season 2" in the Letterboxd CSV as a film and
+                // push it to Trakt and Simkl as a movie.
+                Season  => "season",
                 _       => "movie"
             };
 
@@ -108,6 +113,12 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync
         /// </summary>
         public string? FindItemId(ExternalRating r)
         {
+            // A season has no provider id of its own and no title/year a generic
+            // matcher could use, so there is nothing to look it up by here.
+            // Returning null beats falling through to the movie branch, which
+            // would happily match a season onto a film of a similar name.
+            if (r.MediaType == "season") return null;
+
             var types = r.MediaType switch
             {
                 "show"    => new[] { BaseItemKind.Series },

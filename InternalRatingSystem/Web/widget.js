@@ -2030,7 +2030,7 @@
     var _overlay = null;
     var _overlayData = null; // merged array after metadata fetch
     var _sortKey = 'ratedAt-desc';
-    var _activeTab = 'all'; // 'all' | 'Movie' | 'Series' | 'Episode' | 'Anime'
+    var _activeTab = 'all'; // 'all' | 'Movie' | 'Series' | 'Season' | 'Episode' | 'Anime'
     var _overlayView = 'films'; // 'films' | 'watchlist' | 'liked' | 'diary' | 'reviews' | 'recs' | 'lists' | 'members' | 'member-profile'
     var _profileUserId = null;
     var _profileUserName = '';
@@ -2241,6 +2241,7 @@
                     '<button class="ir-ov-tab ir-ov-tab-active" data-tab="all">All</button>' +
                     '<button class="ir-ov-tab" data-tab="Movie">Movies</button>' +
                     '<button class="ir-ov-tab" data-tab="Series">TV Shows</button>' +
+                    '<button class="ir-ov-tab" data-tab="Season">Seasons</button>' +
                     '<button class="ir-ov-tab" data-tab="Episode">Episodes</button>' +
                     '<button class="ir-ov-tab" data-tab="Anime">Anime</button>' +
                 '</div>' +
@@ -2309,24 +2310,45 @@
                 '</div>' +
                 '<div class="ir-ov-szd-panel" style="display:none">' +
                     '<div class="ir-ov-szd-warn">' + esc(tr('szd.intro', null,
-                        'Serializd is television only, so this pushes series and episode ratings. Films stay with Letterboxd. StarTrack stores your Serializd password, encrypted, because Serializd has no public API tokens.')) + '</div>' +
+                        'Serializd is television only, so this covers series, seasons and episodes. Films stay with Letterboxd.')) + '</div>' +
+                    // Import first, and on its own row, because it is the half
+                    // that needs no password. Burying it under the credentials
+                    // would imply a password is required to use Serializd at all.
                     '<div class="ir-ov-szd-row">' +
-                        '<label class="ir-ov-szd-label">' + esc(tr('szd.email', null, 'Serializd email')) + '</label>' +
-                        '<input type="email" class="ir-ov-szd-email" autocomplete="off" placeholder="you@example.com" />' +
-                        '<input type="password" class="ir-ov-szd-pw" autocomplete="new-password" placeholder="' + esc(tr('szd.password', null, 'Serializd password')) + '" />' +
-                        '<button class="ir-ov-szd-verify">' + esc(tr('lb.verify_btn', null, 'Verify login')) + '</button>' +
+                        '<label class="ir-ov-szd-label">' + esc(tr('szd.username', null, 'Serializd username')) + '</label>' +
+                        '<input type="text" class="ir-ov-szd-username" autocomplete="off" maxlength="64" placeholder="e.g. yourname" />' +
+                        '<label class="ir-ov-szd-check"><input type="checkbox" class="ir-ov-szd-import" /> <span>' + esc(tr('szd.import_enable', null, 'Import my diary hourly')) + '</span></label>' +
+                        '<button class="ir-ov-szd-sync">' + esc(tr('szd.sync_btn', null, 'Sync now')) + '</button>' +
+                        '<span class="ir-ov-szd-hint">' + esc(tr('szd.import_hint', null,
+                            'Your diary is public, so importing needs your username only \u2014 no password.')) + '</span>' +
+                    '</div>' +
+                    '<div class="ir-ov-szd-sep"></div>' +
+                    '<div class="ir-ov-szd-row">' +
+                        '<label class="ir-ov-szd-check"><input type="checkbox" class="ir-ov-szd-on" /> <span>' + esc(tr('szd.enable', null, 'Also push my TV ratings to Serializd (needs password)')) + '</span></label>' +
+                    '</div>' +
+                    '<div class="ir-ov-szd-push" style="display:none">' +
+                        '<div class="ir-ov-szd-warn">' + esc(tr('szd.push_warn', null,
+                            'StarTrack will store your Serializd password, encrypted, so it can sign in as you. Serializd has no public API tokens, so there is no token-based alternative.')) + '</div>' +
+                        '<div class="ir-ov-szd-row">' +
+                            '<label class="ir-ov-szd-label">' + esc(tr('szd.email', null, 'Serializd email')) + '</label>' +
+                            '<input type="email" class="ir-ov-szd-email" autocomplete="off" placeholder="you@example.com" />' +
+                            '<input type="password" class="ir-ov-szd-pw" autocomplete="new-password" placeholder="' + esc(tr('szd.password', null, 'Serializd password')) + '" />' +
+                            '<button class="ir-ov-szd-verify">' + esc(tr('lb.verify_btn', null, 'Verify login')) + '</button>' +
+                            '<button class="ir-ov-szd-now">' + esc(tr('szd.push_btn', null, 'Push now')) + '</button>' +
+                        '</div>' +
+                        '<div class="ir-ov-szd-row">' +
+                            '<label class="ir-ov-szd-check"><input type="checkbox" class="ir-ov-szd-series" checked /> <span>' + esc(tr('szd.series', null, 'Series ratings')) + '</span></label>' +
+                            '<label class="ir-ov-szd-check"><input type="checkbox" class="ir-ov-szd-seasons" checked /> <span>' + esc(tr('szd.seasons', null, 'Season ratings')) + '</span></label>' +
+                            '<label class="ir-ov-szd-check"><input type="checkbox" class="ir-ov-szd-episodes" /> <span>' + esc(tr('szd.episodes', null, 'Episode ratings')) + '</span></label>' +
+                            '<label class="ir-ov-szd-check"><input type="checkbox" class="ir-ov-szd-reviews" /> <span>' + esc(tr('szd.reviews', null, 'Include written reviews')) + '</span></label>' +
+                        '</div>' +
+                        '<div class="ir-ov-szd-row">' +
+                            '<span class="ir-ov-szd-hint">' + esc(tr('szd.reviews_hint', null,
+                                'Serializd only keeps review text on a log entry, so a rating with a review becomes a log rather than a bare rating.')) + '</span>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="ir-ov-szd-row">' +
                         '<button class="ir-ov-szd-save">' + esc(tr('lb.save_btn', null, 'Save')) + '</button>' +
-                        '<button class="ir-ov-szd-now">' + esc(tr('szd.push_btn', null, 'Push now')) + '</button>' +
-                    '</div>' +
-                    '<div class="ir-ov-szd-row">' +
-                        '<label class="ir-ov-szd-check"><input type="checkbox" class="ir-ov-szd-on" /> <span>' + esc(tr('szd.enable', null, 'Push my TV ratings to Serializd')) + '</span></label>' +
-                        '<label class="ir-ov-szd-check"><input type="checkbox" class="ir-ov-szd-series" checked /> <span>' + esc(tr('szd.series', null, 'Series ratings')) + '</span></label>' +
-                        '<label class="ir-ov-szd-check"><input type="checkbox" class="ir-ov-szd-episodes" /> <span>' + esc(tr('szd.episodes', null, 'Episode ratings')) + '</span></label>' +
-                        '<label class="ir-ov-szd-check"><input type="checkbox" class="ir-ov-szd-reviews" /> <span>' + esc(tr('szd.reviews', null, 'Include written reviews')) + '</span></label>' +
-                    '</div>' +
-                    '<div class="ir-ov-szd-row">' +
-                        '<span class="ir-ov-szd-hint">' + esc(tr('szd.reviews_hint', null,
-                            'Serializd only keeps review text on a log entry, so a rating with a review becomes a log rather than a bare rating.')) + '</span>' +
                     '</div>' +
                     '<div class="ir-ov-szd-status"></div>' +
                 '</div>' +
@@ -2627,6 +2649,11 @@
         var ovSzdBtn      = _overlay.querySelector('.ir-ov-szd');
         var ovSzdPanel    = _overlay.querySelector('.ir-ov-szd-panel');
         var ovSzdEmail    = _overlay.querySelector('.ir-ov-szd-email');
+        var ovSzdUser     = _overlay.querySelector('.ir-ov-szd-username');
+        var ovSzdImport   = _overlay.querySelector('.ir-ov-szd-import');
+        var ovSzdSync     = _overlay.querySelector('.ir-ov-szd-sync');
+        var ovSzdPushBox  = _overlay.querySelector('.ir-ov-szd-push');
+        var ovSzdSeasons  = _overlay.querySelector('.ir-ov-szd-seasons');
         var ovSzdPw       = _overlay.querySelector('.ir-ov-szd-pw');
         var ovSzdOn       = _overlay.querySelector('.ir-ov-szd-on');
         var ovSzdSeries   = _overlay.querySelector('.ir-ov-szd-series');
@@ -2647,27 +2674,56 @@
             apiSzdGetAccount().then(function (a) {
                 if (!a) return;
                 if (ovSzdEmail)    ovSzdEmail.value      = a.email || '';
-                if (ovSzdOn)       ovSzdOn.checked       = a.direction === 1;
+                if (ovSzdUser)     ovSzdUser.value       = a.username || '';
+                if (ovSzdImport)   ovSzdImport.checked   = (a.direction === 1 || a.direction === 3);
+                if (ovSzdOn)       ovSzdOn.checked       = (a.direction === 2 || a.direction === 3);
+                if (ovSzdPushBox)  ovSzdPushBox.style.display = (ovSzdOn && ovSzdOn.checked) ? '' : 'none';
                 if (ovSzdSeries)   ovSzdSeries.checked   = !!a.pushSeries;
+                if (ovSzdSeasons)  ovSzdSeasons.checked  = !!a.pushSeasons;
                 if (ovSzdEpisodes) ovSzdEpisodes.checked = !!a.pushEpisodes;
                 if (ovSzdReviews)  ovSzdReviews.checked  = !!a.pushReviews;
                 if (ovSzdPw)       ovSzdPw.placeholder   = a.hasPassword
                     ? tr('lb.pw_saved', null, 'Saved - leave blank to keep')
                     : tr('szd.password', null, 'Serializd password');
 
-                if (a.lastPushError) ovSzdStatus('\u2717 ' + a.lastPushError, 'err');
-                else if (a.lastPushedAt) ovSzdStatus(
-                    tr('lb.last_pushed', null, 'Last pushed') + ' ' + timeAgo(a.lastPushedAt) +
-                    (a.lastPushedCount ? ' \u2014 ' + a.lastPushedCount : ''), '');
-                else ovSzdStatus('', '');
+                // Only report on directions that are actually armed. A push
+                // error left over from before the user switched to import-only
+                // would otherwise sit there for good: there is no next push to
+                // clear it.
+                var imp = (a.direction === 1 || a.direction === 3);
+                var exp = (a.direction === 2 || a.direction === 3);
+
+                if (imp && a.lastSyncError)      ovSzdStatus('\u2717 ' + a.lastSyncError, 'err');
+                else if (exp && a.lastPushError) ovSzdStatus('\u2717 ' + a.lastPushError, 'err');
+                else {
+                    var bits = [];
+                    if (imp && a.lastSyncedAt) bits.push(tr('szd.last_imported', null, 'Last imported') + ' ' +
+                        timeAgo(a.lastSyncedAt) + (a.lastImportedCount ? ' \u2014 ' + a.lastImportedCount : ''));
+                    if (exp && a.lastPushedAt) bits.push(tr('lb.last_pushed', null, 'Last pushed') + ' ' +
+                        timeAgo(a.lastPushedAt) + (a.lastPushedCount ? ' \u2014 ' + a.lastPushedCount : ''));
+                    ovSzdStatus(bits.join('   \u00b7   '), '');
+                }
             });
+        }
+
+        // 0 off, 1 import, 2 export, 3 both - the same numbering as the
+        // Letterboxd panel so the two cannot drift apart.
+        function ovSzdDirection() {
+            var imp = !!(ovSzdImport && ovSzdImport.checked);
+            var exp = !!(ovSzdOn && ovSzdOn.checked);
+            if (imp && exp) return 3;
+            if (exp)        return 2;
+            if (imp)        return 1;
+            return 0;
         }
 
         function ovSzdPayload() {
             var b = {
                 email:        ovSzdEmail ? ovSzdEmail.value.trim() : '',
-                direction:    (ovSzdOn && ovSzdOn.checked) ? 1 : 0,
+                username:     ovSzdUser ? ovSzdUser.value.trim() : '',
+                direction:    ovSzdDirection(),
                 pushSeries:   !!(ovSzdSeries && ovSzdSeries.checked),
+                pushSeasons:  !!(ovSzdSeasons && ovSzdSeasons.checked),
                 pushEpisodes: !!(ovSzdEpisodes && ovSzdEpisodes.checked),
                 pushReviews:  !!(ovSzdReviews && ovSzdReviews.checked)
             };
@@ -2682,6 +2738,25 @@
             ovSzdPanel.style.display = opening ? 'block' : 'none';
             ovSzdBtn.classList.toggle('ir-ov-lb-active', opening);
             if (opening) ovSzdLoad();
+        });
+
+        if (ovSzdOn) ovSzdOn.addEventListener('change', function () {
+            if (ovSzdPushBox) ovSzdPushBox.style.display = ovSzdOn.checked ? '' : 'none';
+        });
+
+        if (ovSzdSync) ovSzdSync.addEventListener('click', function () {
+            ovSzdSync.disabled = true;
+            ovSzdStatus(tr('szd.syncing', null, 'Reading your Serializd diary\u2026'), '');
+            apiSzdSyncNow().then(function (r) {
+                if (!r) { ovSzdStatus('\u2717 ' + tr('szd.sync_failed', null, 'Import failed.'), 'err'); return; }
+                if (r.error) { ovSzdStatus('\u2717 ' + r.error, 'err'); return; }
+                var parts = [];
+                if (r.imported)  parts.push(r.imported + ' ' + tr('szd.n_imported', null, 'imported'));
+                if (r.updated)   parts.push(r.updated + ' ' + tr('szd.n_updated', null, 'updated'));
+                if (r.unmatched) parts.push(r.unmatched + ' ' + tr('szd.n_not_in_library', null, 'not in library'));
+                ovSzdStatus('\u2713 ' + (parts.length ? parts.join(', ')
+                    : tr('szd.nothing_imported', null, 'Nothing new to import')), 'ok');
+            }).finally(function () { ovSzdSync.disabled = false; });
         });
 
         if (ovSzdVerify) ovSzdVerify.addEventListener('click', function () {
@@ -2720,6 +2795,7 @@
                 if (r.error) { ovSzdStatus('\u2717 ' + r.error, 'err'); return; }
                 var parts = [];
                 if (r.series)    parts.push(r.series + ' ' + tr('szd.n_series', null, 'series'));
+                if (r.seasons)   parts.push(r.seasons + ' ' + tr('szd.n_seasons', null, 'seasons'));
                 if (r.episodes)  parts.push(r.episodes + ' ' + tr('szd.n_episodes', null, 'episodes'));
                 if (r.unmatched) parts.push(r.unmatched + ' ' + tr('szd.n_unmatched', null, 'not on Serializd'));
                 var msg = parts.length ? parts.join(', ') : tr('szd.nothing_to_push', null, 'Nothing new to push');
@@ -3514,7 +3590,9 @@
                         return ((existingMeta[id] && existingMeta[id].type) || 'Movie') === newType;
                     });
                     if (sameType.length >= 4) {
-                        var typeName = newType === 'Series' ? 'series' : newType === 'Episode' ? 'episodes' : 'films';
+                        var typeName = newType === 'Series'  ? 'series'
+                                     : newType === 'Season'  ? 'seasons'
+                                     : newType === 'Episode' ? 'episodes' : 'films';
                         if (!window.confirm('You already have 4 ' + typeName + ' pinned. Replace the oldest one?')) return;
                         // Drop the oldest one of that type
                         var dropId = sameType[0];
@@ -6134,7 +6212,7 @@
                 // Group existing favorites by type. Order within a group
                 // follows the original storage order so the user controls
                 // the slot positions.
-                var groups = { Movie: [], Series: [], Episode: [] };
+                var groups = { Movie: [], Series: [], Season: [], Episode: [] };
                 _favItemIds.forEach(function (id) {
                     if (!id) return;
                     var m = meta[id] || {};
@@ -6153,19 +6231,23 @@
                     renderOneFavRow(favsEl, '\u2605 Top 4 Movies',   groups.Movie,   'Movie');
                     if (groups.Series.length > 0)
                         renderOneFavRow(favsEl, '\u2605 Top 4 Series',  groups.Series,  'Series');
+                    if (groups.Season.length > 0)
+                        renderOneFavRow(favsEl, '\u2605 Top 4 Seasons', groups.Season, 'Season');
                     if (groups.Episode.length > 0)
                         renderOneFavRow(favsEl, '\u2605 Top 4 Episodes', groups.Episode, 'Episode');
                 } else if (_activeTab === 'Movie') {
                     renderOneFavRow(favsEl, '\u2605 Top 4 Movies', groups.Movie, 'Movie');
                 } else if (_activeTab === 'Series') {
                     renderOneFavRow(favsEl, '\u2605 Top 4 Series', groups.Series, 'Series');
+                } else if (_activeTab === 'Season') {
+                    renderOneFavRow(favsEl, '\u2605 Top 4 Seasons', groups.Season, 'Season');
                 } else if (_activeTab === 'Episode') {
                     renderOneFavRow(favsEl, '\u2605 Top 4 Episodes', groups.Episode, 'Episode');
                 } else if (_activeTab === 'Anime') {
                     // Anime items live inside the Movie/Series/Episode
                     // groups — pull anime out of each, cap at 4 total.
                     var animeItems = [];
-                    ['Movie','Series','Episode'].forEach(function (t) {
+                    ['Movie','Series','Season','Episode'].forEach(function (t) {
                         (groups[t] || []).forEach(function (e) {
                             if (e.m && e.m.isAnime) animeItems.push(e);
                         });
@@ -6198,6 +6280,7 @@
                 var ph = document.createElement('div');
                 ph.className = 'ir-ov-fav-empty';
                 var hint = type === 'Series'  ? 'pin a series'
+                         : type === 'Season'  ? 'pin a season'
                          : type === 'Episode' ? 'pin an episode'
                          : type === 'Anime'   ? 'pin an anime'
                          : 'pin a film';
@@ -7163,6 +7246,14 @@
           .catch(function () { return null; });
     }
 
+    function apiSzdSyncNow() {
+        var auth = getAuth(); if (!auth) return Promise.resolve(null);
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Serializd/SyncNow', {
+            method: 'POST', headers: { Authorization: auth }
+        }).then(function (r) { return r.ok ? r.json() : null; })
+          .catch(function () { return null; });
+    }
+
     function apiSzdPushNow() {
         var auth = getAuth(); if (!auth) return Promise.resolve(null);
         return fetch(_ST_BASE + '/Plugins/StarTrack/Serializd/PushNow', {
@@ -7732,7 +7823,8 @@
         showItem(id);
         getItemType(id).then(function (type) {
             if (id !== _curId) return;
-            if (type !== null && type !== 'Movie' && type !== 'Series' && type !== 'Episode') hide();
+            if (type !== null && type !== 'Movie' && type !== 'Series' &&
+                type !== 'Season' && type !== 'Episode') hide();
         });
     }
 

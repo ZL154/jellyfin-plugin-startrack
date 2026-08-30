@@ -48,7 +48,8 @@ Designed to integrate cleanly with modern Jellyfin setups: desktop, mobile, TV/w
 ### 🆕 New in 1.7.0
 
 - **Two-way Letterboxd** - send ratings, watched status, likes, your watchlist and dated diary entries back to Letterboxd, either as a CSV you upload yourself (no password) or as an hourly automatic push (password stored encrypted).
-- **Serializd integration** - Serializd is television only and Letterboxd is films only, so between them StarTrack can now mirror a whole library. Push series and episode ratings, optionally with your written reviews.
+- **Serializd integration, both ways** - Serializd is television only and Letterboxd is films only, so between them StarTrack can now mirror a whole library. **Importing needs your username and nothing else** - your Serializd diary is public - and only pushing needs a password.
+- **Season ratings** - StarTrack can now rate a whole season, not just a series or an episode. Seasons get their own detail-page panel, their own overlay tab and their own Top 4 row. This is what makes the Serializd import worth having: about two thirds of a real Serializd diary is season entries.
 - **Log a watch** - a dated "log this" control on the rating panel, so a diary is something you can build in Jellyfin instead of only importing from Letterboxd. Finished playback is logged automatically when diary logging is on.
 - **Automatic rewatch detection** - logging a film you have already watched is recorded as a rewatch without you having to say so.
 - **Overwrite toggle** - decide whether a push may change a rating that already exists on Letterboxd, or leave the remote one alone. Off by default, so a push never silently overrules a rating you made elsewhere.
@@ -165,15 +166,26 @@ The CSV route is offered first and is what most people should use. Automatic pus
 
 ### 📺 Serializd integration
 
-Letterboxd does not do television and Serializd does not do film, so the two together cover a whole library. Serializd is **export only** — StarTrack sends your TV ratings out, and nothing is imported back.
+Letterboxd does not do television and Serializd does not do film, so the two together cover a whole library.
 
-Like Letterboxd, Serializd has no public API tokens, so an automatic push needs the account password. It is stored encrypted with the same key ring as the Letterboxd credential and is never returned by any endpoint.
+**Importing needs only a username.** Your Serializd diary is public, so StarTrack reads it straight out - no password, no token, nothing stored. Pushing is the half that needs credentials, exactly as with Letterboxd.
 
-- **Series and episode ratings**, each behind its own toggle — episodes are off by default because a fully rated show is a lot of writes
-- **Optional written reviews.** Serializd only keeps review text on a *log* entry, so a rating that carries a review is sent as a log rather than a bare rating. Ratings without a review stay ratings and create no diary noise
+| | **Import** | **Push** |
+|---|---|---|
+| What you provide | Username | Email + password |
+| Password stored | **No** | Yes - encrypted |
+| Covers | Series, seasons, episodes | Series, seasons, episodes |
+| Runs | Hourly, or Sync now | Hourly, or Push now |
+
+- **Seasons are the point.** A season is Serializd's native unit the way a film is Letterboxd's, and roughly two thirds of a real diary is season entries. StarTrack grew season ratings to match, so nothing is dropped in either direction
+- **Ratings, and reviews if you want them.** Serializd only keeps review text on a *log* entry, so a rating carrying a review is sent as a log; a bare rating stays a rating and creates no diary noise
+- **Newest wins on import** - a rewatched season appears in the diary more than once, and StarTrack keeps the most recent opinion rather than whichever entry happened to arrive last
+- **Watch logs with no rating are skipped** rather than imported as zero stars, which would invent a rating you never gave
+- **Specials are left out** - Serializd numbers season 0 differently, and filing an episode under the wrong season is worse than not filing it
 - **Verify login** button tells you immediately whether the password works
-- **Skip-if-unchanged**, so an hourly run over a settled library costs one sign-in and no writes at all
-- **Specials are left out** — Serializd numbers season 0 differently, and filing an episode under the wrong season is worse than not filing it
+- **Skip-if-unchanged**, so an hourly push over a settled library costs one sign-in and no writes at all
+
+Season ratings stay between StarTrack and Serializd. Trakt, Simkl, Yamtrack and Letterboxd have no concept of rating a season, so seasons are deliberately withheld from them rather than filed as a show or, worse, a film.
 
 ### ⇄ External service sync
 - **Trakt and Simkl authentication** - users connect with Trakt's device code or Simkl's PIN after an admin configures the server-wide app credentials

@@ -21,6 +21,7 @@ namespace InternalRatingSystem.Tests
     internal sealed class FakeSerializdWriter : ISerializdWriter
     {
         public List<(int Show, double Stars, string? Review)> Shows { get; } = new();
+        public List<(int Show, int Season, double Stars, string? Review)> Seasons { get; } = new();
         public List<(int Show, int Season, int Episode, double Stars, string? Review)> Episodes { get; } = new();
 
         /// <summary>Shows Serializd does not have.</summary>
@@ -34,6 +35,14 @@ namespace InternalRatingSystem.Tests
             if (Unknown.Contains(showTmdbId))
                 return Task.FromResult(new SerializdWriteResult(SerializdWriteStatus.NotFound));
             if (Status == SerializdWriteStatus.Ok) Shows.Add((showTmdbId, stars, review));
+            return Task.FromResult(new SerializdWriteResult(Status));
+        }
+
+        public Task<SerializdWriteResult> RateSeasonAsync(int showTmdbId, int seasonNumber, double stars, string? review, CancellationToken ct = default)
+        {
+            if (Unknown.Contains(showTmdbId))
+                return Task.FromResult(new SerializdWriteResult(SerializdWriteStatus.NotFound));
+            if (Status == SerializdWriteStatus.Ok) Seasons.Add((showTmdbId, seasonNumber, stars, review));
             return Task.FromResult(new SerializdWriteResult(Status));
         }
 
@@ -98,10 +107,12 @@ namespace InternalRatingSystem.Tests
 
         private static SerializdUserSettings Settings(
             bool series = true, bool episodes = true, bool reviews = false,
+            bool seasons = true,
             SerializdDirection dir = SerializdDirection.ExportOnly) => new()
             {
-                Email = "a@b.c", Direction = dir,
-                PushSeries = series, PushEpisodes = episodes, PushReviews = reviews
+                Email = "a@b.c", Username = "someone", Direction = dir,
+                PushSeries = series, PushSeasons = seasons,
+                PushEpisodes = episodes, PushReviews = reviews
             };
 
         // -----------------------------------------------------------------
@@ -361,6 +372,189 @@ namespace InternalRatingSystem.Tests
         }
 
         // -----------------------------------------------------------------
+        // Seasons. Serializd's native unit: about two thirds of a real diary
+        // is season entries, measured across five public accounts.
+        // -----------------------------------------------------------------
+
+        [Fact]
+        public async Task Season_ratings_are_pushed_as_seasons_not_series()
+        {
+            var w = new FakeSerializdWriter();
+            var svc = Service(new FakeSerializdGatherer(new SerializdRating(1399, 2, null, 4.5, null)));
+
+            var r = await svc.PushAsync(User, w, Settings(), delayMs: 0);
+
+            Assert.Equal((1399, 2, 4.5, (string?)null), w.Seasons.Single());
+            Assert.Empty(w.Shows);
+            Assert.Empty(w.Episodes);
+            Assert.Equal(1, r.Seasons);
+        }
+
+        [Fact]
+        public async Task Season_toggle_off_sends_no_season_writes()
+        {
+            var w = new FakeSerializdWriter();
+            await Service(new FakeSerializdGatherer(new SerializdRating(1399, 2, null, 4.0, null)))
+                .PushAsync(User, w, Settings(seasons: false), delayMs: 0);
+
+            Assert.Empty(w.Seasons);
+        }
+
+        [Fact]
+        public async Task A_series_its_season_and_its_episode_do_not_mask_each_other()
+        {
+            // All three carry the same TMDb id. Separate ledger namespaces are
+            // what stop one from marking the others as already pushed.
+            var w = new FakeSerializdWriter();
+            var svc = Service(new FakeSerializdGatherer(
+                new SerializdRating(1399, null, null, 4.0, null),
+                new SerializdRating(1399, 1, null, 4.0, null),
+                new SerializdRating(1399, 1, 1, 4.0, null)));
+
+            var r = await svc.PushAsync(User, w, Settings(), delayMs: 0);
+
+            Assert.Equal(1, r.Series);
+            Assert.Equal(1, r.Seasons);
+            Assert.Equal(1, r.Episodes);
+            Assert.Equal(0, r.Unchanged);
+        }
+
+        [Fact]
+        public async Task Two_seasons_of_one_show_are_both_pushed()
+        {
+            var w = new FakeSerializdWriter();
+            var r = await Service(new FakeSerializdGatherer(
+                new SerializdRating(1399, 1, null, 4.0, null),
+                new SerializdRating(1399, 2, null, 5.0, null)))
+                .PushAsync(User, w, Settings(), delayMs: 0);
+
+            Assert.Equal(2, r.Seasons);
+            Assert.Equal(new[] { 1, 2 }, w.Seasons.Select(x => x.Season).ToArray());
+        }
+
+        [Fact]
+        public void A_season_payload_carries_a_season_but_no_episode()
+        {
+            // This is the only thing distinguishing a season review from an
+            // episode one, so it is asserted rather than assumed.
+            var p = SerializdWriteService.BuildPayload(1399, 3624, null, 4.0, null, isLog: false, isRewatch: false);
+            Assert.Equal(3624, p["season_id"]);
+            Assert.Null(p["episode_number"]);
+        }
+
+        // -----------------------------------------------------------------
+        // Import scale. The exact inverse of the export, so a round trip must
+        // land back where it started.
+        // -----------------------------------------------------------------
+
+        [Theory]
+        [InlineData(1, 0.5)]
+        [InlineData(2, 1.0)]
+        [InlineData(5, 2.5)]
+        [InlineData(7, 3.5)]
+        [InlineData(10, 5.0)]
+        public void Import_scale_halves(int rating, double expected) =>
+            Assert.Equal(expected, SerializdPullService.FromSerializdScale(rating));
+
+        [Theory]
+        [InlineData(0.5)]
+        [InlineData(1.5)]
+        [InlineData(3.0)]
+        [InlineData(4.5)]
+        [InlineData(5.0)]
+        public void Scale_round_trips(double stars) =>
+            Assert.Equal(stars, SerializdPullService.FromSerializdScale(
+                SerializdWriteService.ToSerializdScale(stars)));
+
+        // -----------------------------------------------------------------
+        // Reverse season lookup. Serializd addresses a season by an internal
+        // id that means nothing to Jellyfin, so the import has to map it back
+        // to a season NUMBER. This is the inverse of the writer's lookup and
+        // the only new mapping the bench could not exercise, because the bench
+        // library is empty and every entry stopped at the series match.
+        // -----------------------------------------------------------------
+
+        [Fact]
+        public async Task Season_id_maps_back_to_a_season_number()
+        {
+            var handler = new StubHandler(System.Net.HttpStatusCode.OK, ShowJson);
+            using var session = new SerializdSession(NullLogger<SerializdTests>.Instance, handler);
+            var cache = new Dictionary<int, Dictionary<int, int>>();
+
+            Assert.Equal(1, await SerializdPullService.SeasonNumberAsync(session, 1399, 3624, cache, default));
+            Assert.Equal(2, await SerializdPullService.SeasonNumberAsync(session, 1399, 3625, cache, default));
+            Assert.Equal(0, await SerializdPullService.SeasonNumberAsync(session, 1399, 3627, cache, default));
+
+            // An id from a different show must not resolve against this one.
+            Assert.Null(await SerializdPullService.SeasonNumberAsync(session, 1399, 999999, cache, default));
+
+            // One request for all four lookups.
+            Assert.Single(handler.Paths);
+        }
+
+        [Fact]
+        public async Task An_unreachable_show_lookup_leaves_the_season_unresolved_rather_than_guessing()
+        {
+            var handler = new StubHandler(System.Net.HttpStatusCode.InternalServerError, "nope");
+            using var session = new SerializdSession(NullLogger<SerializdTests>.Instance, handler);
+
+            Assert.Null(await SerializdPullService.SeasonNumberAsync(
+                session, 1399, 3624, new Dictionary<int, Dictionary<int, int>>(), default));
+        }
+
+        // -----------------------------------------------------------------
+        // Import gating. These paths return before any library or network use,
+        // which is why a null ILibraryManager is safe here.
+        // -----------------------------------------------------------------
+
+        [Fact]
+        public async Task Import_does_nothing_when_the_direction_excludes_it()
+        {
+            var pull = new SerializdPullService(null!, null!, NullLogger<SerializdPullService>.Instance);
+            var r = await pull.ImportAsync("u", "U",
+                Settings(dir: SerializdDirection.ExportOnly), null!, default);
+
+            Assert.Equal(0, r.TotalWritten);
+            Assert.Null(r.Error);
+        }
+
+        [Fact]
+        public async Task Import_without_a_username_says_no_password_is_needed()
+        {
+            var pull = new SerializdPullService(null!, null!, NullLogger<SerializdPullService>.Instance);
+            var settings = Settings(dir: SerializdDirection.ImportOnly);
+            settings.Username = null;
+
+            var r = await pull.ImportAsync("u", "U", settings, null!, default);
+
+            Assert.NotNull(r.Error);
+            Assert.Contains("username", r.Error, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("password", r.Error, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public async Task Push_does_nothing_when_the_direction_is_import_only()
+        {
+            var w = new FakeSerializdWriter();
+            var r = await Service(new FakeSerializdGatherer(new SerializdRating(1399, null, null, 4.0, null)))
+                .PushAsync(User, w, Settings(dir: SerializdDirection.ImportOnly), delayMs: 0);
+
+            Assert.Empty(w.Shows);
+            Assert.Equal(0, r.TotalWritten);
+        }
+
+        [Fact]
+        public async Task Two_way_pushes()
+        {
+            var w = new FakeSerializdWriter();
+            var r = await Service(new FakeSerializdGatherer(new SerializdRating(1399, null, null, 4.0, null)))
+                .PushAsync(User, w, Settings(dir: SerializdDirection.TwoWay), delayMs: 0);
+
+            Assert.Single(w.Shows);
+            Assert.Equal(1, r.Series);
+        }
+
+        // -----------------------------------------------------------------
         // Settings storage
         // -----------------------------------------------------------------
 
@@ -483,7 +677,7 @@ namespace InternalRatingSystem.Tests
             var path = Path.Combine(_dir, "settings");
             using var repo = new SerializdSettingsRepository(new FakePaths(path));
 
-            var ok = await repo.SetAccountAsync(User, "a@b.c", "hunter2", SerializdDirection.ExportOnly, true, false, false);
+            var ok = await repo.SetAccountAsync(User, "a@b.c", "hunter2", SerializdDirection.ExportOnly, true, true, false, false);
             Assert.True(ok);
 
             var file = Path.Combine(path, "InternalRating", "serializd.json");
@@ -495,17 +689,17 @@ namespace InternalRatingSystem.Tests
         {
             using var repo = new SerializdSettingsRepository(new FakePaths(Path.Combine(_dir, "settings2")));
 
-            await repo.SetAccountAsync(User, "a@b.c", "hunter2", SerializdDirection.ExportOnly, true, false, false);
+            await repo.SetAccountAsync(User, "a@b.c", "hunter2", SerializdDirection.ExportOnly, true, true, false, false);
             var enc = (await repo.GetAsync(User)).PasswordEnc;
             Assert.False(string.IsNullOrEmpty(enc));
 
             // Changing a toggle must not require re-sending the secret.
-            await repo.SetAccountAsync(User, "a@b.c", null, SerializdDirection.ExportOnly, true, true, false);
+            await repo.SetAccountAsync(User, "a@b.c", null, SerializdDirection.ExportOnly, true, true, true, false);
             var after = await repo.GetAsync(User);
             Assert.Equal(enc, after.PasswordEnc);
             Assert.True(after.PushEpisodes);
 
-            await repo.SetAccountAsync(User, "a@b.c", string.Empty, SerializdDirection.Off, true, false, false);
+            await repo.SetAccountAsync(User, "a@b.c", string.Empty, SerializdDirection.Off, true, true, false, false);
             Assert.True(string.IsNullOrEmpty((await repo.GetAsync(User)).PasswordEnc));
         }
 
@@ -514,7 +708,7 @@ namespace InternalRatingSystem.Tests
         {
             var path = Path.Combine(_dir, "settings3");
             using (var repo = new SerializdSettingsRepository(new FakePaths(path)))
-                await repo.SetAccountAsync(User, "a@b.c", "hunter2", SerializdDirection.ExportOnly, true, true, true);
+                await repo.SetAccountAsync(User, "a@b.c", "hunter2", SerializdDirection.ExportOnly, true, true, true, true);
 
             using var reloaded = new SerializdSettingsRepository(new FakePaths(path));
             var s = await reloaded.GetAsync(User);

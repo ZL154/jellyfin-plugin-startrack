@@ -13,10 +13,15 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.InternalRating.Controllers
 {
     /// <summary>
-    /// Serializd write-back endpoints. Every route is scoped to the calling
-    /// user — there is no admin-on-behalf-of variant, because linking an account
-    /// here means handing over that account's password and only its owner can do
-    /// that meaningfully.
+    /// Serializd sync endpoints. Every route is scoped to the calling user —
+    /// there is no admin-on-behalf-of variant, because arming the export means
+    /// handing over that account's password and only its owner can do that
+    /// meaningfully.
+    ///
+    /// The two directions have deliberately different requirements. Importing
+    /// reads a PUBLIC diary and needs a username and nothing else; only the push
+    /// needs credentials. Collapsing them into one "connect your account" step
+    /// would ask for a password from people who never need to give one.
     /// </summary>
     [ApiController]
     [Authorize]
@@ -26,17 +31,20 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
     {
         private readonly SerializdSettingsRepository _settings;
         private readonly SerializdPushRunner _runner;
+        private readonly SerializdSyncRunner _sync;
         private readonly IAuthorizationContext _authContext;
         private readonly ILogger<SerializdController> _logger;
 
         public SerializdController(
             SerializdSettingsRepository settings,
             SerializdPushRunner runner,
+            SerializdSyncRunner sync,
             IAuthorizationContext authContext,
             ILogger<SerializdController> logger)
         {
             _settings    = settings;
             _runner      = runner;
+            _sync        = sync;
             _authContext = authContext;
             _logger      = logger;
         }
@@ -57,8 +65,12 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 Direction       = (int)s.Direction,
                 HasPassword     = !string.IsNullOrEmpty(s.PasswordEnc),
                 PushSeries      = s.PushSeries,
+                PushSeasons     = s.PushSeasons,
                 PushEpisodes    = s.PushEpisodes,
                 PushReviews     = s.PushReviews,
+                LastSyncedAt      = s.LastSyncedAt,
+                LastImportedCount = s.LastImportedCount,
+                LastSyncError     = s.LastSyncError,
                 LastPushedAt    = s.LastPushedAt,
                 LastPushedCount = s.LastPushedCount,
                 LastPushError   = s.LastPushError
@@ -77,29 +89,45 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
             if (userId == null) return Unauthorized();
 
-            if (req.Direction < 0 || req.Direction > 1) return BadRequest("Unknown sync direction.");
+            if (req.Direction < 0 || req.Direction > 3) return BadRequest("Unknown sync direction.");
             var direction = (SerializdDirection)req.Direction;
 
-            var email = (req.Email ?? string.Empty).Trim();
+            var email    = (req.Email ?? string.Empty).Trim();
+            var username = (req.Username ?? string.Empty).Trim();
+
+            if (username.Length > 0 &&
+                !System.Text.RegularExpressions.Regex.IsMatch(username, "^[A-Za-z0-9_.-]{1,64}$"))
+                return BadRequest("That does not look like a Serializd username.");
+
+            var importing = direction is SerializdDirection.ImportOnly or SerializdDirection.TwoWay;
+            var exporting = direction is SerializdDirection.ExportOnly or SerializdDirection.TwoWay;
+
+            var stored = await _settings.GetAsync(userId.Value.ToString("N")).ConfigureAwait(false);
+
+            // Importing reads a public diary, so a username is the whole
+            // requirement. Saying so here is the difference between "you must
+            // hand over your password" and "you don't have to".
+            if (importing && username.Length == 0 && string.IsNullOrWhiteSpace(stored.Username))
+                return BadRequest("Importing from Serializd needs your username. No password is required for this direction.");
 
             // Refuse to arm an export with no way to sign in, rather than
             // accepting it and failing quietly an hour later.
-            var stored = await _settings.GetAsync(userId.Value.ToString("N")).ConfigureAwait(false);
             var willHavePassword = req.Password == null
                 ? !string.IsNullOrEmpty(stored.PasswordEnc)
                 : req.Password.Length > 0;
 
-            if (direction == SerializdDirection.ExportOnly)
+            if (exporting)
             {
                 if (email.Length == 0)
-                    return BadRequest("Serializd signs in by email address, so one is required.");
+                    return BadRequest("Serializd signs in by email address, so one is required to push.");
                 if (!willHavePassword)
                     return BadRequest("Pushing to Serializd needs the account password. Serializd has no public API tokens.");
             }
 
             var ok = await _settings.SetAccountAsync(
                 userId.Value.ToString("N"), email, req.Password, direction,
-                req.PushSeries, req.PushEpisodes, req.PushReviews).ConfigureAwait(false);
+                req.PushSeries, req.PushSeasons, req.PushEpisodes, req.PushReviews,
+                username.Length > 0 ? username : null).ConfigureAwait(false);
 
             if (!ok)
                 return BadRequest("Could not encrypt the credentials for storage, so nothing was saved. StarTrack will not fall back to storing them in plain text.");
@@ -143,6 +171,26 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 Message  = r.Message,
                 Username = r.Username
             });
+        }
+
+        /// <summary>
+        /// Runs an import for the caller immediately. Deliberately NOT gated on
+        /// a stored password: this direction never needs one.
+        /// </summary>
+        [HttpPost("SyncNow")]
+        [ProducesResponseType(typeof(SerializdImportResult), StatusCodes.Status200OK)]
+        public async Task<IActionResult> SyncNow()
+        {
+            var userId = await GetCurrentUserIdAsync().ConfigureAwait(false);
+            if (userId == null) return Unauthorized();
+
+            var r = await _sync.RunForUserAsync(userId.Value.ToString("N"), HttpContext.RequestAborted)
+                .ConfigureAwait(false);
+
+            _logger.LogInformation("[StarTrack] Serializd SyncNow for {User}: written={W} error={E}",
+                userId.Value, r.TotalWritten, r.Error ?? "none");
+
+            return Ok(r);
         }
 
         /// <summary>Runs a push for the caller immediately and returns the report.</summary>
@@ -199,8 +247,12 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             [JsonPropertyName("direction")]       public int       Direction       { get; set; }
             [JsonPropertyName("hasPassword")]     public bool      HasPassword     { get; set; }
             [JsonPropertyName("pushSeries")]      public bool      PushSeries      { get; set; }
+            [JsonPropertyName("pushSeasons")]     public bool      PushSeasons     { get; set; }
             [JsonPropertyName("pushEpisodes")]    public bool      PushEpisodes    { get; set; }
             [JsonPropertyName("pushReviews")]     public bool      PushReviews     { get; set; }
+            [JsonPropertyName("lastSyncedAt")]      public DateTime? LastSyncedAt      { get; set; }
+            [JsonPropertyName("lastImportedCount")] public int       LastImportedCount { get; set; }
+            [JsonPropertyName("lastSyncError")]     public string?   LastSyncError     { get; set; }
             [JsonPropertyName("lastPushedAt")]    public DateTime? LastPushedAt    { get; set; }
             [JsonPropertyName("lastPushedCount")] public int       LastPushedCount { get; set; }
             [JsonPropertyName("lastPushError")]   public string?   LastPushError   { get; set; }
@@ -211,11 +263,15 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         {
             [JsonPropertyName("email")]        public string? Email { get; set; }
 
+            /// <summary>Public username. All the import direction needs.</summary>
+            [JsonPropertyName("username")]     public string? Username { get; set; }
+
             /// <summary>Null keeps the stored password; empty clears it.</summary>
             [JsonPropertyName("password")]     public string? Password { get; set; }
 
             [JsonPropertyName("direction")]    public int  Direction    { get; set; }
             [JsonPropertyName("pushSeries")]   public bool PushSeries   { get; set; } = true;
+            [JsonPropertyName("pushSeasons")]  public bool PushSeasons  { get; set; } = true;
             [JsonPropertyName("pushEpisodes")] public bool PushEpisodes { get; set; }
             [JsonPropertyName("pushReviews")]  public bool PushReviews  { get; set; }
         }

@@ -17,8 +17,12 @@ namespace Jellyfin.Plugin.InternalRating.Serializd
     {
         /// <summary>No syncing.</summary>
         Off = 0,
-        /// <summary>StarTrack → Serializd only.</summary>
-        ExportOnly = 1
+        /// <summary>Serializd → StarTrack only. Needs a username and NO password.</summary>
+        ImportOnly = 1,
+        /// <summary>StarTrack → Serializd only. Requires email + password.</summary>
+        ExportOnly = 2,
+        /// <summary>Both directions. Requires email + password.</summary>
+        TwoWay = 3
     }
 
     /// <summary>
@@ -30,10 +34,15 @@ namespace Jellyfin.Plugin.InternalRating.Serializd
     /// </summary>
     public sealed class SerializdUserSettings
     {
-        /// <summary>Account email. Serializd logs in by email, not username.</summary>
+        /// <summary>Account email. Serializd logs in by email, not username. Export only.</summary>
         [JsonPropertyName("email")]          public string  Email     { get; set; } = string.Empty;
 
-        /// <summary>Username as reported by the login response, for display only.</summary>
+        /// <summary>
+        /// Public Serializd username. This is all an IMPORT needs —
+        /// /api/user/{username}/diary is unauthenticated — so the import half
+        /// works with no password at all, exactly like Letterboxd's.
+        /// A successful sign-in also fills this in for display.
+        /// </summary>
         [JsonPropertyName("username")]       public string? Username  { get; set; }
 
         /// <summary>
@@ -48,6 +57,13 @@ namespace Jellyfin.Plugin.InternalRating.Serializd
         /// <summary>Push star ratings for series.</summary>
         [JsonPropertyName("pushSeries")]     public bool PushSeries   { get; set; } = true;
 
+        /// <summary>
+        /// Push star ratings for whole seasons. On by default: a season is
+        /// Serializd's native unit, the way a film is Letterboxd's, and about
+        /// two thirds of a real Serializd diary is season entries.
+        /// </summary>
+        [JsonPropertyName("pushSeasons")]    public bool PushSeasons  { get; set; } = true;
+
         /// <summary>Push star ratings for individual episodes.</summary>
         [JsonPropertyName("pushEpisodes")]   public bool PushEpisodes { get; set; }
 
@@ -55,6 +71,16 @@ namespace Jellyfin.Plugin.InternalRating.Serializd
         [JsonPropertyName("pushReviews")]    public bool PushReviews  { get; set; }
 
         // ---- state ----
+
+        /// <summary>Set when the import last ran without error.</summary>
+        [JsonPropertyName("lastSyncedAt")]    public DateTime? LastSyncedAt   { get; set; }
+
+        /// <summary>Ratings written by the last import.</summary>
+        [JsonPropertyName("lastImportedCount")] public int     LastImportedCount { get; set; }
+
+        /// <summary>Why the last import failed, if it did.</summary>
+        [JsonPropertyName("lastSyncError")]   public string?   LastSyncError  { get; set; }
+
         [JsonPropertyName("lastPushedAt")]    public DateTime? LastPushedAt   { get; set; }
         [JsonPropertyName("lastPushedCount")] public int       LastPushedCount { get; set; }
         [JsonPropertyName("lastPushError")]   public string?   LastPushError  { get; set; }

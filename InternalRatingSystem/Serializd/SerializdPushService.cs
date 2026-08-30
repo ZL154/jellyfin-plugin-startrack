@@ -14,6 +14,9 @@ namespace Jellyfin.Plugin.InternalRating.Serializd
         /// <summary>Series ratings written.</summary>
         [JsonPropertyName("series")]       public int Series { get; set; }
 
+        /// <summary>Season ratings written.</summary>
+        [JsonPropertyName("seasons")]      public int Seasons { get; set; }
+
         /// <summary>Episode ratings written.</summary>
         [JsonPropertyName("episodes")]     public int Episodes { get; set; }
 
@@ -30,7 +33,7 @@ namespace Jellyfin.Plugin.InternalRating.Serializd
         [JsonPropertyName("error")]        public string? Error { get; set; }
 
         /// <summary>Total successful writes.</summary>
-        [JsonPropertyName("totalWritten")] public int TotalWritten => Series + Episodes;
+        [JsonPropertyName("totalWritten")] public int TotalWritten => Series + Seasons + Episodes;
     }
 
     /// <summary>
@@ -48,8 +51,14 @@ namespace Jellyfin.Plugin.InternalRating.Serializd
     /// </summary>
     public sealed class SerializdPushService
     {
-        /// <summary>Ledger key suffix, so Serializd state cannot collide with Letterboxd's.</summary>
-        private const string LedgerSuffix = ":szd";
+        // One ledger namespace per kind. A series, its season 1 and its episode
+        // S1E1 all carry the same TMDb id, so a single namespace would need a
+        // composite id wide enough to stay clear of a bare series id - and a
+        // near-miss there marks the wrong thing as already pushed. Separate
+        // buckets make the collision impossible rather than unlikely.
+        private const string LedgerSeries   = ":szd";
+        private const string LedgerSeasons  = ":szd-s";
+        private const string LedgerEpisodes = ":szd-e";
 
         private readonly ISerializdGatherer _gatherer;
         private readonly LetterboxdPushLedger _ledger;
@@ -80,16 +89,19 @@ namespace Jellyfin.Plugin.InternalRating.Serializd
             int delayMs = 250)
         {
             var result = new SerializdPushResult();
-            if (settings.Direction != SerializdDirection.ExportOnly) return result;
+            if (settings.Direction is not (SerializdDirection.ExportOnly or SerializdDirection.TwoWay))
+                return result;
 
             try
             {
                 var all = await _gatherer.GatherAsync(userId).ConfigureAwait(false);
 
-                var work = all.Where(r => r.IsEpisode ? settings.PushEpisodes : settings.PushSeries).ToList();
+                var work = all.Where(r =>
+                    r.IsEpisode ? settings.PushEpisodes :
+                    r.IsSeason  ? settings.PushSeasons  :
+                                  settings.PushSeries).ToList();
 
                 var touched = 0;
-                var key = userId + LedgerSuffix;
 
                 foreach (var item in work)
                 {
@@ -97,16 +109,20 @@ namespace Jellyfin.Plugin.InternalRating.Serializd
 
                     if (touched >= maxItems) { result.Remaining++; continue; }
 
-                    // An episode and its series share a TMDb id, so the ledger key
-                    // has to separate them or rating one would mask the other.
+                    var key = userId + (item.IsEpisode ? LedgerEpisodes
+                                      : item.IsSeason  ? LedgerSeasons
+                                                       : LedgerSeries);
+
                     var ledgerId = item.IsEpisode
-                        ? unchecked(item.TmdbId * 1_000_000 + item.SeasonNumber!.Value * 1_000 + item.EpisodeNumber!.Value)
-                        : item.TmdbId;
+                        ? unchecked(item.SeasonNumber!.Value * 100_000_000 + item.EpisodeNumber!.Value * 1_000_000 + item.TmdbId)
+                        : item.IsSeason
+                            ? unchecked(item.SeasonNumber!.Value * 1_000_000 + item.TmdbId)
+                            : item.TmdbId;
 
                     var signature = LetterboxdPushLedger.Signature(
                         item.Stars,
                         item.Review != null,
-                        settings.PushSeries, settings.PushEpisodes, settings.PushReviews);
+                        settings.PushSeries || settings.PushSeasons, settings.PushEpisodes, settings.PushReviews);
 
                     if (await _ledger.IsUnchangedAsync(key, ledgerId, signature).ConfigureAwait(false))
                     {
@@ -119,7 +135,10 @@ namespace Jellyfin.Plugin.InternalRating.Serializd
                     var w = item.IsEpisode
                         ? await writer.RateEpisodeAsync(item.TmdbId, item.SeasonNumber!.Value, item.EpisodeNumber!.Value,
                                                         item.Stars, review, ct).ConfigureAwait(false)
-                        : await writer.RateShowAsync(item.TmdbId, item.Stars, review, ct).ConfigureAwait(false);
+                        : item.IsSeason
+                            ? await writer.RateSeasonAsync(item.TmdbId, item.SeasonNumber!.Value,
+                                                           item.Stars, review, ct).ConfigureAwait(false)
+                            : await writer.RateShowAsync(item.TmdbId, item.Stars, review, ct).ConfigureAwait(false);
 
                     // An expired token kills the whole run; carrying on would
                     // issue one doomed request per rating in the library.
@@ -134,7 +153,9 @@ namespace Jellyfin.Plugin.InternalRating.Serializd
                         // Recorded only after Serializd confirms, so a failure is
                         // retried next run instead of being marked done.
                         await _ledger.SetStateAsync(key, ledgerId, signature).ConfigureAwait(false);
-                        if (item.IsEpisode) result.Episodes++; else result.Series++;
+                        if (item.IsEpisode)     result.Episodes++;
+                        else if (item.IsSeason) result.Seasons++;
+                        else                    result.Series++;
                     }
                     else if (w.Status == SerializdWriteStatus.NotFound)
                     {

@@ -67,7 +67,8 @@ namespace Jellyfin.Plugin.InternalRating.Serializd
         /// <returns>False when a supplied secret could not be encrypted.</returns>
         public async Task<bool> SetAccountAsync(
             string userId, string email, string? password, SerializdDirection direction,
-            bool pushSeries, bool pushEpisodes, bool pushReviews)
+            bool pushSeries, bool pushSeasons, bool pushEpisodes, bool pushReviews,
+            string? username = null)
         {
             await _lock.WaitAsync().ConfigureAwait(false);
             try
@@ -92,11 +93,32 @@ namespace Jellyfin.Plugin.InternalRating.Serializd
                 s.Email        = (email ?? string.Empty).Trim();
                 s.Direction    = direction;
                 s.PushSeries   = pushSeries;
+                s.PushSeasons  = pushSeasons;
                 s.PushEpisodes = pushEpisodes;
                 s.PushReviews  = pushReviews;
+                if (username != null) s.Username = username.Trim();
 
                 await SaveAsync().ConfigureAwait(false);
                 return true;
+            }
+            finally { _lock.Release(); }
+        }
+
+        /// <summary>Records the outcome of an import run.</summary>
+        public async Task SetSyncStateAsync(string userId, DateTime? at, int imported, string? error)
+        {
+            await _lock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                if (!_store.Users.TryGetValue(userId, out var s))
+                {
+                    s = new SerializdUserSettings();
+                    _store.Users[userId] = s;
+                }
+                s.LastSyncedAt      = at;
+                s.LastImportedCount = imported;
+                s.LastSyncError     = error;
+                await SaveAsync().ConfigureAwait(false);
             }
             finally { _lock.Release(); }
         }
@@ -133,8 +155,12 @@ namespace Jellyfin.Plugin.InternalRating.Serializd
             PasswordEnc     = s.PasswordEnc,
             Direction       = s.Direction,
             PushSeries      = s.PushSeries,
+            PushSeasons     = s.PushSeasons,
             PushEpisodes    = s.PushEpisodes,
             PushReviews     = s.PushReviews,
+            LastSyncedAt      = s.LastSyncedAt,
+            LastImportedCount = s.LastImportedCount,
+            LastSyncError     = s.LastSyncError,
             LastPushedAt    = s.LastPushedAt,
             LastPushedCount = s.LastPushedCount,
             LastPushError   = s.LastPushError
