@@ -721,33 +721,33 @@
             '.ir-ov-es-import-label:hover{background:rgba(244,196,48,.15)!important;border-color:#f4c430!important;color:#fff!important}',
             '.ir-ov-es-import-label input{display:none!important}',
             // Overlay Letterboxd button + dropdown panel
-            '.ir-ov-lb{background:none!important;border:1px solid rgba(244,196,48,.35)!important;color:rgba(244,196,48,.85)!important;border-radius:8px!important;padding:8px 16px!important;font-size:.8em!important;font-weight:600!important;cursor:pointer!important;transition:all .15s!important;white-space:nowrap!important;letter-spacing:.02em!important}',
-            '.ir-ov-lb:hover{background:rgba(244,196,48,.12)!important;border-color:#f4c430!important;color:#fff!important}',
+            '.ir-ov-lb,.ir-ov-szd{background:none!important;border:1px solid rgba(244,196,48,.35)!important;color:rgba(244,196,48,.85)!important;border-radius:8px!important;padding:8px 16px!important;font-size:.8em!important;font-weight:600!important;cursor:pointer!important;transition:all .15s!important;white-space:nowrap!important;letter-spacing:.02em!important}',
+            '.ir-ov-lb:hover,.ir-ov-szd:hover{background:rgba(244,196,48,.12)!important;border-color:#f4c430!important;color:#fff!important}',
             '.ir-ov-prefs{background:none!important;border:1px solid rgba(255,255,255,.18)!important;color:rgba(255,255,255,.75)!important;border-radius:8px!important;padding:8px 16px!important;font-size:.8em!important;font-weight:600!important;cursor:pointer!important;transition:all .15s!important;white-space:nowrap!important;letter-spacing:.02em!important}',
             '.ir-ov-prefs:hover{background:rgba(255,255,255,.08)!important;border-color:rgba(255,255,255,.35)!important;color:#fff!important}',
-            '.ir-ov-lb.ir-ov-lb-active{background:rgba(244,196,48,.18)!important;border-color:#f4c430!important;color:#fff!important}',
-            '.ir-ov-lb-panel{background:#141414!important;border:1px solid rgba(244,196,48,.22)!important;border-radius:10px!important;padding:14px 18px!important;margin:0 0 14px!important}',
-            '.ir-ov-lb-row{display:flex!important;align-items:center!important;gap:10px!important;margin-bottom:10px!important;flex-wrap:wrap!important}',
-            '.ir-ov-lb-row:last-child{margin-bottom:0!important}',
-            '.ir-ov-lb-sep{height:1px!important;background:rgba(255,255,255,.10)!important;margin:14px 0!important}',
-            '.ir-ov-lb-warn{background:rgba(244,196,48,.10)!important;border:1px solid rgba(244,196,48,.35)!important;border-radius:6px!important;padding:8px 12px!important;font-size:.78em!important;line-height:1.5!important;color:#f0d68a!important;margin-bottom:10px!important}',
+            '.ir-ov-lb.ir-ov-lb-active,.ir-ov-szd.ir-ov-lb-active{background:rgba(244,196,48,.18)!important;border-color:#f4c430!important;color:#fff!important}',
+            '.ir-ov-lb-panel,.ir-ov-szd-panel{background:#141414!important;border:1px solid rgba(244,196,48,.22)!important;border-radius:10px!important;padding:14px 18px!important;margin:0 0 14px!important}',
+            '.ir-ov-lb-row,.ir-ov-szd-row{display:flex!important;align-items:center!important;gap:10px!important;margin-bottom:10px!important;flex-wrap:wrap!important}',
+            '.ir-ov-lb-row:last-child,.ir-ov-szd-row:last-child{margin-bottom:0!important}',
+            '.ir-ov-lb-sep,.ir-ov-szd-sep{height:1px!important;background:rgba(255,255,255,.10)!important;margin:14px 0!important}',
+            '.ir-ov-lb-warn,.ir-ov-szd-warn{background:rgba(244,196,48,.10)!important;border:1px solid rgba(244,196,48,.35)!important;border-radius:6px!important;padding:8px 12px!important;font-size:.78em!important;line-height:1.5!important;color:#f0d68a!important;margin-bottom:10px!important}',
             '.ir-ov-lb-csv{background:rgba(255,255,255,.08)!important;color:#fff!important;border:1px solid rgba(255,255,255,.22)!important;border-radius:6px!important;padding:7px 14px!important;font-size:.78em!important;font-weight:600!important;cursor:pointer!important;transition:all .15s!important}',
             '.ir-ov-lb-csv:hover{background:rgba(255,255,255,.16)!important;border-color:rgba(255,255,255,.45)!important}',
-            '.ir-ov-lb-pw,.ir-ov-lb-cookies,.ir-ov-lb-ua{background:rgba(255,255,255,.05)!important;border:1px solid rgba(255,255,255,.14)!important;border-radius:6px!important;color:#fff!important;font-size:.85em!important;padding:7px 12px!important;outline:none!important;min-width:200px!important;flex:1!important;max-width:340px!important}',
-            '.ir-ov-lb-pw:focus,.ir-ov-lb-cookies:focus,.ir-ov-lb-ua:focus{border-color:rgba(244,196,48,.5)!important}',
-            '.ir-ov-lb-verify,.ir-ov-lb-push-save,.ir-ov-lb-push-now{background:#f4c430!important;color:#000!important;border:none!important;border-radius:6px!important;padding:7px 16px!important;font-size:.8em!important;font-weight:700!important;cursor:pointer!important;transition:transform .1s,background .15s!important}',
-            '.ir-ov-lb-verify{background:rgba(255,255,255,.10)!important;color:#fff!important;border:1px solid rgba(255,255,255,.22)!important}',
-            '.ir-ov-lb-verify:hover{background:rgba(255,255,255,.18)!important}',
-            '.ir-ov-lb-push-save:hover,.ir-ov-lb-push-now:hover{background:#ffd84d!important;transform:scale(1.04)!important}',
+            '.ir-ov-lb-pw,.ir-ov-lb-cookies,.ir-ov-lb-ua,.ir-ov-szd-email,.ir-ov-szd-pw{background:rgba(255,255,255,.05)!important;border:1px solid rgba(255,255,255,.14)!important;border-radius:6px!important;color:#fff!important;font-size:.85em!important;padding:7px 12px!important;outline:none!important;min-width:200px!important;flex:1!important;max-width:340px!important}',
+            '.ir-ov-lb-pw:focus,.ir-ov-lb-cookies:focus,.ir-ov-lb-ua:focus,.ir-ov-szd-email:focus,.ir-ov-szd-pw:focus{border-color:rgba(244,196,48,.5)!important}',
+            '.ir-ov-lb-verify,.ir-ov-lb-push-save,.ir-ov-lb-push-now,.ir-ov-szd-verify,.ir-ov-szd-save,.ir-ov-szd-now{background:#f4c430!important;color:#000!important;border:none!important;border-radius:6px!important;padding:7px 16px!important;font-size:.8em!important;font-weight:700!important;cursor:pointer!important;transition:transform .1s,background .15s!important}',
+            '.ir-ov-lb-verify,.ir-ov-szd-verify{background:rgba(255,255,255,.10)!important;color:#fff!important;border:1px solid rgba(255,255,255,.22)!important}',
+            '.ir-ov-lb-verify:hover,.ir-ov-szd-verify:hover{background:rgba(255,255,255,.18)!important}',
+            '.ir-ov-lb-push-save:hover,.ir-ov-lb-push-now:hover,.ir-ov-szd-save:hover,.ir-ov-szd-now:hover{background:#ffd84d!important;transform:scale(1.04)!important}',
             '.ir-ov-lb-adv{margin:6px 0!important;font-size:.8em!important}',
             '.ir-ov-lb-adv summary{cursor:pointer!important;color:#f4c430!important;padding:4px 0!important}',
-            '.ir-ov-lb-push-status{font-size:.8em!important;line-height:1.5!important;margin-top:8px!important;min-height:1.2em!important}',
-            '.ir-ov-lb-label{color:rgba(255,255,255,.6)!important;font-size:.75em!important;text-transform:uppercase!important;letter-spacing:.05em!important;font-weight:700!important;white-space:nowrap!important}',
+            '.ir-ov-lb-push-status,.ir-ov-szd-status{font-size:.8em!important;line-height:1.5!important;margin-top:8px!important;min-height:1.2em!important}',
+            '.ir-ov-lb-label,.ir-ov-szd-label{color:rgba(255,255,255,.6)!important;font-size:.75em!important;text-transform:uppercase!important;letter-spacing:.05em!important;font-weight:700!important;white-space:nowrap!important}',
             '.ir-ov-lb-user{background:rgba(255,255,255,.05)!important;border:1px solid rgba(255,255,255,.14)!important;border-radius:6px!important;color:#fff!important;font-size:.85em!important;padding:7px 12px!important;outline:none!important;transition:border-color .2s!important;min-width:180px!important;flex:1!important;max-width:280px!important}',
             '.ir-ov-lb-user:focus{border-color:rgba(244,196,48,.5)!important}',
             '.ir-ov-lb-user::placeholder{color:rgba(255,255,255,.25)!important}',
-            '.ir-ov-lb-check{display:flex!important;align-items:center!important;gap:6px!important;color:rgba(255,255,255,.85)!important;font-size:.8em!important;cursor:pointer!important;white-space:nowrap!important}',
-            '.ir-ov-lb-check input{accent-color:#f4c430!important;width:15px!important;height:15px!important}',
+            '.ir-ov-lb-check,.ir-ov-szd-check{display:flex!important;align-items:center!important;gap:6px!important;color:rgba(255,255,255,.85)!important;font-size:.8em!important;cursor:pointer!important;white-space:nowrap!important}',
+            '.ir-ov-lb-check input,.ir-ov-szd-check input{accent-color:#f4c430!important;width:15px!important;height:15px!important}',
             '.ir-ov-lb-save,.ir-ov-lb-sync{background:#f4c430!important;color:#000!important;border:none!important;border-radius:6px!important;padding:7px 16px!important;font-size:.8em!important;font-weight:700!important;cursor:pointer!important;transition:transform .1s,background .15s!important}',
             '.ir-ov-lb-save:hover,.ir-ov-lb-sync:hover{background:#ffd84d!important;transform:scale(1.04)!important}',
             '.ir-ov-lb-sync{background:rgba(200,30,30,.9)!important;color:#fff!important}',
@@ -761,7 +761,7 @@
             '.ir-ov-lb-upload{display:inline-flex!important;align-items:center!important;cursor:pointer!important;background:rgba(244,196,48,.08)!important;border:1px dashed rgba(244,196,48,.4)!important;border-radius:6px!important;padding:8px 16px!important;font-size:.82em!important;color:rgba(255,255,255,.88)!important;font-weight:600!important;transition:all .15s!important}',
             '.ir-ov-lb-upload:hover{background:rgba(244,196,48,.15)!important;border-color:#f4c430!important;color:#fff!important}',
             '.ir-ov-lb-upload input{display:none!important}',
-            '.ir-ov-lb-hint{font-size:.72em!important;color:rgba(255,255,255,.45)!important;line-height:1.5!important;flex:1!important;min-width:200px!important}',
+            '.ir-ov-lb-hint,.ir-ov-szd-hint{font-size:.72em!important;color:rgba(255,255,255,.45)!important;line-height:1.5!important;flex:1!important;min-width:200px!important}',
             '.ir-ov-lb-status{font-size:.8em!important;color:rgba(255,255,255,.65)!important;margin-top:6px!important;line-height:1.5!important;min-height:1em!important}',
             '.ir-ov-lb-status.ir-ov-lb-ok{color:#7fd97a!important}',
             '.ir-ov-lb-status.ir-ov-lb-err{color:#ff8080!important}',
@@ -1000,7 +1000,7 @@
                 '.ir-ov-count{order:2!important;flex:0 0 auto!important;font-size:.65em!important;padding:3px 8px!important}' +
                 '.ir-ov-sort,.ir-ov-starfilter{flex:1 1 calc(50% - 4px)!important;font-size:.72em!important;padding:7px 10px!important;min-width:0!important}' +
                 '.ir-ov-search{flex:1 1 100%!important;font-size:.78em!important;min-width:0!important}' +
-                '.ir-ov-export,.ir-ov-lb,.ir-ov-es,.ir-ov-close{font-size:.7em!important;padding:7px 10px!important}' +
+                '.ir-ov-export,.ir-ov-lb,.ir-ov-szd,.ir-ov-es,.ir-ov-close{font-size:.7em!important;padding:7px 10px!important}' +
                 '.ir-ov-views{padding:8px 0 4px!important;gap:4px!important;overflow-x:auto!important;flex-wrap:nowrap!important;scrollbar-width:none!important;-webkit-overflow-scrolling:touch!important}' +
                 '.ir-ov-views::-webkit-scrollbar{display:none!important}' +
                 '.ir-ov-view{font-size:.7em!important;padding:7px 10px!important;flex:0 0 auto!important;white-space:nowrap!important}' +
@@ -1015,15 +1015,15 @@
                 '.ir-ov-card-name{font-size:.72em!important}' +
                 '.ir-ov-card-meta{font-size:.62em!important}' +
                 '.ir-ov-card-stars-badge{font-size:.66em!important;padding:2px 7px!important}' +
-                '.ir-ov-lb-panel{padding:12px 14px!important;margin:0 0 12px!important;box-sizing:border-box!important;max-width:100%!important;overflow:hidden!important}' +
-                '.ir-ov-lb-row{gap:6px!important;margin-bottom:8px!important;flex-direction:column!important;align-items:stretch!important;box-sizing:border-box!important;max-width:100%!important}' +
-                '.ir-ov-lb-row *{box-sizing:border-box!important;max-width:100%!important}' +
-                '.ir-ov-lb-label{display:block!important;width:100%!important}' +
+                '.ir-ov-lb-panel,.ir-ov-szd-panel{padding:12px 14px!important;margin:0 0 12px!important;box-sizing:border-box!important;max-width:100%!important;overflow:hidden!important}' +
+                '.ir-ov-lb-row,.ir-ov-szd-row{gap:6px!important;margin-bottom:8px!important;flex-direction:column!important;align-items:stretch!important;box-sizing:border-box!important;max-width:100%!important}' +
+                '.ir-ov-lb-row *,.ir-ov-szd-row *{box-sizing:border-box!important;max-width:100%!important}' +
+                '.ir-ov-lb-label,.ir-ov-szd-label{display:block!important;width:100%!important}' +
                 '.ir-ov-lb-user{max-width:100%!important;width:100%!important;font-size:.78em!important;box-sizing:border-box!important}' +
-                '.ir-ov-lb-check{width:100%!important;font-size:.74em!important}' +
+                '.ir-ov-lb-check,.ir-ov-szd-check{width:100%!important;font-size:.74em!important}' +
                 '.ir-ov-lb-save,.ir-ov-lb-sync,.ir-ov-lb-diag,.ir-ov-lb-clean,.ir-ov-lb-scrapefav{font-size:.72em!important;padding:8px 10px!important;flex:1 1 calc(50% - 3px)!important}' +
                 '.ir-ov-lb-upload{font-size:.74em!important;padding:8px 12px!important;width:100%!important;text-align:center!important;display:block!important}' +
-                '.ir-ov-lb-hint{font-size:.66em!important}' +
+                '.ir-ov-lb-hint,.ir-ov-szd-hint{font-size:.66em!important}' +
                 '.ir-ov-lb-status{font-size:.74em!important}' +
                 '.ir-ov-diary-row{padding:10px!important;gap:10px!important}' +
                 '.ir-ov-diary-poster{width:50px!important;height:75px!important}' +
@@ -2127,6 +2127,7 @@
                     '<input type="text" class="ir-ov-search" placeholder="' + esc(tr('overlay.search_titles', null, 'Search titles\u2026')) + '" />' +
                     '<button class="ir-ov-export" title="Export ratings as Letterboxd-compatible CSV">\u21E9 Export</button>' +
                     '<button class="ir-ov-lb">\u2699 Letterboxd</button>' +
+                    '<button class="ir-ov-szd" title="Push TV ratings to Serializd">\u2699 Serializd</button>' +
                     '<button class="ir-ov-es">⇄ External Sync</button>' +
                     '<button class="ir-ov-prefs" title="User preferences">\u2699 Preferences</button>' +
                     '<button class="ir-ov-close">\u2715 Close</button>' +
@@ -2305,6 +2306,29 @@
                         '<div class="ir-ov-lb-push-status"></div>' +
                     '</div>' +
                     '<div class="ir-ov-lb-status"></div>' +
+                '</div>' +
+                '<div class="ir-ov-szd-panel" style="display:none">' +
+                    '<div class="ir-ov-szd-warn">' + esc(tr('szd.intro', null,
+                        'Serializd is television only, so this pushes series and episode ratings. Films stay with Letterboxd. StarTrack stores your Serializd password, encrypted, because Serializd has no public API tokens.')) + '</div>' +
+                    '<div class="ir-ov-szd-row">' +
+                        '<label class="ir-ov-szd-label">' + esc(tr('szd.email', null, 'Serializd email')) + '</label>' +
+                        '<input type="email" class="ir-ov-szd-email" autocomplete="off" placeholder="you@example.com" />' +
+                        '<input type="password" class="ir-ov-szd-pw" autocomplete="new-password" placeholder="' + esc(tr('szd.password', null, 'Serializd password')) + '" />' +
+                        '<button class="ir-ov-szd-verify">' + esc(tr('lb.verify_btn', null, 'Verify login')) + '</button>' +
+                        '<button class="ir-ov-szd-save">' + esc(tr('lb.save_btn', null, 'Save')) + '</button>' +
+                        '<button class="ir-ov-szd-now">' + esc(tr('szd.push_btn', null, 'Push now')) + '</button>' +
+                    '</div>' +
+                    '<div class="ir-ov-szd-row">' +
+                        '<label class="ir-ov-szd-check"><input type="checkbox" class="ir-ov-szd-on" /> <span>' + esc(tr('szd.enable', null, 'Push my TV ratings to Serializd')) + '</span></label>' +
+                        '<label class="ir-ov-szd-check"><input type="checkbox" class="ir-ov-szd-series" checked /> <span>' + esc(tr('szd.series', null, 'Series ratings')) + '</span></label>' +
+                        '<label class="ir-ov-szd-check"><input type="checkbox" class="ir-ov-szd-episodes" /> <span>' + esc(tr('szd.episodes', null, 'Episode ratings')) + '</span></label>' +
+                        '<label class="ir-ov-szd-check"><input type="checkbox" class="ir-ov-szd-reviews" /> <span>' + esc(tr('szd.reviews', null, 'Include written reviews')) + '</span></label>' +
+                    '</div>' +
+                    '<div class="ir-ov-szd-row">' +
+                        '<span class="ir-ov-szd-hint">' + esc(tr('szd.reviews_hint', null,
+                            'Serializd only keeps review text on a log entry, so a rating with a review becomes a log rather than a bare rating.')) + '</span>' +
+                    '</div>' +
+                    '<div class="ir-ov-szd-status"></div>' +
                 '</div>' +
             '</div>' +
             '<div class="ir-ov-inner">' +
@@ -2594,6 +2618,115 @@
                 });
                 ovPushLoad();
             }
+        });
+
+        // ── Overlay Serializd panel wiring ──────────────────────────────
+        // Deliberately a separate panel from Letterboxd's: the two cover
+        // different halves of a library and sharing one panel would mean one
+        // set of toggles that silently apply to only some of the items.
+        var ovSzdBtn      = _overlay.querySelector('.ir-ov-szd');
+        var ovSzdPanel    = _overlay.querySelector('.ir-ov-szd-panel');
+        var ovSzdEmail    = _overlay.querySelector('.ir-ov-szd-email');
+        var ovSzdPw       = _overlay.querySelector('.ir-ov-szd-pw');
+        var ovSzdOn       = _overlay.querySelector('.ir-ov-szd-on');
+        var ovSzdSeries   = _overlay.querySelector('.ir-ov-szd-series');
+        var ovSzdEpisodes = _overlay.querySelector('.ir-ov-szd-episodes');
+        var ovSzdReviews  = _overlay.querySelector('.ir-ov-szd-reviews');
+        var ovSzdVerify   = _overlay.querySelector('.ir-ov-szd-verify');
+        var ovSzdSave     = _overlay.querySelector('.ir-ov-szd-save');
+        var ovSzdNow      = _overlay.querySelector('.ir-ov-szd-now');
+        var ovSzdStat     = _overlay.querySelector('.ir-ov-szd-status');
+
+        function ovSzdStatus(text, kind) {
+            if (!ovSzdStat) return;
+            ovSzdStat.textContent = text;
+            ovSzdStat.style.color = kind === 'ok' ? '#52b54b' : kind === 'err' ? '#ff8080' : 'rgba(255,255,255,.6)';
+        }
+
+        function ovSzdLoad() {
+            apiSzdGetAccount().then(function (a) {
+                if (!a) return;
+                if (ovSzdEmail)    ovSzdEmail.value      = a.email || '';
+                if (ovSzdOn)       ovSzdOn.checked       = a.direction === 1;
+                if (ovSzdSeries)   ovSzdSeries.checked   = !!a.pushSeries;
+                if (ovSzdEpisodes) ovSzdEpisodes.checked = !!a.pushEpisodes;
+                if (ovSzdReviews)  ovSzdReviews.checked  = !!a.pushReviews;
+                if (ovSzdPw)       ovSzdPw.placeholder   = a.hasPassword
+                    ? tr('lb.pw_saved', null, 'Saved - leave blank to keep')
+                    : tr('szd.password', null, 'Serializd password');
+
+                if (a.lastPushError) ovSzdStatus('\u2717 ' + a.lastPushError, 'err');
+                else if (a.lastPushedAt) ovSzdStatus(
+                    tr('lb.last_pushed', null, 'Last pushed') + ' ' + timeAgo(a.lastPushedAt) +
+                    (a.lastPushedCount ? ' \u2014 ' + a.lastPushedCount : ''), '');
+                else ovSzdStatus('', '');
+            });
+        }
+
+        function ovSzdPayload() {
+            var b = {
+                email:        ovSzdEmail ? ovSzdEmail.value.trim() : '',
+                direction:    (ovSzdOn && ovSzdOn.checked) ? 1 : 0,
+                pushSeries:   !!(ovSzdSeries && ovSzdSeries.checked),
+                pushEpisodes: !!(ovSzdEpisodes && ovSzdEpisodes.checked),
+                pushReviews:  !!(ovSzdReviews && ovSzdReviews.checked)
+            };
+            // Omitted rather than sent empty: an empty string CLEARS the
+            // stored password, which is not what "save my toggles" means.
+            if (ovSzdPw && ovSzdPw.value) b.password = ovSzdPw.value;
+            return b;
+        }
+
+        if (ovSzdBtn && ovSzdPanel) ovSzdBtn.addEventListener('click', function () {
+            var opening = ovSzdPanel.style.display === 'none';
+            ovSzdPanel.style.display = opening ? 'block' : 'none';
+            ovSzdBtn.classList.toggle('ir-ov-lb-active', opening);
+            if (opening) ovSzdLoad();
+        });
+
+        if (ovSzdVerify) ovSzdVerify.addEventListener('click', function () {
+            ovSzdVerify.disabled = true;
+            ovSzdStatus(tr('lb.verifying', null, 'Checking sign-in\u2026'), '');
+            apiSzdVerify({
+                email:    ovSzdEmail ? ovSzdEmail.value.trim() : '',
+                password: ovSzdPw ? ovSzdPw.value : ''
+            }).then(function (r) {
+                if (!r)        ovSzdStatus('\u2717 ' + tr('szd.verify_failed', null, 'Could not reach Serializd.'), 'err');
+                else if (r.ok) ovSzdStatus('\u2713 ' + tr('lb.verify_ok', null, 'Signed in successfully.') +
+                                           (r.username ? ' (' + r.username + ')' : ''), 'ok');
+                else           ovSzdStatus('\u2717 ' + (r.message || r.status), 'err');
+            }).finally(function () { ovSzdVerify.disabled = false; });
+        });
+
+        if (ovSzdSave) ovSzdSave.addEventListener('click', function () {
+            ovSzdSave.disabled = true;
+            ovSzdStatus(tr('lb.saving', null, 'Saving\u2026'), '');
+            apiSzdSaveAccount(ovSzdPayload()).then(function (r) {
+                if (r.ok) {
+                    ovSzdStatus('\u2713 ' + tr('lb.saved', null, 'Saved'), 'ok');
+                    if (ovSzdPw) ovSzdPw.value = '';
+                    ovSzdLoad();
+                } else {
+                    ovSzdStatus('\u2717 ' + (r.message || tr('lb.save_failed', null, 'Could not save.')), 'err');
+                }
+            }).finally(function () { ovSzdSave.disabled = false; });
+        });
+
+        if (ovSzdNow) ovSzdNow.addEventListener('click', function () {
+            ovSzdNow.disabled = true;
+            ovSzdStatus(tr('szd.pushing', null, 'Pushing to Serializd\u2026'), '');
+            apiSzdPushNow().then(function (r) {
+                if (!r) { ovSzdStatus('\u2717 ' + tr('szd.push_failed', null, 'Push failed.'), 'err'); return; }
+                if (r.error) { ovSzdStatus('\u2717 ' + r.error, 'err'); return; }
+                var parts = [];
+                if (r.series)    parts.push(r.series + ' ' + tr('szd.n_series', null, 'series'));
+                if (r.episodes)  parts.push(r.episodes + ' ' + tr('szd.n_episodes', null, 'episodes'));
+                if (r.unmatched) parts.push(r.unmatched + ' ' + tr('szd.n_unmatched', null, 'not on Serializd'));
+                var msg = parts.length ? parts.join(', ') : tr('szd.nothing_to_push', null, 'Nothing new to push');
+                if (r.remaining) msg += ' \u2014 ' + r.remaining + ' ' +
+                    tr('lb.n_remaining', null, 'left, continuing automatically');
+                ovSzdStatus('\u2713 ' + msg, 'ok');
+            }).finally(function () { ovSzdNow.disabled = false; });
         });
 
         ovLbSave.addEventListener('click', function () {
@@ -6991,6 +7124,48 @@
     function apiLbPushNow() {
         var auth = getAuth(); if (!auth) return Promise.resolve(null);
         return fetch(_ST_BASE + '/Plugins/StarTrack/Letterboxd/PushNow', {
+            method: 'POST', headers: { Authorization: auth }
+        }).then(function (r) { return r.ok ? r.json() : null; })
+          .catch(function () { return null; });
+    }
+
+    // ---- Serializd (v1.7.0) ---------------------------------------------
+    // Same shape as the Letterboxd helpers above: the password only ever
+    // travels upward, and GET Account answers hasPassword rather than the
+    // secret.
+
+    function apiSzdGetAccount() {
+        var auth = getAuth(); if (!auth) return Promise.resolve(null);
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Serializd/Account', { headers: { Authorization: auth } })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .catch(function () { return null; });
+    }
+
+    function apiSzdSaveAccount(body) {
+        var auth = getAuth(); if (!auth) return Promise.resolve({ ok: false });
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Serializd/Account', {
+            method: 'POST',
+            headers: { Authorization: auth, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        }).then(function (r) {
+            if (r.ok) return { ok: true };
+            return r.text().then(function (t) { return { ok: false, message: t }; });
+        }).catch(function () { return { ok: false }; });
+    }
+
+    function apiSzdVerify(body) {
+        var auth = getAuth(); if (!auth) return Promise.resolve(null);
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Serializd/VerifyLogin', {
+            method: 'POST',
+            headers: { Authorization: auth, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body || {})
+        }).then(function (r) { return r.ok ? r.json() : null; })
+          .catch(function () { return null; });
+    }
+
+    function apiSzdPushNow() {
+        var auth = getAuth(); if (!auth) return Promise.resolve(null);
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Serializd/PushNow', {
             method: 'POST', headers: { Authorization: auth }
         }).then(function (r) { return r.ok ? r.json() : null; })
           .catch(function () { return null; });

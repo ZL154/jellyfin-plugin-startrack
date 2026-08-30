@@ -7,7 +7,7 @@
 ![Jellyfin](https://img.shields.io/badge/Jellyfin-10.11%2B-CC0000?style=for-the-badge&labelColor=0d0d0d&logo=jellyfin&logoColor=white)
 ![.NET](https://img.shields.io/badge/.NET-9.0-CC0000?style=for-the-badge&labelColor=0d0d0d&logo=dotnet&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-CC0000?style=for-the-badge&labelColor=0d0d0d)
-![Version](https://img.shields.io/badge/Version-1.6.5-CC0000?style=for-the-badge&labelColor=0d0d0d)
+![Version](https://img.shields.io/badge/Version-1.7.0-CC0000?style=for-the-badge&labelColor=0d0d0d)
 
 **Letterboxd-style ratings, watchlist, lists & social layer for Jellyfin**
 
@@ -45,9 +45,13 @@ Designed to integrate cleanly with modern Jellyfin setups: desktop, mobile, TV/w
 
 ## Features
 
-### 🆕 New in 1.6.5
+### 🆕 New in 1.7.0
 
-- **Two-way Letterboxd** - send ratings, watched status and likes back to Letterboxd, either as a CSV you upload yourself (no password) or as an hourly automatic push (password stored encrypted). Optional diary logging records new watches without touching your existing diary.
+- **Two-way Letterboxd** - send ratings, watched status, likes, your watchlist and dated diary entries back to Letterboxd, either as a CSV you upload yourself (no password) or as an hourly automatic push (password stored encrypted).
+- **Serializd integration** - Serializd is television only and Letterboxd is films only, so between them StarTrack can now mirror a whole library. Push series and episode ratings, optionally with your written reviews.
+- **Log a watch** - a dated "log this" control on the rating panel, so a diary is something you can build in Jellyfin instead of only importing from Letterboxd. Finished playback is logged automatically when diary logging is on.
+- **Automatic rewatch detection** - logging a film you have already watched is recorded as a rewatch without you having to say so.
+- **Overwrite toggle** - decide whether a push may change a rating that already exists on Letterboxd, or leave the remote one alone. Off by default, so a push never silently overrules a rating you made elsewhere.
 - **Simkl import fixed** - pulling ratings from Simkl returned nothing at all. StarTrack was reading the wrong fields and choking on Simkl's string-typed TMDb ids, so every pull silently reported zero. Anime ratings and TV series ids are now imported too.
 - **TV rating panel is usable again** - on a TV the panel could be opened but the stars could not be reached with the remote, so a rating could not actually be set. Focus now lands on the stars and stays inside the panel until you close it.
 - **Readable on TV** - the rating panel scales properly in Large mode instead of rendering at desktop size on a 1080p screen.
@@ -135,7 +139,7 @@ Designed to integrate cleanly with modern Jellyfin setups: desktop, mobile, TV/w
 
 ### 🔄 Letterboxd integration
 
-**Two-way as of 1.6.5.** Import has always worked from a username alone. Sending ratings *back* is new, and comes in two flavours because Letterboxd has no public write API:
+**Two-way as of 1.7.0.** Import has always worked from a username alone. Sending ratings *back* is new, and comes in two flavours because Letterboxd has no public write API:
 
 | | **CSV export** | **Automatic push** |
 |---|---|---|
@@ -158,6 +162,18 @@ The CSV route is offered first and is what most people should use. Automatic pus
 - **Export CSV** - download your StarTrack ratings in Letterboxd-compatible format for backup or migration
 - **Diagnose** button - runs the library matcher and shows you exactly how many movies are indexed, how many duplicates exist, and how titles are normalised
 - **Clean dead ratings** button - removes ratings that point to library items whose underlying file no longer exists (post-HDD-failure cleanup)
+
+### 📺 Serializd integration
+
+Letterboxd does not do television and Serializd does not do film, so the two together cover a whole library. Serializd is **export only** — StarTrack sends your TV ratings out, and nothing is imported back.
+
+Like Letterboxd, Serializd has no public API tokens, so an automatic push needs the account password. It is stored encrypted with the same key ring as the Letterboxd credential and is never returned by any endpoint.
+
+- **Series and episode ratings**, each behind its own toggle — episodes are off by default because a fully rated show is a lot of writes
+- **Optional written reviews.** Serializd only keeps review text on a *log* entry, so a rating that carries a review is sent as a log rather than a bare rating. Ratings without a review stay ratings and create no diary noise
+- **Verify login** button tells you immediately whether the password works
+- **Skip-if-unchanged**, so an hourly run over a settled library costs one sign-in and no writes at all
+- **Specials are left out** — Serializd numbers season 0 differently, and filing an episode under the wrong season is worse than not filing it
 
 ### ⇄ External service sync
 - **Trakt and Simkl authentication** - users connect with Trakt's device code or Simkl's PIN after an admin configures the server-wide app credentials

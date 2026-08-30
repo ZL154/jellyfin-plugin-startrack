@@ -76,6 +76,15 @@ namespace Jellyfin.Plugin.InternalRating
             services.AddSingleton<LetterboxdPushRunner>();
             services.AddSingleton<IScheduledTask, LetterboxdPushTask>();
 
+            // ---- Serializd (TV ratings) ----
+            // Shares the Letterboxd push ledger under its own key namespace, and
+            // the same Data Protection key ring for the stored password.
+            services.AddSingleton<Serializd.SerializdSettingsRepository>(_ => Plugin.Instance!.SerializdSettings);
+            services.AddSingleton<Serializd.ISerializdGatherer, Serializd.SerializdGatherer>();
+            services.AddSingleton<Serializd.SerializdPushService>();
+            services.AddSingleton<Serializd.SerializdPushRunner>();
+            services.AddSingleton<IScheduledTask, Serializd.SerializdPushTask>();
+
             // ---- ExternalSync services ----
             // FileExportService has no dependencies (pure serialisation helper).
             services.AddSingleton<FileExportService>();

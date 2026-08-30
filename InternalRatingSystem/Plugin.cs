@@ -31,6 +31,9 @@ namespace Jellyfin.Plugin.InternalRating
         /// </summary>
         public LetterboxdSettingsRepository LetterboxdSettings { get; }
 
+        /// <summary>Per-user Serializd settings (TV ratings push).</summary>
+        public Serializd.SerializdSettingsRepository SerializdSettings { get; }
+
         /// <summary>
         /// Shared user-interactions repository (watchlist, likes, favorites).
         /// </summary>
@@ -84,6 +87,7 @@ namespace Jellyfin.Plugin.InternalRating
             _serverConfig         = serverConfig;
             Repository            = new RatingRepository(applicationPaths);
             LetterboxdSettings    = new LetterboxdSettingsRepository(applicationPaths);
+            SerializdSettings     = new Serializd.SerializdSettingsRepository(applicationPaths);
             Interactions          = new UserInteractionsRepository(applicationPaths);
             Diary                 = new DiaryRepository(applicationPaths);
             Lists                 = new ListsRepository(applicationPaths);
