@@ -202,6 +202,7 @@ Letterboxd does not do television and Serializd does not do film, so the two tog
 - **Newest wins on import** - a rewatched season appears in the diary more than once, and StarTrack keeps the most recent opinion rather than whichever entry happened to arrive last
 - **Watch logs with no rating are skipped** rather than imported as zero stars, which would invent a rating you never gave
 - **Specials are left out** - Serializd numbers season 0 differently, and filing an episode under the wrong season is worse than not filing it
+- **Known limitation:** the import reads your Serializd **diary**, which lists entries you *logged*. A rating you gave on Serializd without logging it is stored as a plain rating and does not appear there, so StarTrack cannot import it. Everything StarTrack pushes is unaffected — that direction writes ratings directly
 - **Verify login** button tells you immediately whether the password works
 - **Skip-if-unchanged**, so an hourly push over a settled library costs one sign-in and no writes at all
 
