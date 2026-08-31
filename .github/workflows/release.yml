@@ -33,6 +33,16 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           ZIP="Jellyfin.Plugin.InternalRating_${VERSION}.zip"
 
+          # meta.json needs the FOUR-part version. .NET's Version treats an
+          # omitted revision as -1, so "1.7.0" compares as LESS THAN the
+          # "1.7.0.0" in manifest.json and a manual install is told an update
+          # is available forever - which would undo the point of shipping
+          # meta.json at all (#22).
+          META_VERSION="$VERSION"
+          while [ "$(echo "$META_VERSION" | tr -cd '.' | wc -c)" -lt 3 ]; do
+            META_VERSION="${META_VERSION}.0"
+          done
+
           # Ship meta.json INSIDE the zip.
           #
           # Issue #22: the archive used to contain nothing but the DLL. A
@@ -54,7 +64,7 @@ jobs:
             "owner": "ZL154",
             "overview": "Letterboxd-style ratings, reviews, watchlist, diary and lists for Jellyfin.",
             "targetAbi": "10.11.0.0",
-            "version": "${VERSION}",
+            "version": "${META_VERSION}",
             "status": "Active",
             "autoUpdate": false,
             "imagePath": "",
@@ -75,6 +85,14 @@ jobs:
           echo "zip=$ZIP_ABI manifest=$MAN_ABI"
           if [ "$ZIP_ABI" != "$MAN_ABI" ]; then
             echo "::error::targetAbi mismatch: zip=$ZIP_ABI manifest=$MAN_ABI"
+            exit 1
+          fi
+
+          # Same reasoning for the version itself: a 3-part meta.json version
+          # reads as older than the 4-part manifest entry.
+          ZIP_VER=$(grep -o '"version": *"[^"]*"' publish/meta.json | head -1 | sed 's/.*"\([0-9.]*\)"$//')
+          if [ "$(echo "$ZIP_VER" | tr -cd '.' | wc -c)" -ne 3 ]; then
+            echo "::error::meta.json version must have four parts, got $ZIP_VER"
             exit 1
           fi
 
