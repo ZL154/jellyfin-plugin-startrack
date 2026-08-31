@@ -90,7 +90,7 @@ jobs:
 
           # Same reasoning for the version itself: a 3-part meta.json version
           # reads as older than the 4-part manifest entry.
-          ZIP_VER=$(grep -o '"version": *"[^"]*"' publish/meta.json | head -1 | sed 's/.*"\([0-9.]*\)"$//')
+          ZIP_VER=$(python3 -c "import json;print(json.load(open('publish/meta.json'))['version'])")
           if [ "$(echo "$ZIP_VER" | tr -cd '.' | wc -c)" -ne 3 ]; then
             echo "::error::meta.json version must have four parts, got $ZIP_VER"
             exit 1
