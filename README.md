@@ -37,7 +37,7 @@
 
 ## Overview
 
-StarTrack started as a simple star-rating plugin and has grown into a full **Letterboxd-style social layer for Jellyfin**: ratings, reviews, watchlists, liked films, a chronological diary with rewatches, Top 4 favourites, collaborative lists, recommendations, server-wide watchlist sharing, Letterboxd import, and optional Trakt, Simkl and Yamtrack workflows. Ratings can also mirror into Jellyfin's native per-user rating field for use with Jellyfin filters and backups. Everything is stored as plain JSON on your own server; external services are contacted only when you explicitly configure and connect them.
+StarTrack started as a simple star-rating plugin and has grown into a full **Letterboxd-style social layer for Jellyfin**: ratings, reviews, watchlists, liked films, a chronological diary with rewatches, Top 4 favourites, collaborative lists, recommendations, server-wide watchlist sharing, two-way Letterboxd and Serializd sync, and optional Trakt, Simkl and Yamtrack workflows. Ratings can also mirror into Jellyfin's native per-user rating field for use with Jellyfin filters and backups. Everything is stored as plain JSON on your own server; external services are contacted only when you explicitly configure and connect them.
 
 Designed to integrate cleanly with modern Jellyfin setups: desktop, mobile, TV/webOS remote navigation, and reverse proxies that serve Jellyfin from a BaseURL sub-path.
 
@@ -47,15 +47,34 @@ Designed to integrate cleanly with modern Jellyfin setups: desktop, mobile, TV/w
 
 ### 🆕 New in 1.7.0
 
-- **Two-way Letterboxd** - send ratings, watched status, likes, your watchlist and dated diary entries back to Letterboxd, either as a CSV you upload yourself (no password) or as an hourly automatic push (password stored encrypted).
-- **Serializd integration, both ways** - Serializd is television only and Letterboxd is films only, so between them StarTrack can now mirror a whole library. **Importing needs your username and nothing else** - your Serializd diary is public - and only pushing needs a password.
-- **Season ratings** - StarTrack can now rate a whole season, not just a series or an episode. Seasons get their own detail-page panel, their own overlay tab and their own Top 4 row. This is what makes the Serializd import worth having: about two thirds of a real Serializd diary is season entries.
-- **Log a watch** - a dated "log this" control on the rating panel, so a diary is something you can build in Jellyfin instead of only importing from Letterboxd. Finished playback is logged automatically when diary logging is on.
-- **Automatic rewatch detection** - logging a film you have already watched is recorded as a rewatch without you having to say so.
-- **Overwrite toggle** - decide whether a push may change a rating that already exists on Letterboxd, or leave the remote one alone. Off by default, so a push never silently overrules a rating you made elsewhere.
-- **Simkl import fixed** - pulling ratings from Simkl returned nothing at all. StarTrack was reading the wrong fields and choking on Simkl's string-typed TMDb ids, so every pull silently reported zero. Anime ratings and TV series ids are now imported too.
-- **TV rating panel is usable again** - on a TV the panel could be opened but the stars could not be reached with the remote, so a rating could not actually be set. Focus now lands on the stars and stays inside the panel until you close it.
-- **Readable on TV** - the rating panel scales properly in Large mode instead of rendering at desktop size on a 1080p screen.
+The largest release so far: a second external service, a new thing you can rate, and the Letterboxd integration finally going both ways.
+
+**External services**
+
+- **Two-way Letterboxd** - send ratings, watched status, likes, your watchlist and dated diary entries back to Letterboxd, either as a CSV you upload yourself (no password) or as an hourly automatic push (password stored encrypted). Letterboxd has no public write API, so the push signs in as you; the CSV route never needs a password and always works.
+- **Serializd integration, both ways** - Serializd is television only and Letterboxd is films only, so between them StarTrack can mirror a whole library. **Importing needs your username and nothing else**, because your Serializd diary is public. Only pushing needs a password.
+- **Overwrite toggle** - decide whether a push may change a rating that already exists on Letterboxd, or leave the remote one alone. Off by default, so a push never silently overrules a rating you made somewhere else.
+- **Simkl import fixed** ([#19](https://github.com/ZL154/jellyfin-plugin-startrack/issues/19)) - pulling from Simkl returned nothing at all. StarTrack read the wrong fields and choked on Simkl's string-typed TMDb ids, so every pull silently reported zero while the export kept re-sending the same items. Anime ratings and TV series ids now import too.
+
+**Rating seasons**
+
+- **Seasons are rateable** - not just series and episodes. A season gets the same detail-page panel, its own **Seasons** type tab in My Ratings, and its own Top 4 row.
+- Season ratings stay between StarTrack and Serializd. Trakt, Simkl, Yamtrack and Letterboxd have no concept of a season rating, so seasons are deliberately withheld from them rather than filed as a show or, worse, a film.
+
+**Diary**
+
+- **Log a watch** - a dated "log this" control on the rating panel, so a diary is something you build in Jellyfin rather than only import from Letterboxd.
+- **Automatic logging on playback** - finishing something records it, server-side, so every client counts and not just the web UI.
+- **Automatic rewatch detection** - logging something you have already watched is recorded as a rewatch without you having to say so.
+
+**TV and clients**
+
+- **TV rating panel is usable again** - the panel opened but the stars could not be reached with a remote, so a rating could not actually be set. Focus now lands on the stars and stays inside the panel until you close it.
+- **Readable on TV** - the panel scales properly in Large mode instead of rendering at desktop size on a 1080p screen.
+- **[Where StarTrack works](#where-startrack-works)** is now documented, because "it doesn't show up on Roku" has a real answer and it is not a bug.
+
+**Contributed**
+
 - **Media Bar Enhanced support** - replace the hero rating with the StarTrack average (thanks @mysticalsoap).
 - **Admin-managed Letterboxd setup** - link a Letterboxd username to any user from the plugin config page (thanks @mysticalsoap).
 
@@ -106,6 +125,7 @@ Designed to integrate cleanly with modern Jellyfin setups: desktop, mobile, TV/w
 
 ### ⭐ Ratings & reviews
 - **Half-star ratings** (0.5 – 5★) per item, per user
+- **Rate movies, series, seasons and episodes** - seasons were added in 1.7.0 and behave like any other item: panel, badge, Top 4 slot and type tab
 - **Written reviews** with an admin-configurable limit from 1 to 10,000 characters
 - **Canonical community badge** displayed once on each detail page; click it to open the rating panel
 - **Compact badge mode** - show only the rating while keeping the full StarTrack label and count in the tooltip
@@ -132,7 +152,7 @@ Designed to integrate cleanly with modern Jellyfin setups: desktop, mobile, TV/w
 | **📃 Lists** | Create collaborative film lists that other users on your server can contribute to. Owner-only delete |
 
 ### ⭐ Top 4 favourites (per type)
-- Pin up to 4 movies, 4 series and 4 episodes to your profile
+- Pin up to 4 movies, 4 series, 4 seasons and 4 episodes to your profile
 - Sub-rows shown in the type tab they belong to (Movies tab → Top 4 Movies, etc)
 - Empty slots show a clear "+ pin a film" placeholder so the feature is discoverable
 - Hover any pinned slot to reveal an **× remove** button
@@ -373,7 +393,7 @@ You should see `Plugin loaded: YES`. Then open any Movie, TV Show, or Episode de
 ## How to use
 
 ### Rating controls (detail page)
-A floating pill appears at the bottom-right of every Movie / Series / Episode detail page. StarTrack also places one clickable badge alongside Jellyfin's native ratings. Click either control - or focus it with a keyboard/TV D-pad and press Enter/OK - to:
+A floating pill appears at the bottom-right of every Movie / Series / Season / Episode detail page. StarTrack also places one clickable badge alongside Jellyfin's native ratings. Click either control - or focus it with a keyboard/TV D-pad and press Enter/OK - to:
 - Set your rating (half-star precision)
 - Optionally write a review
 - See the community average and per-user breakdown
@@ -392,7 +412,7 @@ Click **My Ratings** in the Jellyfin sidebar to open the full overlay. The view 
 - **✨ For you** - personalised recommendations
 - **📃 Lists** - your and others' collaborative lists
 
-Each view supports search, sort, type filter, and (where applicable) star filter.
+Each view supports search, sort, star filter (where applicable) and a type filter: **All / Movies / TV Shows / Seasons / Episodes / Anime**.
 
 ### Letterboxd sync
 1. Export your data from letterboxd.com → **Settings → Import & Export → Export Your Data**
@@ -401,6 +421,26 @@ Each view supports search, sort, type filter, and (where applicable) star filter
 4. Drop the export ZIP into the upload box - ratings, diary, watchlist and likes import in one pass
 5. Click **⭐ Import Top 4** to scrape your Letterboxd profile's favourite films
 6. Click **Sync now** any time to pull your latest ratings + watchlist + likes via RSS / HTML scrape
+
+### Serializd sync
+
+Serializd covers television; Letterboxd covers film. The two halves have different requirements on purpose.
+
+**To import (no password):**
+1. In *My Ratings*, click the **⚙ Serializd** button in the topbar
+2. Type your Serializd username and tick **Import my diary hourly**
+3. Click **Save**, then **Sync now**
+
+That is all importing needs - your diary is a public page, so StarTrack just reads it. Nothing is stored beyond the username.
+
+**To also push your ratings out:**
+4. Tick **Also push my TV ratings to Serializd**, which reveals the credential box
+5. Enter your Serializd email and password, click **Verify login** to check them, then **Save**
+6. Click **Push now**, or leave it to the hourly task
+
+Choose which kinds to push with the **Series / Season / Episode ratings** toggles. **Include written reviews** is off by default: Serializd only keeps review text on a *log* entry, so a rating carrying a review is sent as a log rather than a bare rating.
+
+> Serializd has no public API tokens, so pushing genuinely requires the account password. It is encrypted at rest with the same key ring as the Letterboxd credential and is never returned by any endpoint. If you would rather not store one, use import only - it loses nothing except the outbound direction.
 
 ### External sync (Trakt / Simkl / Yamtrack)
 1. **Admin (one-time):** Dashboard → Plugins → StarTrack - paste a **Trakt** client ID + secret and/or a **Simkl** client ID (create a free app on each service's developer page). This is server-wide; users don't need their own keys.
@@ -492,6 +532,15 @@ All endpoints are under `/Plugins/StarTrack/`. Every endpoint requires Jellyfin 
 | `POST` | `/Letterboxd/VerifyLogin` | Test a Letterboxd sign-in without writing anything |
 | `POST` | `/Letterboxd/PushNow` | Push ratings/watched/likes now, returns a per-kind report |
 | `GET` | `/Letterboxd/ExportCsv` | Download ratings as a `letterboxd.com/import` CSV (no password required) |
+
+### Serializd sync *(new in 1.7)*
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/Serializd/Account` | Direction, username, per-kind toggles. Reports whether a password is stored, never returns it |
+| `POST` | `/Serializd/Account` | Save direction, username, credentials and push toggles |
+| `POST` | `/Serializd/VerifyLogin` | Test a Serializd sign-in without writing anything |
+| `POST` | `/Serializd/SyncNow` | Import the public diary now - **needs a username only, no password** |
+| `POST` | `/Serializd/PushNow` | Push series/season/episode ratings now, returns a per-kind report |
 
 ### External sync *(new in 1.6)*
 All under `/Plugins/StarTrack/ExternalSync/`. `{provider}` is `trakt`, `simkl`, or `yamtrack`.
