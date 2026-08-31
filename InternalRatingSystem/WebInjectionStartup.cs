@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.InternalRating.Data;
@@ -214,6 +215,40 @@ namespace Jellyfin.Plugin.InternalRating
 
         public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
+        /// <summary>
+        /// Removes every trace of a previous injection: the marker comment, an
+        /// intact StarTrack script tag, and the malformed self-referential tags
+        /// left behind by the cleanup this replaces. That last one is a repair
+        /// rather than prevention — servers patched by an earlier build still
+        /// have those orphans sitting in index.html, one per widget update, each
+        /// costing a wasted full-page download and a console error.
+        /// </summary>
+        /// <summary>Pattern for the broken tags an earlier build left behind.</summary>
+        private const string OrphanPattern = @"<script[^>]*src=""\?v=[0-9a-fA-F]+""[^>]*>\s*</script>";
+
+        /// <summary>True when index.html still carries wreckage that needs clearing.</summary>
+        internal static bool HasOrphanedTags(string html) =>
+            Regex.IsMatch(html, OrphanPattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        internal static string StripInjection(string html)
+        {
+            const RegexOptions Opts = RegexOptions.IgnoreCase | RegexOptions.CultureInvariant;
+
+            html = Regex.Replace(html, @"<!--\s*startrack-widget\s*-->", string.Empty, Opts);
+
+            // A well-formed StarTrack tag, with or without a base-path prefix.
+            html = Regex.Replace(
+                html,
+                @"<script[^>]*src=""[^""]*/Plugins/StarTrack/Widget\?v=[^""]*""[^>]*>\s*</script>",
+                string.Empty, Opts);
+
+            // The orphans: src is nothing but the cache-busting query, so the
+            // browser fetches the current page and parses HTML as a script.
+            html = Regex.Replace(html, OrphanPattern, string.Empty, Opts);
+
+            return html;
+        }
+
         private async Task TryPatchIndexHtmlAsync()
         {
             var candidates = new[]
@@ -240,17 +275,26 @@ namespace Jellyfin.Plugin.InternalRating
                         // present we're up to date. Otherwise the token is stale (the widget
                         // changed since the last patch) — strip the old injection and fall
                         // through to re-add the fresh one, which busts browser/CDN caches.
-                        if (html.Contains(ScriptTag, StringComparison.Ordinal))
+                        // "Up to date" has to mean the CURRENT tag is present AND
+                        // no wreckage is left beside it. Checking only the tag
+                        // meant a server whose widget never changed again kept
+                        // its orphans for good, because the repair below only
+                        // ran when the token moved.
+                        if (html.Contains(ScriptTag, StringComparison.Ordinal) && !HasOrphanedTags(html))
                         {
                             DiagIndexPatched = true;
                             DiagPatchedPath  = path;
                             return;
                         }
-                        html = System.Text.RegularExpressions.Regex.Replace(
-                            html,
-                            "/Plugins/StarTrack/Widget(<script[^>]*src=\"/Plugins/StarTrack/Widget\\?v=[^\"]*\"[^>]*></script>)?",
-                            string.Empty,
-                            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                        // The regex this replaces matched the PATH rather than the
+                        // whole tag, so it deleted "/Plugins/StarTrack/Widget" out
+                        // of the src and left <script src="?v=abc123"></script>
+                        // behind. That resolves to index.html itself, so the browser
+                        // re-downloaded the page and tried to parse HTML as
+                        // JavaScript — one "Unexpected token '<'" per orphan, in
+                        // every browser. One accumulated on disk per widget update
+                        // and nothing ever cleaned them up.
+                        html = StripInjection(html);
                     }
 
                     if (!html.Contains("</body>", StringComparison.OrdinalIgnoreCase)) continue;
