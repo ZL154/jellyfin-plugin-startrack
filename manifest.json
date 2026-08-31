@@ -9,6 +9,14 @@
     "imageUrl": "https://cdn.jsdelivr.net/gh/ZL154/jellyfin-plugin-startrack@main/assets/logo.svg",
     "versions": [
       {
+        "version": "1.7.0.0",
+        "changelog": "Two-way Letterboxd and Serializd, plus season ratings. LETTERBOXD: push ratings, watched status, likes, your watchlist and dated diary entries back, either as a CSV that needs no password or as an hourly automatic push; an overwrite toggle decides whether a push may change a rating that already exists remotely (off by default). SERIALIZD (new): the television-only counterpart to Letterboxd. Importing needs only your username, because the diary is public - no password is stored; pushing series, season and episode ratings needs the account password, encrypted at rest. SEASONS: a whole season is now rateable alongside movies, series and episodes, with its own panel, overlay tab and Top 4 row. Season ratings are deliberately withheld from Letterboxd, Trakt, Simkl and Yamtrack, which have no concept of them. DIARY: a dated 'log a watch' control, automatic logging when playback finishes, and automatic rewatch detection. FIXES: Simkl import returned nothing at all (#19); the post-playback rating popup missed the playing item on 10.11.11 (#21); the hide-Letterboxd and hide-External-Sync toggles had no effect (#23); the TV rating panel opened but the stars could not be reached with a remote (#8); the release zip shipped without meta.json, so manual installs reported 'Not supported' (#22); the widget injection corrupted index.html on every update, leaving self-referential script tags that made browsers re-download the page as JavaScript - existing damage is now repaired automatically. In-place upgrade; no StarTrack data migration.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/ZL154/jellyfin-plugin-startrack/releases/download/v1.7.0/Jellyfin.Plugin.InternalRating_1.7.0.zip",
+        "checksum": "E4205943ED2381A1F7EFDEE56869F25E",
+        "timestamp": "2026-08-31T21:18:00Z"
+      },
+      {
         "version": "1.6.4.0",
         "changelog": "Media-page and TV/webOS fixes plus native-rating and BaseURL follow-ups. Issue #11/#8: keeps one canonical clickable StarTrack badge, removes legacy and attribute-stripped ghost copies, and reliably hides Jellyfin's delayed native community-rating node when replacement is enabled. Issue #8: whole-star controls are D-pad focusable/selectable with webOS-compatible focus feedback. Issue #12: adds an elevation-gated, idempotent admin backfill for existing ratings into Jellyfin's native per-user rating field. Issue #13: native item, poster, and avatar requests consistently respect Jellyfin's BaseURL sub-path. Release workflow now uses .NET 9. In-place upgrade; no StarTrack data migration.",
         "targetAbi": "10.11.0.0",
