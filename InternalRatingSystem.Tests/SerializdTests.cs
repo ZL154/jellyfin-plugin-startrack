@@ -258,6 +258,40 @@ namespace InternalRatingSystem.Tests
         }
 
         [Fact]
+        public async Task Adding_a_review_while_reviews_are_off_does_not_re_send_the_rating()
+        {
+            // The signature must reflect what is actually SENT. If it tracked
+            // the review regardless, writing one with the toggle off would
+            // change the signature and push an identical rating again - a
+            // pointless write to someone else's server.
+            var w = new FakeSerializdWriter();
+
+            await Service(new FakeSerializdGatherer(new SerializdRating(1399, null, null, 4.0, null)))
+                .PushAsync(User, w, Settings(reviews: false), delayMs: 0);
+
+            var second = await Service(new FakeSerializdGatherer(
+                    new SerializdRating(1399, null, null, 4.0, "now with a review")))
+                .PushAsync(User, w, Settings(reviews: false), delayMs: 0);
+
+            Assert.Single(w.Shows);
+            Assert.Equal(1, second.Unchanged);
+        }
+
+        [Fact]
+        public async Task Turning_reviews_on_does_re_send_so_the_text_actually_arrives()
+        {
+            var w = new FakeSerializdWriter();
+            var rating = new SerializdRating(1399, null, null, 4.0, "loved it");
+
+            await Service(new FakeSerializdGatherer(rating)).PushAsync(User, w, Settings(reviews: false), delayMs: 0);
+            await Service(new FakeSerializdGatherer(rating)).PushAsync(User, w, Settings(reviews: true), delayMs: 0);
+
+            Assert.Equal(2, w.Shows.Count);
+            Assert.Null(w.Shows[0].Review);
+            Assert.Equal("loved it", w.Shows[1].Review);
+        }
+
+        [Fact]
         public async Task Unchanged_ratings_are_not_re_sent()
         {
             var w = new FakeSerializdWriter();

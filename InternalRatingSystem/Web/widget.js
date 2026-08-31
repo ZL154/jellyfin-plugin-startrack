@@ -735,17 +735,17 @@
             '.ir-ov-lb-csv:hover{background:rgba(255,255,255,.16)!important;border-color:rgba(255,255,255,.45)!important}',
             '.ir-ov-lb-pw,.ir-ov-lb-cookies,.ir-ov-lb-ua,.ir-ov-szd-email,.ir-ov-szd-pw{background:rgba(255,255,255,.05)!important;border:1px solid rgba(255,255,255,.14)!important;border-radius:6px!important;color:#fff!important;font-size:.85em!important;padding:7px 12px!important;outline:none!important;min-width:200px!important;flex:1!important;max-width:340px!important}',
             '.ir-ov-lb-pw:focus,.ir-ov-lb-cookies:focus,.ir-ov-lb-ua:focus,.ir-ov-szd-email:focus,.ir-ov-szd-pw:focus{border-color:rgba(244,196,48,.5)!important}',
-            '.ir-ov-lb-verify,.ir-ov-lb-push-save,.ir-ov-lb-push-now,.ir-ov-szd-verify,.ir-ov-szd-save,.ir-ov-szd-now{background:#f4c430!important;color:#000!important;border:none!important;border-radius:6px!important;padding:7px 16px!important;font-size:.8em!important;font-weight:700!important;cursor:pointer!important;transition:transform .1s,background .15s!important}',
+            '.ir-ov-lb-verify,.ir-ov-lb-push-save,.ir-ov-lb-push-now,.ir-ov-szd-verify,.ir-ov-szd-save,.ir-ov-szd-now,.ir-ov-szd-sync{background:#f4c430!important;color:#000!important;border:none!important;border-radius:6px!important;padding:7px 16px!important;font-size:.8em!important;font-weight:700!important;cursor:pointer!important;transition:transform .1s,background .15s!important}',
             '.ir-ov-lb-verify,.ir-ov-szd-verify{background:rgba(255,255,255,.10)!important;color:#fff!important;border:1px solid rgba(255,255,255,.22)!important}',
             '.ir-ov-lb-verify:hover,.ir-ov-szd-verify:hover{background:rgba(255,255,255,.18)!important}',
-            '.ir-ov-lb-push-save:hover,.ir-ov-lb-push-now:hover,.ir-ov-szd-save:hover,.ir-ov-szd-now:hover{background:#ffd84d!important;transform:scale(1.04)!important}',
+            '.ir-ov-lb-push-save:hover,.ir-ov-lb-push-now:hover,.ir-ov-szd-save:hover,.ir-ov-szd-now:hover,.ir-ov-szd-sync:hover{background:#ffd84d!important;transform:scale(1.04)!important}',
             '.ir-ov-lb-adv{margin:6px 0!important;font-size:.8em!important}',
             '.ir-ov-lb-adv summary{cursor:pointer!important;color:#f4c430!important;padding:4px 0!important}',
             '.ir-ov-lb-push-status,.ir-ov-szd-status{font-size:.8em!important;line-height:1.5!important;margin-top:8px!important;min-height:1.2em!important}',
             '.ir-ov-lb-label,.ir-ov-szd-label{color:rgba(255,255,255,.6)!important;font-size:.75em!important;text-transform:uppercase!important;letter-spacing:.05em!important;font-weight:700!important;white-space:nowrap!important}',
-            '.ir-ov-lb-user{background:rgba(255,255,255,.05)!important;border:1px solid rgba(255,255,255,.14)!important;border-radius:6px!important;color:#fff!important;font-size:.85em!important;padding:7px 12px!important;outline:none!important;transition:border-color .2s!important;min-width:180px!important;flex:1!important;max-width:280px!important}',
-            '.ir-ov-lb-user:focus{border-color:rgba(244,196,48,.5)!important}',
-            '.ir-ov-lb-user::placeholder{color:rgba(255,255,255,.25)!important}',
+            '.ir-ov-lb-user,.ir-ov-szd-username{background:rgba(255,255,255,.05)!important;border:1px solid rgba(255,255,255,.14)!important;border-radius:6px!important;color:#fff!important;font-size:.85em!important;padding:7px 12px!important;outline:none!important;transition:border-color .2s!important;min-width:180px!important;flex:1!important;max-width:280px!important}',
+            '.ir-ov-lb-user:focus,.ir-ov-szd-username:focus{border-color:rgba(244,196,48,.5)!important}',
+            '.ir-ov-lb-user::placeholder,.ir-ov-szd-username::placeholder{color:rgba(255,255,255,.25)!important}',
             '.ir-ov-lb-check,.ir-ov-szd-check{display:flex!important;align-items:center!important;gap:6px!important;color:rgba(255,255,255,.85)!important;font-size:.8em!important;cursor:pointer!important;white-space:nowrap!important}',
             '.ir-ov-lb-check input,.ir-ov-szd-check input{accent-color:#f4c430!important;width:15px!important;height:15px!important}',
             '.ir-ov-lb-save,.ir-ov-lb-sync{background:#f4c430!important;color:#000!important;border:none!important;border-radius:6px!important;padding:7px 16px!important;font-size:.8em!important;font-weight:700!important;cursor:pointer!important;transition:transform .1s,background .15s!important}',
@@ -1019,9 +1019,9 @@
                 '.ir-ov-lb-row,.ir-ov-szd-row{gap:6px!important;margin-bottom:8px!important;flex-direction:column!important;align-items:stretch!important;box-sizing:border-box!important;max-width:100%!important}' +
                 '.ir-ov-lb-row *,.ir-ov-szd-row *{box-sizing:border-box!important;max-width:100%!important}' +
                 '.ir-ov-lb-label,.ir-ov-szd-label{display:block!important;width:100%!important}' +
-                '.ir-ov-lb-user{max-width:100%!important;width:100%!important;font-size:.78em!important;box-sizing:border-box!important}' +
+                '.ir-ov-lb-user,.ir-ov-szd-username{max-width:100%!important;width:100%!important;font-size:.78em!important;box-sizing:border-box!important}' +
                 '.ir-ov-lb-check,.ir-ov-szd-check{width:100%!important;font-size:.74em!important}' +
-                '.ir-ov-lb-save,.ir-ov-lb-sync,.ir-ov-lb-diag,.ir-ov-lb-clean,.ir-ov-lb-scrapefav{font-size:.72em!important;padding:8px 10px!important;flex:1 1 calc(50% - 3px)!important}' +
+                '.ir-ov-lb-save,.ir-ov-lb-sync,.ir-ov-lb-diag,.ir-ov-lb-clean,.ir-ov-lb-scrapefav,.ir-ov-szd-sync,.ir-ov-szd-save,.ir-ov-szd-now,.ir-ov-szd-verify{font-size:.72em!important;padding:8px 10px!important;flex:1 1 calc(50% - 3px)!important}' +
                 '.ir-ov-lb-upload{font-size:.74em!important;padding:8px 12px!important;width:100%!important;text-align:center!important;display:block!important}' +
                 '.ir-ov-lb-hint,.ir-ov-szd-hint{font-size:.66em!important}' +
                 '.ir-ov-lb-status{font-size:.74em!important}' +
@@ -2316,9 +2316,13 @@
                     // would imply a password is required to use Serializd at all.
                     '<div class="ir-ov-szd-row">' +
                         '<label class="ir-ov-szd-label">' + esc(tr('szd.username', null, 'Serializd username')) + '</label>' +
-                        '<input type="text" class="ir-ov-szd-username" autocomplete="off" maxlength="64" placeholder="e.g. yourname" />' +
+                        '<input type="text" class="ir-ov-szd-username" autocomplete="off" maxlength="64" ' +
+                            'name="startrack-serializd-username" data-lpignore="true" data-1p-ignore data-bwignore="true" ' +
+                            'placeholder="e.g. yourname" />' +
                         '<label class="ir-ov-szd-check"><input type="checkbox" class="ir-ov-szd-import" /> <span>' + esc(tr('szd.import_enable', null, 'Import my diary hourly')) + '</span></label>' +
                         '<button class="ir-ov-szd-sync">' + esc(tr('szd.sync_btn', null, 'Sync now')) + '</button>' +
+                    '</div>' +
+                    '<div class="ir-ov-szd-row">' +
                         '<span class="ir-ov-szd-hint">' + esc(tr('szd.import_hint', null,
                             'Your diary is public, so importing needs your username only \u2014 no password.')) + '</span>' +
                     '</div>' +
@@ -2671,7 +2675,7 @@
         }
 
         function ovSzdLoad() {
-            apiSzdGetAccount().then(function (a) {
+            return apiSzdGetAccount().then(function (a) {
                 if (!a) return;
                 if (ovSzdEmail)    ovSzdEmail.value      = a.email || '';
                 if (ovSzdUser)     ovSzdUser.value       = a.username || '';
@@ -2754,8 +2758,13 @@
                 if (r.imported)  parts.push(r.imported + ' ' + tr('szd.n_imported', null, 'imported'));
                 if (r.updated)   parts.push(r.updated + ' ' + tr('szd.n_updated', null, 'updated'));
                 if (r.unmatched) parts.push(r.unmatched + ' ' + tr('szd.n_not_in_library', null, 'not in library'));
-                ovSzdStatus('\u2713 ' + (parts.length ? parts.join(', ')
-                    : tr('szd.nothing_imported', null, 'Nothing new to import')), 'ok');
+                // A tick means something was written. A run where every entry
+                // was unmatched wrote nothing, and showing it as a success is
+                // how "the import works" and "the import did nothing" end up
+                // looking identical.
+                var wrote = (r.imported || 0) + (r.updated || 0) > 0;
+                ovSzdStatus((wrote ? '\u2713 ' : '') + (parts.length ? parts.join(', ')
+                    : tr('szd.nothing_imported', null, 'Nothing new to import')), wrote ? 'ok' : '');
             }).finally(function () { ovSzdSync.disabled = false; });
         });
 
@@ -2778,9 +2787,13 @@
             ovSzdStatus(tr('lb.saving', null, 'Saving\u2026'), '');
             apiSzdSaveAccount(ovSzdPayload()).then(function (r) {
                 if (r.ok) {
-                    ovSzdStatus('\u2713 ' + tr('lb.saved', null, 'Saved'), 'ok');
                     if (ovSzdPw) ovSzdPw.value = '';
-                    ovSzdLoad();
+                    // Confirm AFTER the reload, not before: ovSzdLoad paints the
+                    // stored state over whatever is showing, so setting the
+                    // message first meant it was never actually seen.
+                    ovSzdLoad().then(function () {
+                        ovSzdStatus('\u2713 ' + tr('lb.saved', null, 'Saved'), 'ok');
+                    });
                 } else {
                     ovSzdStatus('\u2717 ' + (r.message || tr('lb.save_failed', null, 'Could not save.')), 'err');
                 }

@@ -168,6 +168,11 @@ namespace Jellyfin.Plugin.InternalRating.Serializd
                     if (delayMs > 0 && page <= totalPages) await Task.Delay(delayMs, ct).ConfigureAwait(false);
                 }
 
+                if (totalPages > MaxPages)
+                    _logger.LogWarning(
+                        "[StarTrack] Serializd diary for {User} has {Total} pages; stopped at the {Max}-page cap, so this import is partial.",
+                        username, totalPages, MaxPages);
+
                 foreach (var kv in best)
                 {
                     ct.ThrowIfCancellationRequested();
@@ -321,7 +326,16 @@ namespace Jellyfin.Plugin.InternalRating.Serializd
             }
         }
 
-        /// <summary>Finds a season or episode by its number under a parent.</summary>
+        /// <summary>
+        /// Finds a season or episode by its number under a parent.
+        ///
+        /// The number is matched HERE rather than pushed into the query. An
+        /// InternalItemsQuery filter that the repository quietly ignores would
+        /// combine with a Limit to return an arbitrary child, and this would
+        /// then file a rating against the wrong season with nothing to show for
+        /// it. A series has a handful of seasons and a season a few dozen
+        /// episodes, so filtering in memory costs nothing worth having.
+        /// </summary>
         private BaseItem? FindChild(BaseItem parent, BaseItemKind kind, int index)
         {
             try
@@ -329,11 +343,9 @@ namespace Jellyfin.Plugin.InternalRating.Serializd
                 var q = new InternalItemsQuery
                 {
                     ParentId         = parent.Id,
-                    IncludeItemTypes = new[] { kind },
-                    IndexNumber      = index,
-                    Limit            = 1
+                    IncludeItemTypes = new[] { kind }
                 };
-                return _library.GetItemList(q).FirstOrDefault();
+                return _library.GetItemList(q).FirstOrDefault(c => c.IndexNumber == index);
             }
             catch (Exception ex)
             {

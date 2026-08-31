@@ -121,7 +121,7 @@ namespace Jellyfin.Plugin.InternalRating.Serializd
 
                     var signature = LetterboxdPushLedger.Signature(
                         item.Stars,
-                        item.Review != null,
+                        settings.PushReviews && item.Review != null,
                         settings.PushSeries || settings.PushSeasons, settings.PushEpisodes, settings.PushReviews);
 
                     if (await _ledger.IsUnchangedAsync(key, ledgerId, signature).ConfigureAwait(false))
