@@ -110,6 +110,21 @@ namespace Jellyfin.Plugin.InternalRating
         /// ratings are never touched unless an admin enables this.</summary>
         public bool MirrorToNativeRating { get; set; } = false;
 
+        // ---- Letterboxd pending imports ---------------------------------- //
+
+        /// <summary>
+        /// [#25] Keep Letterboxd rows that matched nothing in the library and
+        /// retry them on later syncs, so a rating imported today lands automatically once
+        /// the film is added to Jellyfin months from now. Without this, an unmatched row is
+        /// discarded the moment the import runs and the only way to recover it is to
+        /// re-upload the whole export.
+        ///
+        /// Opt-in; default off. It writes a per-user queue to disk that grows with the part
+        /// of a member's Letterboxd history the server does not have, which is a cost an
+        /// admin should choose rather than inherit on upgrade.
+        /// </summary>
+        public bool RetainUnmatchedLetterboxdRows { get; set; } = false;
+
         // ---- Daily auto-export ------------------------------------------- //
 
         /// <summary>When true, a daily scheduled task exports all users' ratings to disk.</summary>
