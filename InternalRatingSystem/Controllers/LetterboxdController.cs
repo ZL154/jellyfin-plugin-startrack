@@ -164,7 +164,22 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             var userName = GetCurrentUserName();
 
             _logger.LogInformation("[StarTrack] Letterboxd SyncNow request received from {User}", userName);
-            var result = await _sync.SyncRssAsync(userId.Value.ToString("N"), userName).ConfigureAwait(false);
+            var userIdStr = userId.Value.ToString("N");
+            var result = await _sync.SyncRssAsync(userIdStr, userName).ConfigureAwait(false);
+
+            // [#25] "Sync now" is also the manual way to replay rows that had no
+            // library match, so a member who just added a film can pull its
+            // rating in without waiting for the hourly retry. Unthrottled: this
+            // one is a deliberate click, not a timer.
+            try
+            {
+                result.PendingResolved += await _sync.RetryPendingAsync(userIdStr, userName).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[StarTrack] SyncNow pending retry threw — returning the sync result anyway");
+            }
+
             return Ok(result);
         }
 
@@ -382,8 +397,21 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                         }
                     }
 
-                    _logger.LogInformation("[StarTrack] {User} ZIP import: ratings={R} updated={U} watchlist+{W} likes+{L}",
-                        userName, result.Imported, result.Updated, result.WatchlistAdded, result.LikesAdded);
+                    // [#25] Drain anything an EARLIER import parked whose film has
+                    // since arrived. Reuses the lookup this request already built,
+                    // so it costs no extra library scan.
+                    try
+                    {
+                        result.PendingResolved += await _sync.RetryPendingAsync(userIdStr, userName, lookup).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "[StarTrack] Pending retry after ZIP import threw — continuing");
+                    }
+
+                    _logger.LogInformation("[StarTrack] {User} ZIP import: ratings={R} updated={U} watchlist+{W} likes+{L} pendingQueued={Q} pendingResolved={P}",
+                        userName, result.Imported, result.Updated, result.WatchlistAdded, result.LikesAdded,
+                        result.PendingQueued, result.PendingResolved);
                     return Ok(result);
                 }
                 catch (InvalidDataException)

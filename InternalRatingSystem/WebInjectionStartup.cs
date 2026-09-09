@@ -48,6 +48,13 @@ namespace Jellyfin.Plugin.InternalRating
             services.AddSingleton<DiaryRepository>(_ => Plugin.Instance!.Diary);
             services.AddSingleton<ListsRepository>(_ => Plugin.Instance!.Lists);
 
+            // [#25] Queue of Letterboxd rows that matched nothing in the library,
+            // retried by the sync task as the library grows. Its own JSON file
+            // for the same reason the push ledger has one: it is sized by the
+            // part of a member's history the server does not have.
+            services.AddSingleton<LetterboxdPendingStore>(sp =>
+                new LetterboxdPendingStore(sp.GetRequiredService<IApplicationPaths>()));
+
             // Letterboxd sync service — gets ILibraryManager + logger from DI,
             // repositories from the singletons above.
             services.AddSingleton<LetterboxdSyncService>();
