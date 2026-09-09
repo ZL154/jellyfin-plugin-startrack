@@ -175,6 +175,12 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         // hadn't changed since last poll, so no work was done. Used by the
         // scheduled task to skip logging "imported 0".
         [JsonPropertyName("notModified")]       public bool NotModified      { get; set; }
+
+        // [#25] Rows that matched nothing and were parked for a later retry,
+        // and rows a retry pass finally resolved. Both are zero unless the
+        // admin enabled RetainUnmatchedLetterboxdRows.
+        [JsonPropertyName("pendingQueued")]     public int PendingQueued     { get; set; }
+        [JsonPropertyName("pendingResolved")]   public int PendingResolved   { get; set; }
     }
 
     /// <summary>
