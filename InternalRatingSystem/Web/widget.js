@@ -8664,6 +8664,7 @@
         if (mrl) mrl.value = _adminPickKey(c, 'MaxReviewLength') || 10000;
         _adminSetCheckbox(root.querySelector('#stCompactMediaBadge'), _adminPickKey(c, 'CompactMediaBadge'));
         _adminSetCheckbox(root.querySelector('#stMirrorToNativeRating'), _adminPickKey(c, 'MirrorToNativeRating'));
+        _adminSetCheckbox(root.querySelector('#stRetainUnmatchedLetterboxdRows'), _adminPickKey(c, 'RetainUnmatchedLetterboxdRows'));
         var rsz = root.querySelector('#stRatingSize');
         if (rsz) rsz.value = _adminPickKey(c, 'RatingSize') || 'normal';
         _adminSetCheckbox(root.querySelector('#stPostPlaybackPopup'),    _adminPickKey(c, 'PostPlaybackRatingPopup'));
@@ -8712,6 +8713,7 @@
         if (_mrl) { var _mrlN = parseInt(_mrl.value, 10); c.MaxReviewLength = isNaN(_mrlN) ? 10000 : Math.min(10000, Math.max(1, _mrlN)); }
         c.CompactMediaBadge = !!(root.querySelector('#stCompactMediaBadge') && root.querySelector('#stCompactMediaBadge').checked);
         c.MirrorToNativeRating = !!(root.querySelector('#stMirrorToNativeRating') && root.querySelector('#stMirrorToNativeRating').checked);
+        c.RetainUnmatchedLetterboxdRows = !!(root.querySelector('#stRetainUnmatchedLetterboxdRows') && root.querySelector('#stRetainUnmatchedLetterboxdRows').checked);
         var _rsz = root.querySelector('#stRatingSize');
         if (_rsz) c.RatingSize = (_rsz.value === 'large' || _rsz.value === 'largetv') ? _rsz.value : 'normal';
         c.PostPlaybackRatingPopup   = !!(root.querySelector('#stPostPlaybackPopup')    && root.querySelector('#stPostPlaybackPopup').checked);
