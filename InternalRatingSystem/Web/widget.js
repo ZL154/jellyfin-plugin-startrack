@@ -2845,8 +2845,11 @@
             var ambiguous = lbPick(r, 'ambiguous', 'Ambiguous') || 0;
             var libCount  = lbPick(r, 'libraryMovieCount', 'LibraryMovieCount');
 
+            var resolved  = lbPick(r, 'pendingResolved', 'PendingResolved') || 0;
+
             var parts = ['Imported ' + imported];
             if (updated)   parts.push('updated ' + updated);
+            if (resolved)  parts.push('applied ' + resolved + ' now in library');
             if (unmatched) parts.push(unmatched + ' not in library');
             if (ambiguous) parts.push(ambiguous + ' ambiguous');
             var libPart = libCount != null
@@ -2868,7 +2871,11 @@
                 if (err) { ovLbShowStatus(err, 'err', null); return; }
                 var imported = lbPick(r, 'imported', 'Imported') || 0;
                 var updated  = lbPick(r, 'updated', 'Updated') || 0;
-                var total = imported + updated;
+                // [#25] Rows the retry applied count as "something happened" too.
+                // The feed can be idle while films arriving in the library resolve
+                // a backlog, and reporting "nothing new" over the top of ratings
+                // that just landed reads as a failure.
+                var total = imported + updated + (lbPick(r, 'pendingResolved', 'PendingResolved') || 0);
                 var msg = total > 0 ? lbResultMsg(r, 'sync') : 'Nothing new on Letterboxd right now.';
                 ovLbShowStatus(msg, 'ok', lbPick(r, 'unmatchedTitles', 'UnmatchedTitles'));
                 if (_overlay.classList.contains('ir-ov-open')) loadMyRatings();
@@ -7098,8 +7105,9 @@
 
         function smallLbResultMsg(r) {
             var parts = ['Imported ' + (r.imported || 0)];
-            if (r.updated)   parts.push('updated ' + r.updated);
-            if (r.unmatched) parts.push(r.unmatched + ' not in library');
+            if (r.updated)         parts.push('updated ' + r.updated);
+            if (r.pendingResolved) parts.push('applied ' + r.pendingResolved + ' now in library');
+            if (r.unmatched)       parts.push(r.unmatched + ' not in library');
             var lib = r.libraryMovieCount != null
                 ? ' · lib: ' + r.libraryMovieCount
                 : '';
@@ -7118,7 +7126,7 @@
                     lbSync.disabled = false;
                     if (!r) { showLbStatus('Sync failed.', 'err'); return; }
                     if (r.error) { showLbStatus(r.error, 'err'); return; }
-                    var total = (r.imported || 0) + (r.updated || 0);
+                    var total = (r.imported || 0) + (r.updated || 0) + (r.pendingResolved || 0);
                     var msg = total > 0 ? smallLbResultMsg(r) : 'Nothing new on Letterboxd right now.';
                     showLbStatus(msg, 'ok');
                 });
