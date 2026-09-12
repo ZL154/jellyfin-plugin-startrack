@@ -338,6 +338,102 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
 
         /// <summary>Diagnostic info — admin-only to avoid leaking host paths and last-error text.</summary>
         // GET /Plugins/StarTrack/Debug
+        /// <summary>
+        /// Structured self-check for "StarTrack isn't showing up".
+        ///
+        /// WHY: that one symptom is the single most reported problem, and it has
+        /// at least five unrelated causes — the plugin not loaded at all (wrong
+        /// ABI, which Jellyfin reports NOWHERE), index.html not patched, a stale
+        /// cache-busting token, a sub-path BaseUrl the widget is not using, and a
+        /// content blocker eating a URL with "Track" in it. They are
+        /// indistinguishable from the outside: the user just sees nothing.
+        ///
+        /// Every check below is one a maintainer currently has to walk someone
+        /// through by hand, over days, in an issue thread.
+        ///
+        /// /Debug already exposed some of this as plain text behind an endpoint
+        /// nobody knows exists. This is the same data, shaped so the config page
+        /// can render it and a user can paste it into a bug report.
+        /// </summary>
+        [HttpGet("SelfCheck")]
+        [Authorize(Policy = "RequiresElevation")]
+        [Produces(MediaTypeNames.Application.Json)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public IActionResult GetSelfCheck()
+        {
+            var asmVersion = GetType().Assembly.GetName().Version?.ToString() ?? "unknown";
+            var baseUrl    = Plugin.Instance?.BaseUrl ?? string.Empty;
+
+            // Which ABI this build targets. A user on the wrong one sees the
+            // plugin simply absent, with nothing in the log — so if they can read
+            // this at all, the DLL matches their server, and that is worth
+            // stating positively.
+            var tfm = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription;
+
+            var injected = WebInjectionService.DiagIndexPatched;
+            var found    = WebInjectionService.DiagIndexFound;
+
+            var checks = new List<object>
+            {
+                new
+                {
+                    id     = "plugin",
+                    label  = "Plugin loaded",
+                    ok     = true,   // reaching this endpoint at all proves it
+                    detail = $"StarTrack {asmVersion} is running on {tfm}. Since this page answered, the build matches your server's ABI."
+                },
+                new
+                {
+                    id     = "widget",
+                    label  = "Widget script reachable",
+                    ok     = true,
+                    detail = $"{baseUrl}/Plugins/StarTrack/Widget?v={WidgetAsset.Version}"
+                },
+                new
+                {
+                    id     = "injection",
+                    label  = "Injected into the web UI",
+                    ok     = injected || !found,
+                    detail = injected
+                        ? $"index.html patched at {WebInjectionService.DiagPatchedPath}."
+                        : found
+                            ? "index.html was found but could not be written. The HTTP middleware normally covers this on its own — if the widget loads in a browser, nothing is wrong."
+                            : "No index.html on disk to patch. Normal for containerised installs; the HTTP middleware injects instead."
+                },
+                new
+                {
+                    id     = "baseurl",
+                    label  = "Reverse-proxy base path",
+                    ok     = true,
+                    detail = baseUrl.Length == 0
+                        ? "No BaseUrl configured — StarTrack is serving from the domain root."
+                        : $"BaseUrl is \"{baseUrl}\"; the injected script and every API call are prefixed with it."
+                },
+                new
+                {
+                    id     = "token",
+                    label  = "Cache-busting token",
+                    ok     = true,
+                    detail = $"Current token is {WidgetAsset.Version}. If a browser is running an older widget, the page was cached — reload once with Ctrl+Shift+R."
+                }
+            };
+
+            return Ok(new
+            {
+                version    = asmVersion,
+                framework  = tfm,
+                baseUrl,
+                widgetToken = WidgetAsset.Version,
+                lastError  = WebInjectionService.DiagLastError,
+                webPath    = WebInjectionService.DiagWebPath,
+                checks,
+                // The two things a maintainer always ends up asking for, and the
+                // two a user can never find. Both are client-side, so the page
+                // fills them in; they are named here so the shape is stable.
+                clientChecks = new[] { "scriptTagPresent", "widgetExecuted" }
+            });
+        }
+
         [HttpGet("Debug")]
         [Authorize(Policy = "RequiresElevation")]
         [Produces("text/plain")]

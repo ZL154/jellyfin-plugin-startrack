@@ -103,15 +103,48 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync
         /// IMDb importer doesn't accept TV Episode).
         /// </summary>
         public string BuildImdbCsv(IReadOnlyList<ExternalRating> ratings)
+            => BuildImdbCsv(ratings, out _);
+
+        /// <summary>
+        /// What an IMDb export actually contained, and what it could not carry.
+        ///
+        /// WHY THIS EXISTS: the export drops rows for two unavoidable reasons —
+        /// no IMDb id (the format keys on <c>Const</c>, so a row without one
+        /// cannot be written at all) and episodes (Yamtrack's IMDb importer
+        /// rejects <c>TV Episode</c>). Both are correct. Both were also
+        /// completely silent: a member could export 900 ratings, receive 400,
+        /// and have nothing anywhere telling them why the other 500 vanished —
+        /// which reads as data loss rather than a format limit.
+        /// </summary>
+        /// <param name="Written">Rows actually in the CSV.</param>
+        /// <param name="SkippedNoImdbId">Dropped because the item has no IMDb id in Jellyfin.</param>
+        /// <param name="SkippedEpisodes">Dropped because the target importer has no episode row type.</param>
+        public readonly record struct ImdbExportSummary(int Written, int SkippedNoImdbId, int SkippedEpisodes)
+        {
+            /// <summary>Total rows offered to the exporter.</summary>
+            public int Total => Written + SkippedNoImdbId + SkippedEpisodes;
+
+            /// <summary>True when anything at all was left out.</summary>
+            public bool AnySkipped => SkippedNoImdbId > 0 || SkippedEpisodes > 0;
+        }
+
+        /// <summary>
+        /// As <see cref="BuildImdbCsv(IReadOnlyList{ExternalRating})"/>, but also
+        /// reports what was left out so the caller can say so instead of handing
+        /// back a quietly shorter file.
+        /// </summary>
+        public string BuildImdbCsv(IReadOnlyList<ExternalRating> ratings, out ImdbExportSummary summary)
         {
             var sb = new StringBuilder();
             sb.AppendLine("Const,Title,Title Type,Your Rating,Date Rated,Created,Modified,Year");
 
+            int written = 0, noId = 0, episodes = 0;
+
             foreach (var r in ratings)
             {
-                if (string.IsNullOrEmpty(r.Imdb))
-                    continue; // IMDb import matches on Const (the IMDb id)
-
+                // Order matters for honest counting: an episode with no IMDb id
+                // is reported once, as an episode, because that is the reason the
+                // user can do nothing about.
                 string? titleType = r.MediaType switch
                 {
                     "movie" => "Movie",
@@ -119,16 +152,134 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync
                     _        => null // episodes/other not supported by Yamtrack's IMDb import
                 };
                 if (titleType == null)
+                {
+                    episodes++;
                     continue;
+                }
+
+                if (string.IsNullOrEmpty(r.Imdb))
+                {
+                    noId++;       // IMDb import matches on Const (the IMDb id)
+                    continue;
+                }
 
                 var date     = r.RatedAt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
                 var rating10 = RatingScale.ToService10(r.Stars).ToString(CultureInfo.InvariantCulture);
                 var year     = r.Year.HasValue ? r.Year.Value.ToString(CultureInfo.InvariantCulture) : string.Empty;
 
                 sb.AppendLine($"{r.Imdb},{CsvEscape(r.Title)},{titleType},{rating10},{date},{date},{date},{year}");
+                written++;
             }
 
+            summary = new ImdbExportSummary(written, noId, episodes);
             return sb.ToString().TrimEnd('\r', '\n');
+        }
+
+        /// <summary>
+        /// Parses an IMDb ratings export (<c>ratings.csv</c> from
+        /// imdb.com → Your Ratings → Export) into <see cref="ExternalRating"/> rows.
+        ///
+        /// The inverse of <see cref="BuildImdbCsv(IReadOnlyList{ExternalRating})"/>,
+        /// and the gap it closes is real: StarTrack could already WRITE this
+        /// format but not read it, so a member with years of IMDb ratings had to
+        /// launder them through a third service to get them in. One reporter did
+        /// exactly that with 1300 ratings.
+        ///
+        /// Column names are matched from the header rather than by position:
+        /// IMDb has shipped at least two column orders, and Yamtrack and Simkl
+        /// both emit near-miss variants of the same file. Required: <c>Const</c>
+        /// and <c>Your Rating</c>. Everything else is optional.
+        ///
+        /// Ratings are IMDb's 1-10 and are halved onto StarTrack's 0.5-5, which
+        /// is exact. Rows with no id, no rating, or an out-of-range rating are
+        /// skipped rather than guessed at.
+        /// </summary>
+        public IReadOnlyList<ExternalRating> ParseImdbCsv(string csv)
+        {
+            var result = new List<ExternalRating>();
+            if (string.IsNullOrWhiteSpace(csv)) return result;
+
+            var lines = csv.Replace("\r\n", "\n").Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            if (lines.Length < 2) return result;
+
+            // Header -> index, case/space-insensitive so "Your Rating",
+            // "your rating" and "YourRating" all resolve.
+            var header = SplitCsvLine(lines[0]);
+            var col = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            for (var i = 0; i < header.Count; i++)
+            {
+                var key = header[i].Replace(" ", string.Empty).Trim();
+                if (key.Length > 0 && !col.ContainsKey(key)) col[key] = i;
+            }
+
+            int Idx(params string[] names)
+            {
+                foreach (var n in names)
+                    if (col.TryGetValue(n, out var i)) return i;
+                return -1;
+            }
+
+            var iConst  = Idx("Const", "imdbID", "IMDbID", "tconst");
+            var iRating = Idx("YourRating", "Rating", "MyRating");
+            var iTitle  = Idx("Title", "OriginalTitle", "PrimaryTitle", "Name");
+            var iType   = Idx("TitleType", "Type");
+            var iYear   = Idx("Year", "StartYear", "ReleaseYear");
+            var iDate   = Idx("DateRated", "Created", "Modified", "Date");
+
+            // Without an id and a score there is nothing to import.
+            if (iConst < 0 || iRating < 0) return result;
+
+            string? Get(IReadOnlyList<string> f, int i)
+                => (i >= 0 && i < f.Count) ? f[i] : null;
+
+            for (var li = 1; li < lines.Length; li++)
+            {
+                var f = SplitCsvLine(lines[li]);
+                if (f.Count == 0) continue;
+
+                var imdb = Get(f, iConst)?.Trim();
+                if (string.IsNullOrWhiteSpace(imdb) || !imdb.StartsWith("tt", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var rawRating = Get(f, iRating)?.Trim();
+                if (!double.TryParse(rawRating, NumberStyles.Float, CultureInfo.InvariantCulture, out var ten))
+                    continue;
+                if (ten < 1 || ten > 10) continue;
+
+                // IMDb 1-10 -> StarTrack 0.5-5. Exact: the two scales are the
+                // same ten positions.
+                var stars = RatingScale.FromService10((int)Math.Round(ten, MidpointRounding.AwayFromZero));
+
+                var title = Get(f, iTitle)?.Trim() ?? string.Empty;
+
+                int? year = null;
+                if (int.TryParse(Get(f, iYear), NumberStyles.Integer, CultureInfo.InvariantCulture, out var y))
+                    year = y;
+
+                // IMDb writes "TV Series", "TV Mini Series", "TV Episode",
+                // "Movie", "TV Movie", "Short", "Video"... Anything that is a
+                // series-shaped thing becomes "show"; the rest are treated as
+                // films, which is also the right default when the column is
+                // missing entirely.
+                var rawType = Get(f, iType)?.Trim() ?? string.Empty;
+                var mediaType =
+                    rawType.Contains("Episode", StringComparison.OrdinalIgnoreCase) ? "episode" :
+                    rawType.Contains("Series",  StringComparison.OrdinalIgnoreCase) ? "show"    :
+                    "movie";
+
+                var ratedAt = DateTime.UtcNow;
+                var rawDate = Get(f, iDate);
+                if (!string.IsNullOrWhiteSpace(rawDate) &&
+                    DateTime.TryParse(rawDate, CultureInfo.InvariantCulture,
+                        DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var d))
+                {
+                    ratedAt = d;
+                }
+
+                result.Add(new ExternalRating(imdb, null, null, title, year, mediaType, stars, ratedAt));
+            }
+
+            return result;
         }
 
         // ------------------------------------------------------------------ //

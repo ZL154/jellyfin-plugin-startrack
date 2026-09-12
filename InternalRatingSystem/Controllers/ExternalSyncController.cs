@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Mime;
@@ -121,8 +122,31 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                      string.Equals(format, "yamtrack", StringComparison.OrdinalIgnoreCase))
             {
                 // IMDb-ratings-format CSV — importable by Yamtrack's "Import from IMDb".
-                var csv = _exportService.BuildImdbCsv(ratings);
+                //
+                // This export cannot carry everything, for two reasons the user
+                // can do nothing about: the format keys on Const, so a rating on
+                // an item with no IMDb id has nowhere to go, and the importer has
+                // no episode row type. Both were silent, so a member could export
+                // 900 ratings, get 400, and read it as data loss. The counts ride
+                // back on headers the UI reads out.
+                var csv = _exportService.BuildImdbCsv(ratings, out var summary);
                 var csvBytes = Encoding.UTF8.GetBytes(csv);
+
+                Response.Headers["X-StarTrack-Exported"]         = summary.Written.ToString(CultureInfo.InvariantCulture);
+                Response.Headers["X-StarTrack-Skipped-NoImdbId"] = summary.SkippedNoImdbId.ToString(CultureInfo.InvariantCulture);
+                Response.Headers["X-StarTrack-Skipped-Episodes"] = summary.SkippedEpisodes.ToString(CultureInfo.InvariantCulture);
+                // Without this the browser hides them from fetch() and the UI
+                // would silently report nothing — the very bug being fixed.
+                Response.Headers["Access-Control-Expose-Headers"] =
+                    "X-StarTrack-Exported, X-StarTrack-Skipped-NoImdbId, X-StarTrack-Skipped-Episodes";
+
+                if (summary.AnySkipped)
+                {
+                    _logger.LogInformation(
+                        "[StarTrack] IMDb export for user={User}: wrote {W} of {T} ratings; skipped {N} with no IMDb id and {E} episodes",
+                        userIdStr, summary.Written, summary.Total, summary.SkippedNoImdbId, summary.SkippedEpisodes);
+                }
+
                 return File(csvBytes, "text/csv", $"startrack-imdb-ratings-{dateSuffix}.csv");
             }
             else
@@ -131,6 +155,22 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 var csvBytes = Encoding.UTF8.GetBytes(csv);
                 return File(csvBytes, "text/csv", $"startrack-ratings-{dateSuffix}.csv");
             }
+        }
+
+        /// <summary>
+        /// True when the upload is an IMDb ratings export rather than StarTrack's
+        /// own CSV. Keyed on the header line only: IMDb's id column is
+        /// <c>Const</c> and its score column is <c>Your Rating</c>, neither of
+        /// which appears in StarTrack's own export (date,title,year,rating), so
+        /// the two cannot be confused for one another.
+        /// </summary>
+        internal static bool LooksLikeImdbCsv(string body)
+        {
+            if (string.IsNullOrWhiteSpace(body)) return false;
+            var nl = body.IndexOf('\n');
+            var header = (nl >= 0 ? body[..nl] : body).Replace(" ", string.Empty);
+            return header.Contains("Const", StringComparison.OrdinalIgnoreCase)
+                && header.Contains("YourRating", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -177,12 +217,23 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             bool useJson = string.Equals(format, "json", StringComparison.OrdinalIgnoreCase)
                            || (Request.ContentType?.Contains("application/json", StringComparison.OrdinalIgnoreCase) == true);
 
+            // An IMDb ratings export is a CSV like any other, so asking the user
+            // to pick the right format from a dropdown is a step that exists only
+            // to be got wrong. The header is unmistakable — IMDb's first column
+            // is "Const" and it carries "Your Rating" — so detect it and route
+            // accordingly. An explicit ?format=imdb still forces it.
+            bool useImdb = !useJson &&
+                           (string.Equals(format, "imdb", StringComparison.OrdinalIgnoreCase) ||
+                            LooksLikeImdbCsv(bodyText));
+
             System.Collections.Generic.IReadOnlyList<ExternalRating> parsed;
             try
             {
-                parsed = useJson
-                    ? _exportService.ParseJson(bodyText)
-                    : _exportService.ParseCsv(bodyText);
+                parsed = useJson ? _exportService.ParseJson(bodyText)
+                       : useImdb ? _exportService.ParseImdbCsv(bodyText)
+                                 : _exportService.ParseCsv(bodyText);
+                if (useImdb)
+                    _logger.LogInformation("[StarTrack] Import detected an IMDb ratings export: {N} row(s) parsed", parsed.Count);
             }
             catch (Exception ex)
             {

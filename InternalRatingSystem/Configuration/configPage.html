@@ -345,6 +345,34 @@
                 </form>
             </div>
 
+            <!--
+                Self-check. "StarTrack isn't showing up" is the most common thing
+                anyone reports, and it has several unrelated causes that look
+                identical from the outside: the plugin not loaded at all, the web
+                UI not injected, a stale cached widget, a sub-path BaseUrl, or a
+                content blocker eating a URL with "Track" in it. Every one of them
+                currently gets diagnosed by hand, over days, in an issue thread.
+                This answers all of them in one click.
+            -->
+            <div class="verticalSection">
+                <h3 class="sectionTitle"><span style="color:#f4c430;">✓</span> <span data-tr="Is StarTrack working?">Is StarTrack working?</span></h3>
+                <p style="color:rgba(255,255,255,.7);font-size:.9em;line-height:1.55;max-width:720px;" data-tr="If the rating pill or badges are not appearing, run this. It checks the things that have to be true, from the server side and from this browser, and tells you which one is not.">
+                    If the rating pill or badges are not appearing, run this. It checks the things that have to be true,
+                    from the server side and from this browser, and tells you which one is not.
+                </p>
+                <div style="max-width:720px;margin-top:14px;">
+                    <button is="emby-button" type="button" id="stRunSelfCheck" class="raised block" style="max-width:220px;">
+                        <span data-tr="Run self-check">Run self-check</span>
+                    </button>
+                    <div id="stSelfCheckResults" style="margin-top:14px;"></div>
+                    <details id="stSelfCheckRaw" style="margin-top:12px;display:none;">
+                        <summary style="cursor:pointer;color:#f4c430;font-size:.85em;" data-tr="Copy this into a bug report">Copy this into a bug report</summary>
+                        <textarea id="stSelfCheckRawText" readonly rows="10"
+                                  style="width:100%;margin-top:8px;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.85);border-radius:6px;padding:10px;font-family:monospace;font-size:.78em;"></textarea>
+                    </details>
+                </div>
+            </div>
+
             <div class="verticalSection">
                 <h3 class="sectionTitle"><span style="color:#f4c430;">⇄</span> <span data-tr="External Sync – App Credentials">External Sync – App Credentials</span></h3>
                 <p style="color:rgba(255,255,255,.7);font-size:.9em;line-height:1.55;max-width:720px;" data-tr="To let users connect Trakt or Simkl from the StarTrack rating panel, register a free OAuth app on each service and paste the Client ID and Secret below. Users will authenticate themselves — these credentials are never shared with them.">

@@ -2285,8 +2285,8 @@
                         '<span class="ir-ov-es-io-label">Export / Import</span>' +
                         '<button class="ir-ov-es-btn ir-ov-es-btn-export-csv">⇩ CSV</button>' +
                         '<button class="ir-ov-es-btn ir-ov-es-btn-export-json">⇩ JSON</button>' +
-                        '<button class="ir-ov-es-btn ir-ov-es-btn-export-imdb" title="IMDb-format CSV — import it into Yamtrack via &quot;Import from IMDb&quot;">⇩ Yamtrack CSV</button>' +
-                        '<label class="ir-ov-es-import-label">' +
+                        '<button class="ir-ov-es-btn ir-ov-es-btn-export-imdb" title="IMDb-format CSV — import it into Yamtrack via &quot;Import from IMDb&quot;. Episodes and items with no IMDb id cannot be written to this format; you will be told how many were left out.">⇩ Yamtrack CSV</button>' +
+                        '<label class="ir-ov-es-import-label" title="Accepts a StarTrack CSV or JSON export, or an IMDb ratings export (imdb.com → Your Ratings → Export). The format is detected from the file.">' +
                             '<input type="file" accept=".csv,.json,text/csv,application/json" class="ir-ov-es-import-file" />' +
                             '⇧ Import file' +
                         '</label>' +
@@ -3409,9 +3409,27 @@
 
             function triggerEsDownload(format) {
                 var auth = getAuth(); if (!auth) return;
+                var skipNote = '';
                 fetch(_ST_BASE + '/Plugins/StarTrack/ExternalSync/Export?format=' + format, { headers: { Authorization: auth } })
                     .then(function (r) {
                         if (!r.ok) { esIoStatus('Export failed.', 'err'); return null; }
+                        // The IMDb format cannot carry episodes, or anything with
+                        // no IMDb id. Both are correct and both used to be silent,
+                        // so a 900-rating library could produce a 400-row file
+                        // with nothing anywhere saying why. The server counts
+                        // them; say so rather than hand back a shorter file.
+                        var num = function (h) { var n = parseInt(r.headers.get(h), 10); return isNaN(n) ? 0 : n; };
+                        var wrote = num('X-StarTrack-Exported');
+                        var noId  = num('X-StarTrack-Skipped-NoImdbId');
+                        var eps   = num('X-StarTrack-Skipped-Episodes');
+                        if (noId || eps) {
+                            var bits = [];
+                            if (eps)  bits.push(eps + ' episode' + (eps === 1 ? '' : 's'));
+                            if (noId) bits.push(noId + ' with no IMDb id');
+                            skipNote = ' ' + wrote + ' rating' + (wrote === 1 ? '' : 's') +
+                                       ' written; ' + bits.join(' and ') +
+                                       ' could not be (this format has no row for them).';
+                        }
                         return r.blob();
                     })
                     .then(function (blob) {
@@ -3423,7 +3441,7 @@
                         document.body.appendChild(a);
                         a.click();
                         setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 0);
-                        esIoStatus('Export downloaded.', 'ok');
+                        esIoStatus('Export downloaded.' + skipNote, skipNote ? '' : 'ok');
                     })
                     .catch(function () { esIoStatus('Export failed.', 'err'); });
             }
@@ -9047,6 +9065,120 @@
             .finally(function () { if (saveBtn) saveBtn.disabled = false; });
     }
 
+    // ── Self-check ────────────────────────────────────────────────────────
+    //
+    // Answers "why isn't StarTrack showing up" in one click. The server half
+    // reports what it did; the two checks below are ones ONLY the browser can
+    // answer, and they are the two a maintainer always ends up asking for by
+    // hand in an issue thread:
+    //
+    //   scriptTagPresent — is the <script> actually in the page's HTML? If not,
+    //     the server never injected, and no amount of browser debugging helps.
+    //   widgetExecuted   — did it then RUN? A tag that is present but did not
+    //     execute means the request was blocked, and the usual culprit is a
+    //     content blocker matching "Track" in the URL path.
+    //
+    // Those two split the problem cleanly in half, which is exactly the question
+    // that takes days to resolve over issue comments.
+    function _adminRunSelfCheck(page) {
+        var out = page.querySelector('#stSelfCheckResults');
+        var raw = page.querySelector('#stSelfCheckRaw');
+        var rawText = page.querySelector('#stSelfCheckRawText');
+        if (!out) return;
+        out.innerHTML = '<div style="color:rgba(255,255,255,.6);font-size:.85em">' +
+                        esc(tr('selfcheck.running', null, 'Checking…')) + '</div>';
+
+        var auth = getAuth();
+        if (!auth) {
+            out.innerHTML = '<div style="color:#ff8080;font-size:.85em">' +
+                            esc(tr('selfcheck.noauth', null, 'Not signed in — reload the dashboard and try again.')) + '</div>';
+            return;
+        }
+
+        fetch(_ST_BASE + '/Plugins/StarTrack/SelfCheck', { headers: { Authorization: auth }, cache: 'no-store' })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (d) {
+                if (!d) {
+                    // A 404 here is itself the answer, and the most important one
+                    // the tool can give: the plugin is installed but not running,
+                    // which on a manual install usually means the wrong build.
+                    out.innerHTML =
+                        '<div style="color:#ff8080;font-size:.88em;line-height:1.6">' +
+                        esc(tr('selfcheck.notrunning', null,
+                            'StarTrack did not answer. The plugin is installed but not running — on a manual install this almost always means the downloaded build does not match your Jellyfin version. Check Dashboard → Plugins: anything other than "Active" is the cause.')) +
+                        '</div>';
+                    return;
+                }
+
+                var checks = (d.checks || []).slice();
+
+                // ---- browser-side halves ----
+                var tag = document.querySelector('script[src*="/Plugins/StarTrack/Widget"]');
+                checks.push({
+                    id: 'scriptTagPresent',
+                    label: tr('selfcheck.tag', null, 'Script tag present in this page'),
+                    ok: !!tag,
+                    detail: tag
+                        ? tag.getAttribute('src')
+                        : tr('selfcheck.tag_missing', null,
+                            'Not in the HTML. The server did not inject it — this is a server-side problem, not a browser one. A reverse proxy or CDN caching index.html is the usual cause.')
+                });
+
+                // If this code is running, the widget ran — it lives in the same
+                // file. Stated explicitly because it is the half that rules a
+                // content blocker in or out.
+                checks.push({
+                    id: 'widgetExecuted',
+                    label: tr('selfcheck.exec', null, 'Widget script executed here'),
+                    ok: true,
+                    detail: tr('selfcheck.exec_ok', null,
+                        'Yes — this panel is drawn by the widget itself. If ratings still do not appear on media pages, it is not being blocked.')
+                });
+
+                // Stale-cache check: compare the token this page loaded against
+                // the one the server is serving now.
+                if (tag && d.widgetToken) {
+                    var loaded = (tag.getAttribute('src').split('v=')[1] || '').trim();
+                    var fresh  = loaded === d.widgetToken;
+                    checks.push({
+                        id: 'tokenFresh',
+                        label: tr('selfcheck.cache', null, 'Browser is running the current widget'),
+                        ok: fresh,
+                        detail: fresh
+                            ? tr('selfcheck.cache_ok', null, 'Up to date.')
+                            : tr('selfcheck.cache_stale', null,
+                                'This page loaded an older widget (' + loaded + ') than the server has (' + d.widgetToken + '). Reload with Ctrl+Shift+R. Recently-changed settings may appear to do nothing until you do.')
+                    });
+                }
+
+                out.innerHTML = checks.map(function (c) {
+                    var mark  = c.ok ? '✓' : '✕';
+                    var col   = c.ok ? '#52b54b' : '#ff8080';
+                    return '<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid rgba(255,255,255,.06)">' +
+                               '<span style="color:' + col + ';font-weight:700;flex:0 0 auto">' + mark + '</span>' +
+                               '<span style="flex:1;min-width:0">' +
+                                   '<div style="color:#fff;font-size:.88em">' + esc(c.label) + '</div>' +
+                                   '<div style="color:rgba(255,255,255,.55);font-size:.78em;margin-top:2px;word-break:break-word">' + esc(c.detail || '') + '</div>' +
+                               '</span>' +
+                           '</div>';
+                }).join('');
+
+                if (raw && rawText) {
+                    raw.style.display = '';
+                    rawText.value = JSON.stringify({
+                        version: d.version, framework: d.framework, baseUrl: d.baseUrl,
+                        widgetToken: d.widgetToken, webPath: d.webPath, lastError: d.lastError,
+                        userAgent: navigator.userAgent,
+                        checks: checks.map(function (c) { return { id: c.id, ok: c.ok, detail: c.detail }; })
+                    }, null, 2);
+                }
+            })
+            .catch(function (e) {
+                out.innerHTML = '<div style="color:#ff8080;font-size:.85em">' +
+                                esc(tr('selfcheck.failed', null, 'Self-check failed: ') + (e && e.message ? e.message : 'network error')) + '</div>';
+            });
+    }
+
     function _adminWireInstance(page) {
         if (!page || page.dataset.stWired === '1') return;
         page.dataset.stWired = '1';
@@ -9058,6 +9190,9 @@
             form.addEventListener('change', function () { _adminLocalDirty = true; });
             form.addEventListener('input',  function () { _adminLocalDirty = true; });
         }
+
+        var selfCheckBtn = page.querySelector('#stRunSelfCheck');
+        if (selfCheckBtn) selfCheckBtn.addEventListener('click', function () { _adminRunSelfCheck(page); });
 
         // External Sync credentials form — saves via the same handler, but shows its own status badge.
         var esForm = page.querySelector('#starTrackExternalSyncForm');
