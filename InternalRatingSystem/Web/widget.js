@@ -1721,20 +1721,35 @@
     // Shown, not converted: 0.5-5 in half-steps and 1-10 in whole steps are the
     // same ten positions, so this adds no precision and loses none. The stars
     // stay the rating. Off by default.
-    function _tenPointSuffix(v) {
-        if (!_STARTRACK_CONFIG.showTenPointEquivalent) return '';
-        if (!(v > 0)) return '';
+    // The 1-10 form of a star value. Whole numbers print as "7", not "7.0" \u2014
+    // it is an integer scale. A community AVERAGE can land between positions,
+    // so 3.75 becomes "7.5"; that is honest, since the average is not a rating
+    // anybody actually gave.
+    function _tenOf(v) {
         var ten = v * 2;
-        // Whole numbers print as "7", not "7.0" \u2014 it is a 1-10 integer scale.
-        return ' (' + (ten % 1 === 0 ? ten.toFixed(0) : ten.toFixed(1)) + '/10)';
+        return ten % 1 === 0 ? ten.toFixed(0) : ten.toFixed(1);
+    }
+
+    // How an average is written, per the admin's RatingDisplayMode.
+    // Used by all three places that show one: the media-page badge, the poster
+    // badges and the floating pill \u2014 so a server can't end up saying 7/10 in one
+    // and 3.5 in another. Anything unrecognised falls back to stars, which is
+    // also the default and is byte-identical to the behaviour before this
+    // existed.
+    function _fmtAvg(v) {
+        if (!(v > 0)) return '';
+        switch (_STARTRACK_CONFIG.ratingDisplayMode) {
+            case 'ten':  return _tenOf(v) + '/10';
+            case 'both': return v.toFixed(1) + ' (' + _tenOf(v) + '/10)';
+            default:     return v.toFixed(1);
+        }
     }
 
     function _badgeTextFor(data, hasRatings) {
         if (!hasRatings) return tr('widget.badge_rate_prompt', null, '\u2606 Rate');
-        var num = data.averageRating.toFixed(1) + _tenPointSuffix(data.averageRating);
         return _STARTRACK_CONFIG.compactMediaBadge
-            ? '\u2605 ' + num
-            : '\u2605 ' + num + '  StarTrack' +
+            ? '\u2605 ' + _fmtAvg(data.averageRating)
+            : '\u2605 ' + _fmtAvg(data.averageRating) + '  StarTrack' +
               (data.totalRatings > 1 ? ' (' + data.totalRatings + ')' : '');
     }
 
@@ -1801,7 +1816,7 @@
         if (hasRatings) {
             // [v1.6.2] (#8, locksoft) number in white (like the IMDb rating), star
             // and the StarTrack label in gold — reads clearer and more prominent.
-            badge.innerHTML = '<span class="ir-pb-star">★</span> <span class="ir-pb-num">' + data.averageRating.toFixed(1) + '</span>'
+            badge.innerHTML = '<span class="ir-pb-star">★</span> <span class="ir-pb-num">' + _fmtAvg(data.averageRating) + '</span>'
                 + (_STARTRACK_CONFIG.compactMediaBadge ? ''
                     : ' <span class="ir-pb-label">StarTrack' + (data.totalRatings > 1 ? ' (' + data.totalRatings + ')' : '') + '</span>');
         } else {
@@ -6491,7 +6506,7 @@
         var icon = el.querySelector('.ir-star-icon'), avgTxt = el.querySelector('.ir-avg-text'), lbl = el.querySelector('.ir-label');
         if (total > 0) {
             icon.textContent = '\u2605'; icon.style.opacity = '1';
-            avgTxt.textContent = avg.toFixed(1); avgTxt.style.display = '';
+            avgTxt.textContent = _fmtAvg(avg); avgTxt.style.display = '';
             if (lbl) lbl.style.display = 'none';
         } else {
             icon.textContent = '\u2606'; icon.style.opacity = '0.5';
@@ -6499,7 +6514,7 @@
             if (lbl) { lbl.textContent = 'Rate'; lbl.style.color = ''; lbl.style.display = ''; }
         }
 
-        el.querySelector('.ir-big-avg').textContent = total > 0 ? avg.toFixed(1) : '\u2013';
+        el.querySelector('.ir-big-avg').textContent = total > 0 ? _fmtAvg(avg) : '\u2013';
         el.querySelector('.ir-count').textContent   = '(' + total + ' rating' + (total !== 1 ? 's' : '') + ')';
 
         var ratings = (data && data.userRatings) || [];
@@ -8114,7 +8129,7 @@
                     var vert  = pos.indexOf('bottom') === 0 ? 'bottom:6px' : 'top:6px';
                     var horiz = pos.indexOf('left') !== -1 ? 'left:6px' : 'right:6px';
                     b.style.cssText = 'position:absolute;' + vert + ';' + horiz + ';padding:3px 8px;border-radius:999px;background:rgba(0,0,0,.82);color:#f4c430;font-size:.75em;font-weight:700;z-index:5;pointer-events:none;line-height:1.25;letter-spacing:.02em;box-shadow:0 2px 6px rgba(0,0,0,.5);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)';
-                    b.textContent = '\u2605 ' + d.averageRating.toFixed(1);
+                    b.textContent = '\u2605 ' + _fmtAvg(d.averageRating);
                     if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
                     host.appendChild(b);
                 }).catch(function () {});
@@ -8137,7 +8152,7 @@
                     if (!id) return;
                     apiGet(id).then(function (d) {
                         if (!d || !d.totalRatings) return;
-                        p.textContent = '\u2605 ' + d.averageRating.toFixed(1);
+                        p.textContent = '\u2605 ' + _fmtAvg(d.averageRating);
                         p.title = 'StarTrack (' + d.totalRatings + ')';
                     });
                 });
@@ -8207,7 +8222,7 @@
                     c.classList.toggle('ir-mbe-unrated', !rated);
                     if (sep) sep.classList.toggle('ir-mbe-unrated', !rated);
 
-                    _mbeText(c, rated ? d.averageRating.toFixed(1)
+                    _mbeText(c, rated ? _fmtAvg(d.averageRating)
                                       : (c.getAttribute('data-ir-mbe-native') || ''));
                     if (rated) c.title = tr('widget.startrack_count', { n: d.totalRatings },
                                             'StarTrack (' + d.totalRatings + ')');
@@ -8761,7 +8776,8 @@
         var mrl = root.querySelector('#stMaxReviewLength');
         if (mrl) mrl.value = _adminPickKey(c, 'MaxReviewLength') || 10000;
         _adminSetCheckbox(root.querySelector('#stCompactMediaBadge'), _adminPickKey(c, 'CompactMediaBadge'));
-        _adminSetCheckbox(root.querySelector('#stShowTenPointEquivalent'), _adminPickKey(c, 'ShowTenPointEquivalent'));
+        var rdm = root.querySelector('#stRatingDisplayMode');
+        if (rdm) { var v = _adminPickKey(c, 'RatingDisplayMode'); rdm.value = (v === 'both' || v === 'ten') ? v : 'stars'; }
         _adminSetCheckbox(root.querySelector('#stMirrorToNativeRating'), _adminPickKey(c, 'MirrorToNativeRating'));
         _adminSetCheckbox(root.querySelector('#stRetainUnmatchedLetterboxdRows'), _adminPickKey(c, 'RetainUnmatchedLetterboxdRows'));
         var rsz = root.querySelector('#stRatingSize');
@@ -8811,7 +8827,8 @@
         var _mrl = root.querySelector('#stMaxReviewLength');
         if (_mrl) { var _mrlN = parseInt(_mrl.value, 10); c.MaxReviewLength = isNaN(_mrlN) ? 10000 : Math.min(10000, Math.max(1, _mrlN)); }
         c.CompactMediaBadge = !!(root.querySelector('#stCompactMediaBadge') && root.querySelector('#stCompactMediaBadge').checked);
-        c.ShowTenPointEquivalent = !!(root.querySelector('#stShowTenPointEquivalent') && root.querySelector('#stShowTenPointEquivalent').checked);
+        var _rdm = root.querySelector('#stRatingDisplayMode');
+        if (_rdm) c.RatingDisplayMode = (_rdm.value === 'both' || _rdm.value === 'ten') ? _rdm.value : 'stars';
         c.MirrorToNativeRating = !!(root.querySelector('#stMirrorToNativeRating') && root.querySelector('#stMirrorToNativeRating').checked);
         c.RetainUnmatchedLetterboxdRows = !!(root.querySelector('#stRetainUnmatchedLetterboxdRows') && root.querySelector('#stRetainUnmatchedLetterboxdRows').checked);
         var _rsz = root.querySelector('#stRatingSize');

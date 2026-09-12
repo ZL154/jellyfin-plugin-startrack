@@ -224,13 +224,17 @@
                             </span>
                         </label>
 
-                        <label class="st-row">
-                            <input type="checkbox" id="stShowTenPointEquivalent" class="st-cb" />
+                        <div class="st-row" style="cursor:default">
                             <span class="st-row-body">
-                                <span class="st-row-title" data-tr="Also show the /10 equivalent on the media page">Also show the /10 equivalent on the media page</span>
-                                <span class="st-row-sub" data-tr="Displays the StarTrack average as 3.5 (7/10). StarTrack rates out of 5 while IMDb, Trakt and Simkl use 10, so the two sitting side by side can look like they disagree when they are the same score. Display only — ratings are still made and stored in stars.">Displays the StarTrack average as 3.5 (7/10). StarTrack rates out of 5 while IMDb, Trakt and Simkl use 10, so the two sitting side by side can look like they disagree when they are the same score. Display only — ratings are still made and stored in stars.</span>
+                                <label class="st-row-title" for="stRatingDisplayMode" data-tr="How ratings are shown">How ratings are shown</label>
+                                <select id="stRatingDisplayMode" style="margin-top:6px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:6px;padding:8px 12px;font-size:.9em;outline:none;display:block">
+                                    <option value="stars" data-tr="Stars only — 3.5 (default)">Stars only — 3.5 (default)</option>
+                                    <option value="both" data-tr="Both — 3.5 (7/10)">Both — 3.5 (7/10)</option>
+                                    <option value="ten" data-tr="Out of ten only — 7/10">Out of ten only — 7/10</option>
+                                </select>
+                                <span class="st-row-sub" data-tr="StarTrack rates out of 5 while IMDb, Trakt and Simkl use 10, so a 3.5 sitting next to IMDb's 7 can look like a disagreement when it is the same score. Applies to the media-page badge, the poster badges and the floating pill. Display only — you always rate with the five-star picker, and nothing is converted or rounded.">StarTrack rates out of 5 while IMDb, Trakt and Simkl use 10, so a 3.5 sitting next to IMDb's 7 can look like a disagreement when it is the same score. Applies to the media-page badge, the poster badges and the floating pill. Display only — you always rate with the five-star picker, and nothing is converted or rounded.</span>
                             </span>
-                        </label>
+                        </div>
 
                         <label class="st-row">
                             <input type="checkbox" id="stMirrorToNativeRating" class="st-cb" />
