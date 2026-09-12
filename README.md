@@ -349,7 +349,7 @@ cannot rate *from* those apps.
 
 ## Requirements
 
-- **Jellyfin 10.11.x** (built against 10.11.6)
+- **Jellyfin 10.11.x or 12.x** — see [Which build do I need?](#which-build-do-i-need) below
 - A modern browser (Chromium / Firefox / Safari)
 - TV/webOS clients are supported through focusable D-pad controls; exact focus styling can vary by client theme
 - Reverse proxies may use Jellyfin's **BaseURL** setting (for example `/jelly`); StarTrack applies it to injected assets, plugin APIs and native Jellyfin media requests
@@ -373,12 +373,33 @@ StarTrack uses ASP.NET Core middleware to inject its widget at runtime. No File 
 
 ### Option B - Manual
 
-1. Download `Jellyfin.Plugin.InternalRating_*.zip` from [Releases](https://github.com/ZL154/jellyfin-plugin-startrack/releases)
+1. Download the ZIP matching **your** Jellyfin version from [Releases](https://github.com/ZL154/jellyfin-plugin-startrack/releases) — see the table below
 2. Extract the DLL into your Jellyfin plugins folder:
    ```
    <jellyfin-data>/plugins/StarTrack/Jellyfin.Plugin.InternalRating.dll
    ```
 3. Restart Jellyfin.
+
+### Which build do I need?
+
+Jellyfin 12 moved to .NET 10, so one DLL cannot serve both server generations.
+StarTrack ships **two**, built from the same source:
+
+| Your Jellyfin | Version to install | Ends in | .NET |
+|---|---|---|---|
+| **10.11.x** | `1.8.0.0` | `.0` | 9 |
+| **12.x**    | `1.8.0.1` | `.1` | 10 |
+
+**Installing from the repository? Ignore all of this** — the catalogue only
+offers your server the build it can run. This matters only for manual installs.
+
+The two differ **only** in which Jellyfin they are compiled against. Features,
+settings and your data are identical, and upgrading your server from 10.11 to 12
+needs nothing more than letting the catalogue update the plugin.
+
+> ⚠️ **If you install the wrong one, it fails silently.** Jellyfin logs nothing,
+> the plugin simply does not appear and `/Plugins/StarTrack/Debug` returns 404.
+> If StarTrack has "vanished" after a manual install, check the last digit first.
 
 ### Verify
 
