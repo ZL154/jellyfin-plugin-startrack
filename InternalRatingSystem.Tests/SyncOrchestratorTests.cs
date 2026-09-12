@@ -478,5 +478,171 @@ namespace Jellyfin.Plugin.InternalRating.Tests
             Assert.Equal(0, result.Pushed);
             Assert.Empty(provider.PushCalls);
         }
+
+        // ==================================================================
+        // Issue #19: matching across systems that share only SOME identifiers
+        //
+        // The reporter's sync never converged. "pulled=131" came back run after
+        // run while the ratings were already imported, because the dedupe key
+        // concatenated every field: one side carrying an id the other lacked
+        // was enough to make the same film look like two.
+        //
+        // Every test below describes one pair that IS or IS NOT the same item,
+        // independent of how matching is implemented.
+        // ==================================================================
+
+        /// <summary>Resolver that can find an item by tmdb as well as imdb — the real one queries on any provider id.</summary>
+        private sealed class AnyIdResolver : IExternalIdResolver
+        {
+            private readonly string _itemId;
+            public AnyIdResolver(string itemId) => _itemId = itemId;
+            public ExternalRating? ResolveExternalIds(string itemId, double stars, DateTime ratedAt) => null;
+            public string? FindItemId(ExternalRating r) => _itemId;
+        }
+
+        [Fact]
+        public async Task RemoteWithBothIds_MatchesLocalWithOnlyTmdb_AndIsNotReimported()
+        {
+            // Issue #19 exactly: Simkl returns imdb AND tmdb; a Jellyfin movie
+            // scraped from TMDb carries only tmdb. Same film, same stars — the
+            // sync must recognise it and do nothing.
+            var remote = new ExternalRating("tt0111161", 278, null, "The Shawshank Redemption", 1994, "movie", 4.5, T0);
+            var local  = new ExternalRating(null,        278, null, "Shawshank Redemption",     1994, "movie", 4.5, T0);
+
+            var provider = new FakeProvider(new[] { remote });
+            var sink     = new FakeSink();
+            var orch     = BuildOrchestrator(new FakeGatherer(new[] { local }), sink, new AnyIdResolver("item-1"));
+            var conn     = new ProviderConnection { Direction = SyncDirection.TwoWay };
+
+            var result = await orch.SyncOneAsync("u1", "Alice", provider, conn, CancellationToken.None);
+
+            Assert.Equal(0, result.Pulled);      // was 1 on every single run
+            Assert.Equal(1, result.Skipped);
+            Assert.Empty(sink.Saves);
+            Assert.Equal(0, result.Pushed);      // and nothing to push back either
+        }
+
+        [Fact]
+        public async Task DifferentLocalisedTitles_StillMatchOnASharedId()
+        {
+            // A library scraped in another language disagrees with Simkl about
+            // the title. The tmdb id does not care.
+            var remote = new ExternalRating(null, 550, null, "Fight Club",   1999, "movie", 5.0, T0);
+            var local  = new ExternalRating(null, 550, null, "El club de la lucha", 1999, "movie", 5.0, T0);
+
+            var provider = new FakeProvider(new[] { remote });
+            var sink     = new FakeSink();
+            var orch     = BuildOrchestrator(new FakeGatherer(new[] { local }), sink, new AnyIdResolver("item-1"));
+
+            var result = await orch.SyncOneAsync("u1", "Alice",
+                provider, new ProviderConnection { Direction = SyncDirection.TwoWay }, CancellationToken.None);
+
+            Assert.Equal(0, result.Pulled);
+            Assert.Empty(sink.Saves);
+        }
+
+        [Fact]
+        public async Task SharedId_WithDifferentStars_ResolvesAsAConflictRatherThanADuplicate()
+        {
+            // The pair is recognised as one item, so newer-wins applies. Before,
+            // it read as two unrelated items and the remote was imported blind.
+            var newer  = T0.AddDays(10);
+            var remote = new ExternalRating("tt0111161", 278, null, "Shawshank", 1994, "movie", 3.0, T0);
+            var local  = new ExternalRating(null,        278, null, "Shawshank", 1994, "movie", 5.0, newer);
+
+            var provider = new FakeProvider(new[] { remote });
+            var sink     = new FakeSink();
+            var orch     = BuildOrchestrator(new FakeGatherer(new[] { local }), sink, new AnyIdResolver("item-1"));
+
+            var result = await orch.SyncOneAsync("u1", "Alice",
+                provider, new ProviderConnection { Direction = SyncDirection.TwoWay }, CancellationToken.None);
+
+            Assert.Equal(0, result.Pulled);          // local is newer: not clobbered
+            Assert.Empty(sink.Saves);
+            Assert.Equal(1, result.Pushed);          // it is the export's job now
+        }
+
+        [Fact]
+        public async Task AFilmAndASeriesSharingAnIdAreNotTheSameItem()
+        {
+            // MediaType stays part of every identity. Without it a show could
+            // silently absorb a film's rating.
+            var remote = new ExternalRating("tt1234567", 99, null, "Fargo", 1996, "movie", 4.0, T0);
+            var local  = new ExternalRating("tt1234567", 99, null, "Fargo", 1996, "show",  2.0, T0);
+
+            var provider = new FakeProvider(new[] { remote });
+            var sink     = new FakeSink();
+            var orch     = BuildOrchestrator(new FakeGatherer(new[] { local }), sink, new AnyIdResolver("item-movie"));
+
+            var result = await orch.SyncOneAsync("u1", "Alice",
+                provider, new ProviderConnection { Direction = SyncDirection.TwoWay }, CancellationToken.None);
+
+            Assert.Equal(1, result.Pulled);          // the film is genuinely missing locally
+            Assert.Single(sink.Saves);
+            Assert.Equal(4.0, sink.Saves[0].stars);
+        }
+
+        [Fact]
+        public async Task ItemsWithNoIdsAtAllStillMatchOnTitleAndYear()
+        {
+            // Yamtrack sends no provider ids. Title+year has to keep working,
+            // and normalisation means punctuation no longer splits a pair.
+            var remote = new ExternalRating(null, null, null, "WALL·E",  2008, "movie", 4.5, T0);
+            var local  = new ExternalRating(null, null, null, "Wall-E",  2008, "movie", 4.5, T0);
+
+            var provider = new FakeProvider(new[] { remote });
+            var sink     = new FakeSink();
+            var orch     = BuildOrchestrator(new FakeGatherer(new[] { local }), sink, new AnyIdResolver("item-1"));
+
+            var result = await orch.SyncOneAsync("u1", "Alice",
+                provider, new ProviderConnection { Direction = SyncDirection.TwoWay }, CancellationToken.None);
+
+            Assert.Equal(0, result.Pulled);
+            Assert.Empty(sink.Saves);
+        }
+
+        [Fact]
+        public async Task TwoGenuinelyDifferentFilmsAreStillTwoItems()
+        {
+            // The guard against over-matching: nothing in common, so the remote
+            // one really does need importing.
+            var remote = new ExternalRating("tt0000001", 1, null, "Heat",      1995, "movie", 4.0, T0);
+            var local  = new ExternalRating("tt0000002", 2, null, "Collateral", 2004, "movie", 3.0, T0);
+
+            var provider = new FakeProvider(new[] { remote });
+            var sink     = new FakeSink();
+            var orch     = BuildOrchestrator(new FakeGatherer(new[] { local }), sink, new AnyIdResolver("item-heat"));
+
+            var result = await orch.SyncOneAsync("u1", "Alice",
+                provider, new ProviderConnection { Direction = SyncDirection.TwoWay }, CancellationToken.None);
+
+            Assert.Equal(1, result.Pulled);
+            Assert.Equal(1, result.Pushed);
+        }
+
+        [Fact]
+        public async Task ASecondSyncAfterAnImportPullsNothing()
+        {
+            // The symptom as reported: run it twice, the second run must be a
+            // no-op. Previously the count came back identical forever.
+            var remote = new ExternalRating("tt0111161", 278, null, "The Shawshank Redemption", 1994, "movie", 4.5, T0);
+
+            // Pass 1: nothing local yet.
+            var sink = new FakeSink();
+            var orch = BuildOrchestrator(new FakeGatherer(Array.Empty<ExternalRating>()), sink, new AnyIdResolver("item-1"));
+            var first = await orch.SyncOneAsync("u1", "Alice", new FakeProvider(new[] { remote }),
+                new ProviderConnection { Direction = SyncDirection.TwoWay }, CancellationToken.None);
+            Assert.Equal(1, first.Pulled);
+
+            // Pass 2: the library now holds it, with only the id Jellyfin scraped.
+            var afterImport = new ExternalRating(null, 278, null, "Shawshank Redemption", 1994, "movie", 4.5, T0);
+            var sink2 = new FakeSink();
+            var orch2 = BuildOrchestrator(new FakeGatherer(new[] { afterImport }), sink2, new AnyIdResolver("item-1"));
+            var second = await orch2.SyncOneAsync("u1", "Alice", new FakeProvider(new[] { remote }),
+                new ProviderConnection { Direction = SyncDirection.TwoWay }, CancellationToken.None);
+
+            Assert.Equal(0, second.Pulled);
+            Assert.Empty(sink2.Saves);
+        }
     }
 }

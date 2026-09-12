@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -44,21 +45,79 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync
         // ------------------------------------------------------------------
 
         /// <summary>
-        /// Composite key used to identify a rating across systems.
-        /// Format: <c>&lt;imdb&gt;|&lt;tmdb&gt;|&lt;mediaType&gt;|&lt;title&gt;|&lt;year&gt;</c>
-        /// Title (lowercased) and year are appended so that id-less items from
-        /// Yamtrack (no TMDB/IMDB) don't all collapse to the same key.
+        /// Every identity a rating can be recognised by, most reliable first.
+        ///
+        /// ISSUE #19: this used to be ONE key that concatenated every field —
+        /// <c>imdb|tmdb|mediaType|title|year</c> — so two records only matched if
+        /// they agreed on all of them. They routinely don't. Simkl returns both
+        /// an IMDb and a TMDb id; a Jellyfin movie scraped from TMDb often
+        /// carries only Tmdb. Same film, provably, and the keys still differed
+        /// because one side's imdb segment was empty.
+        ///
+        /// The consequence was a sync that never converged. Import saw no local
+        /// match, resolved the item by provider id anyway, and wrote the rating
+        /// again — every cycle, forever. The reporter watched "pulled=131" come
+        /// back unchanged run after run while his ratings were already imported.
+        ///
+        /// Matching on ANY shared identifier fixes it: one id in common is proof
+        /// enough, and an id that only one side has tells you nothing. Title and
+        /// year remain as the last resort for id-less items (Yamtrack), now
+        /// normalised so punctuation and articles stop splitting them.
+        ///
+        /// MediaType is on every key so a film and a series sharing an id — or
+        /// far more often, a title — can never collapse into one another.
         /// </summary>
-        private static string Key(ExternalRating r)
-            => (r.Imdb ?? string.Empty)
-               + "|"
-               + (r.Tmdb?.ToString() ?? string.Empty)
-               + "|"
-               + r.MediaType
-               + "|"
-               + (r.Title?.ToLowerInvariant() ?? string.Empty)
-               + "|"
-               + r.Year;
+        private static IEnumerable<string> IdentityKeys(ExternalRating r)
+        {
+            var type = r.MediaType ?? string.Empty;
+
+            if (!string.IsNullOrWhiteSpace(r.Imdb))
+                yield return "imdb:" + r.Imdb.Trim().ToLowerInvariant() + "|" + type;
+
+            if (r.Tmdb.HasValue)
+                yield return "tmdb:" + r.Tmdb.Value.ToString(CultureInfo.InvariantCulture) + "|" + type;
+
+            if (r.Tvdb.HasValue)
+                yield return "tvdb:" + r.Tvdb.Value.ToString(CultureInfo.InvariantCulture) + "|" + type;
+
+            // Always emitted, never alone-sufficient in practice: it is what
+            // id-less providers match on, and it is also the tie-breaker when
+            // two sides genuinely share no identifier.
+            yield return "title:" + ExternalIdResolver.NormalizeTitle(r.Title)
+                       + "|" + (r.Year?.ToString(CultureInfo.InvariantCulture) ?? string.Empty)
+                       + "|" + type;
+        }
+
+        /// <summary>
+        /// Indexes ratings under every identity they carry, so a lookup from the
+        /// other side hits on whichever identifier the two happen to share.
+        /// Last-wins per key, matching the previous behaviour for duplicates.
+        /// </summary>
+        private static Dictionary<string, ExternalRating> IndexByIdentity(IEnumerable<ExternalRating> ratings)
+        {
+            var map = new Dictionary<string, ExternalRating>(StringComparer.Ordinal);
+            foreach (var r in ratings)
+                foreach (var k in IdentityKeys(r))
+                    map[k] = r;
+            return map;
+        }
+
+        /// <summary>
+        /// Finds <paramref name="r"/> in an identity index, trying its
+        /// identifiers in order of reliability and stopping at the first hit.
+        /// </summary>
+        private static bool TryMatch(
+            Dictionary<string, ExternalRating> index,
+            ExternalRating r,
+            out ExternalRating match)
+        {
+            foreach (var k in IdentityKeys(r))
+                if (index.TryGetValue(k, out match!))
+                    return true;
+
+            match = null!;
+            return false;
+        }
 
         // ------------------------------------------------------------------
         // Main entry point
@@ -94,10 +153,8 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync
                 IReadOnlyList<ExternalRating> remote =
                     await provider.PullRatingsAsync(conn, ct).ConfigureAwait(false);
 
-                // Build a lookup by dedup key (last-wins on duplicate keys).
-                var remoteByKey = new Dictionary<string, ExternalRating>(StringComparer.Ordinal);
-                foreach (var r in remote)
-                    remoteByKey[Key(r)] = r;
+                // Index by every identity each rating carries (#19).
+                var remoteByKey = IndexByIdentity(remote);
 
                 // Gather local ratings ONCE up front (with their RatedAt) so the
                 // import step can do newer-wins conflict resolution without first
@@ -108,9 +165,7 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync
                 // but by then local already equalled remote, so a locally-changed
                 // rating could NEVER be pushed out. Two-way sync only ever pulled.
                 var local = await _gatherer.GatherAsync(userId).ConfigureAwait(false);
-                var localByKey = new Dictionary<string, ExternalRating>(StringComparer.Ordinal);
-                foreach (var l in local)
-                    localByKey[Key(l)] = l;
+                var localByKey = IndexByIdentity(local);
 
                 bool doImport = conn.Direction == SyncDirection.ImportOnly ||
                                 conn.Direction == SyncDirection.TwoWay;
@@ -133,7 +188,7 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync
                             continue;
                         }
 
-                        if (localByKey.TryGetValue(Key(r), out var loc))
+                        if (TryMatch(localByKey, r, out var loc))
                         {
                             // Already identical -> nothing to do.
                             if (loc.Stars == r.Stars)
@@ -171,7 +226,7 @@ namespace Jellyfin.Plugin.InternalRating.ExternalSync
                     var toPush = local
                         .Where(l =>
                         {
-                            if (!remoteByKey.TryGetValue(Key(l), out var rr))
+                            if (!TryMatch(remoteByKey, l, out var rr))
                                 return true;              // remote doesn't have it -> push
                             if (rr.Stars == l.Stars)
                                 return false;             // identical -> skip
