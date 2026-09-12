@@ -914,6 +914,12 @@
             '.ir-lb-push input[type=password],.ir-lb-push input[type=text]{width:100%!important;background:rgba(255,255,255,.06)!important;border:1px solid rgba(255,255,255,.16)!important;border-radius:6px!important;color:#fff!important;padding:6px 8px!important;font-size:.8em!important;margin-top:5px!important;outline:none!important}',
             '.ir-lb-adv{margin:8px 0!important;font-size:.78em!important}',
             '.ir-lb-adv summary{cursor:pointer!important;color:#f4c430!important;padding:3px 0!important}',
+            // [#24] Numbered steps for the Cloudflare cookie walkthrough. Uses
+            // the same muted hint colour as the surrounding text so the list
+            // reads as instructions rather than as a second UI.
+            '.ir-lb-steps{margin:6px 0 10px!important;padding-left:20px!important;font-size:.72em!important;color:rgba(255,255,255,.55)!important;line-height:1.65!important}',
+            '.ir-lb-steps li{margin-bottom:4px!important}',
+            '.ir-lb-steps code{background:rgba(255,255,255,.09)!important;border-radius:3px!important;padding:1px 4px!important;font-size:.95em!important;color:#f4c430!important}',
             '.ir-lb-push-status{font-size:.78em!important;line-height:1.5!important;margin-top:8px!important;min-height:1.2em!important}',
             '.ir-lb-header{display:flex!important;align-items:center!important;gap:10px!important;margin-bottom:14px!important;padding-bottom:10px!important;border-bottom:1px solid rgba(255,255,255,.1)!important}',
             '.ir-lb-back{background:none!important;border:none!important;color:rgba(255,255,255,.6)!important;font-size:1.2em!important;cursor:pointer!important;padding:0 4px!important;border-radius:4px!important;transition:color .15s!important}',
@@ -1826,6 +1832,40 @@
 
     var _el = null;
 
+    // [#24, khutede] The Cloudflare fallback, explained properly.
+    //
+    // The old copy said only "paste your browser cookie header (must include
+    // cf_clearance) and the matching User-Agent", which assumes the reader
+    // already knows where a browser keeps its request headers. It also buried
+    // the part that decides whether this can work at all: Cloudflare binds
+    // cf_clearance to the User-Agent AND the public IP it was issued to, and it
+    // is the SERVER that makes the request. Copy it from a phone on mobile data
+    // or over a VPN and it is rejected no matter how carefully it was pasted —
+    // which reads as "StarTrack is broken" rather than "this cannot work from
+    // there".
+    //
+    // Rendered into both the small panel and the overlay, which carry the same
+    // controls under different class prefixes.
+    function buildCloudflareHelpHtml(prefix, hintClass) {
+        var h = function (t) {
+            return '<div class="' + hintClass + '" data-tr="' + t.replace(/"/g, '&quot;') + '">' + t + '</div>';
+        };
+        return '' +
+            h('Cloudflare sometimes challenges the sign-in. Pasting the cookies from a browser that has already passed the challenge gets you through it.') +
+            '<ol class="ir-lb-steps">' +
+                '<li data-tr="Open letterboxd.com and sign in, using a browser on the same network as this Jellyfin server.">Open letterboxd.com and sign in, using a browser on the same network as this Jellyfin server.</li>' +
+                '<li data-tr="Press F12, open the Network tab, then reload the page.">Press F12, open the Network tab, then reload the page.</li>' +
+                '<li data-tr="Click the first letterboxd.com request in the list.">Click the first letterboxd.com request in the list.</li>' +
+                '<li data-tr="Under Request Headers, copy the whole Cookie value into the first box below.">Under Request Headers, copy the whole <code>Cookie</code> value into the first box below.</li>' +
+                '<li data-tr="Copy the whole User-Agent value into the second box. It must be from the same browser.">Copy the whole <code>User-Agent</code> value into the second box. It must be from the same browser.</li>' +
+                '<li data-tr="Save, then Verify login.">Save, then Verify login.</li>' +
+            '</ol>' +
+            '<input type="text" class="' + prefix + '-cookies" placeholder="cf_clearance=...; letterboxd.signed.in=..." />' +
+            '<input type="text" class="' + prefix + '-ua" placeholder="Mozilla/5.0 ..." />' +
+            h('Same network matters: Cloudflare ties cf_clearance to the browser AND the public IP it was issued to, and the request is made by your server, not your browser. Cookies copied over mobile data or a VPN will be refused however carefully they are pasted.') +
+            h('They also expire within the hour, so this is a stopgap rather than a setup step. If you would rather not repeat it: "Download CSV for letterboxd.com/import" above needs no password and no cookies, and never expires.');
+    }
+
     function buildStarInputHtml() {
         var h = '';
         for (var i = 1; i <= 5; i++) {
@@ -2000,13 +2040,8 @@
                             '</div>' +
                         '</div>' +
                         '<details class="ir-lb-adv">' +
-                            '<summary data-tr="Blocked by Cloudflare?">Blocked by Cloudflare?</summary>' +
-                            '<div class="ir-lb-csv-hint" data-tr="If sign-in fails with a Cloudflare error, paste your browser cookie header (must include cf_clearance) and the matching User-Agent. Cloudflare ties these to one browser and IP and they expire quickly.">' +
-                                'If sign-in fails with a Cloudflare error, paste your browser cookie header (must include cf_clearance) ' +
-                                'and the matching User-Agent. Cloudflare ties these to one browser and IP and they expire quickly.' +
-                            '</div>' +
-                            '<input type="text" class="ir-lb-cookies" placeholder="cf_clearance=...; letterboxd.signed.in=..." />' +
-                            '<input type="text" class="ir-lb-ua" placeholder="Mozilla/5.0 ..." />' +
+                            '<summary data-tr="Sign-in blocked by Cloudflare? Read this">Sign-in blocked by Cloudflare? Read this</summary>' +
+                            buildCloudflareHelpHtml('ir-lb', 'ir-lb-csv-hint') +
                         '</details>' +
                         '<div class="ir-lb-btn-row">' +
                             '<button class="ir-lb-verify" data-tr="Verify login">Verify login</button>' +
@@ -2297,12 +2332,8 @@
                             '<span class="ir-ov-lb-hint" data-tr="Diary entries cannot be edited by a later sync, so only films you rate from now on are logged. Your existing diary is left alone.">Diary entries cannot be edited by a later sync, so only films you rate from now on are logged. Your existing diary is left alone.</span>' +
                         '</div>' +
                         '<details class="ir-ov-lb-adv">' +
-                            '<summary data-tr="Blocked by Cloudflare?">Blocked by Cloudflare?</summary>' +
-                            '<div class="ir-ov-lb-row">' +
-                                '<input type="text" class="ir-ov-lb-cookies" placeholder="cf_clearance=...; letterboxd.signed.in=..." />' +
-                                '<input type="text" class="ir-ov-lb-ua" placeholder="Mozilla/5.0 ..." />' +
-                            '</div>' +
-                            '<span class="ir-ov-lb-hint" data-tr="Cloudflare ties these to one browser and IP and they expire quickly.">Cloudflare ties these to one browser and IP and they expire quickly.</span>' +
+                            '<summary data-tr="Sign-in blocked by Cloudflare? Read this">Sign-in blocked by Cloudflare? Read this</summary>' +
+                            buildCloudflareHelpHtml('ir-ov-lb', 'ir-ov-lb-hint') +
                         '</details>' +
                         '<div class="ir-ov-lb-push-status"></div>' +
                     '</div>' +
@@ -8501,6 +8532,20 @@
                     '</div>' +
                     '<span class="ir-toggle"><input type="checkbox" id="ir-prefs-hideactivity" /><span class="ir-toggle-track"><span class="ir-toggle-thumb"></span></span></span>' +
                 '</label>' +
+                // [#24, khutede] Connecting Letterboxd lives inside the rating
+                // pill's Letterboxd panel, which is not where anyone looks for
+                // an account setting — "finding the option to login with
+                // Letterboxd was kinda hard". This does not duplicate the form
+                // (one set of credential fields, one set of bugs); it just puts
+                // a signpost where people already go looking and takes them there.
+                '<div class="ir-prefs-row" style="padding:14px 0;border-top:1px solid rgba(255,255,255,.08)">' +
+                    '<div style="color:#fff;font-size:.95em">' + esc(tr('prefs.accounts', null, 'Connected accounts')) + '</div>' +
+                    '<div style="color:rgba(255,255,255,.5);font-size:.78em;margin-top:3px;margin-bottom:10px">' + esc(tr('prefs.accounts_sub', null, 'Link Letterboxd or Serializd to import your history and push new ratings back.')) + '</div>' +
+                    '<button type="button" id="ir-prefs-open-lb" class="focusable" style="width:100%;background:rgba(244,196,48,.10);border:1px solid rgba(244,196,48,.35);color:#f4c430;border-radius:8px;padding:10px 14px;font-size:.9em;cursor:pointer;outline:none;text-align:left">' +
+                        esc(tr('prefs.accounts_open', null, 'Open Letterboxd & Serializd settings')) + ' →' +
+                    '</button>' +
+                '</div>' +
+
                 '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:22px;padding-top:16px;border-top:1px solid rgba(255,255,255,.08)">' +
                     '<button id="ir-prefs-cancel" style="background:transparent;color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:8px 18px;cursor:pointer;font-size:.88em">' + esc(tr('btn.cancel', null, 'Cancel')) + '</button>' +
                     '<button id="ir-prefs-save" style="background:#f4c430;color:#111;border:none;border-radius:8px;padding:8px 20px;cursor:pointer;font-weight:700;font-size:.88em">' + esc(tr('admin.save', null, 'Save')) + '</button>' +
@@ -8525,6 +8570,32 @@
             if (d) d.checked = !!(pr && pr.hideStats);
             if (e) e.checked = !!(pr && pr.hideActivity);
         });
+
+        // [#24] Close Preferences and reveal the Letterboxd panel. The panel is
+        // a section of the My Ratings overlay, so this only works while that
+        // overlay is open — which it always is, because Preferences is reached
+        // from a button inside it. Guarded anyway: if the panel is not in the
+        // DOM the row hides itself rather than offering a dead button.
+        var openLbBtn = modal.querySelector('#ir-prefs-open-lb');
+        if (openLbBtn) {
+            var lbToggle = _overlay && _overlay.querySelector('.ir-ov-lb');
+            if (!lbToggle) {
+                var row = openLbBtn.parentNode;
+                if (row && row.parentNode) row.parentNode.removeChild(row);
+            } else {
+                openLbBtn.addEventListener('click', function () {
+                    try { modal.parentNode && modal.parentNode.removeChild(modal); } catch (e) {}
+                    var panel = _overlay.querySelector('.ir-ov-lb-panel');
+                    // Only click the toggle when the panel is closed, or we'd
+                    // shut a panel the user was already looking at.
+                    if (!panel || panel.style.display === 'none') lbToggle.click();
+                    try {
+                        var target = _overlay.querySelector('.ir-ov-lb-panel');
+                        if (target && target.scrollIntoView) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    } catch (e) {}
+                });
+            }
+        }
 
         // Custom language dropdown behaviour
         var langBtn = modal.querySelector('#ir-prefs-lang-btn');
