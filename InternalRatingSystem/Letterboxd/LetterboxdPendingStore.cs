@@ -208,7 +208,12 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                         continue;
                     }
 
-                    if (map.Count >= MaxRowsPerUser) break;
+                    // Refuse the new row, but keep walking the batch: `break` here
+                    // would also skip the in-place updates of rows already held
+                    // that happen to sort after a new one, so whether a re-import
+                    // could correct a queued rating depended on its position in
+                    // the file.
+                    if (map.Count >= MaxRowsPerUser) continue;
                     if (row.FirstSeenAt == default) row.FirstSeenAt = DateTime.UtcNow;
                     map[key] = row;
                     added++;
@@ -283,6 +288,24 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             try
             {
                 return _store.Users.TryGetValue(userId, out var map) ? map.Count : 0;
+            }
+            finally { _lock.Release(); }
+        }
+
+        /// <summary>
+        /// Whether ANY user has rows waiting. A dictionary emptiness check, and
+        /// the gate that keeps this feature free for the servers that never turn
+        /// it on: without it the scheduled task pays for a library fingerprint
+        /// every ten minutes, forever, to answer a question no one asked.
+        /// </summary>
+        public async Task<bool> HasAnyAsync()
+        {
+            await _lock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                foreach (var map in _store.Users.Values)
+                    if (map.Count > 0) return true;
+                return false;
             }
             finally { _lock.Release(); }
         }

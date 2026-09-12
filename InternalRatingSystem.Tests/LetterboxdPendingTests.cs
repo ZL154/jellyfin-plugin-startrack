@@ -302,6 +302,57 @@ namespace InternalRatingSystem.Tests
             Assert.Equal(1.5, row.Rating);
         }
 
+        [Fact]
+        public async Task AtTheCapAnExistingRowLaterInTheBatchStillUpdates()
+        {
+            // Regression: the cap used to `break` out of the merge, so a full
+            // queue stopped processing at the first NEW row in the batch. Any
+            // correction to an already-queued row that happened to sort after it
+            // was silently dropped — whether a re-import fixed your rating came
+            // down to where the film sat in the export.
+            var store = NewStore();
+            await store.MergeAsync(User, Enumerable.Range(0, LetterboxdPendingStore.MaxRowsPerUser)
+                                                   .Select(n => Rating("Film " + n, year: null))
+                                                   .ToList());
+
+            var added = await store.MergeAsync(User, new[]
+            {
+                Rating("Brand New Film", year: null),          // refused: queue is full
+                Rating("Film 7", year: null, stars: 0.5)       // must still update
+            });
+
+            Assert.Equal(0, added);
+            Assert.Equal(LetterboxdPendingStore.MaxRowsPerUser, await store.CountAsync(User));
+            Assert.Equal(0.5, (await store.GetAsync(User)).Single(r => r.Name == "Film 7").Rating);
+        }
+
+        // ---- HasAnyAsync: the gate that keeps the feature free when unused ----
+
+        [Fact]
+        public async Task HasAnyIsFalseUntilSomethingIsQueuedAndFalseAgainOnceDrained()
+        {
+            var store = NewStore();
+            Assert.False(await store.HasAnyAsync());
+
+            await store.MergeAsync(User, new[] { Rating("Heat", 1995) });
+            Assert.True(await store.HasAnyAsync());
+
+            await store.ClearAsync(User);
+            Assert.False(await store.HasAnyAsync());
+        }
+
+        [Fact]
+        public async Task HasAnySeesOtherUsersBacklogs()
+        {
+            // The scheduled task takes ONE fingerprint for the whole tick, so the
+            // gate has to answer for the server, not for whoever it asked about.
+            var store = NewStore();
+            await store.MergeAsync("someone-else", new[] { Rating("Heat", 1995) });
+
+            Assert.Equal(0, await store.CountAsync(User));
+            Assert.True(await store.HasAnyAsync());
+        }
+
         // ---- the matched/unmatched boundary ----
         //
         // Every capture site — the four CSV importers and the RSS sync — queues a

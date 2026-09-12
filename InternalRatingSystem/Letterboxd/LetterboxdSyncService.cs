@@ -682,6 +682,13 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             var resolved  = new List<string>();
             var stillOpen = new List<string>();
             var diaryAdds = new List<Models.DiaryEntry>();
+
+            // Diary rows are written in one batch AFTER this loop, so their keys
+            // cannot join `resolved` while the loop runs — that would drop them
+            // from the queue even when the batch write throws, which is exactly
+            // the permanent loss every other branch here is careful to avoid.
+            // They are held aside and promoted only once the write returns.
+            var diaryKeys = new List<string>();
             var now       = DateTime.UtcNow;
 
             foreach (var row in rows)
@@ -738,7 +745,8 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                                 Review    = row.Review,
                                 Rewatch   = row.Rewatch
                             });
-                            break;
+                            diaryKeys.Add(key);
+                            continue;   // promoted after the batch write below
                     }
 
                     resolved.Add(key);
@@ -758,10 +766,15 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 try
                 {
                     await _diaryRepo.ImportEntriesAsync(userId, diaryAdds).ConfigureAwait(false);
+                    resolved.AddRange(diaryKeys);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "[StarTrack] Pending diary entries failed to write — continuing");
+                    // Keep every diary row queued. The batch is all-or-nothing
+                    // from here, and a retry re-applies harmlessly because
+                    // ImportEntriesAsync dedupes on (itemId, watched-day).
+                    _logger.LogWarning(ex, "[StarTrack] Pending diary entries failed to write — keeping {N} row(s) queued", diaryKeys.Count);
+                    stillOpen.AddRange(diaryKeys);
                 }
             }
 
@@ -798,6 +811,20 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             if (_pending == null) return 0;
             try { return await _pending.CountAsync(userId).ConfigureAwait(false); }
             catch { return 0; }
+        }
+
+        /// <summary>
+        /// Whether anyone on the server has a backlog. Checked before the library
+        /// fingerprint, not after: the fingerprint costs two library queries and
+        /// this costs a dictionary walk, so asking the cheap question first keeps
+        /// the whole retry path free on the servers — the overwhelming majority —
+        /// that never enable it.
+        /// </summary>
+        internal async Task<bool> HasAnyPendingAsync()
+        {
+            if (_pending == null) return false;
+            try { return await _pending.HasAnyAsync().ConfigureAwait(false); }
+            catch { return false; }
         }
 
         /// <summary>

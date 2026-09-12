@@ -64,9 +64,20 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             // loop. Computing it per user would both repeat the query and, worse,
             // let the first user with a backlog record the new value so everyone
             // after them saw an "unchanged" library and skipped their retry.
-            var fingerprint = _syncService.GetLibraryFingerprint();
-            var libraryChanged = fingerprint == null ||
+            //
+            // Gated on somebody actually having a backlog. The fingerprint is two
+            // library queries and this tick runs every ten minutes; on a server
+            // that never enabled the option there is nothing a retry could do, so
+            // paying for the query forever to discover that is pure waste. The
+            // emptiness check is an in-memory dictionary walk.
+            string? fingerprint   = null;
+            var     libraryChanged = false;
+            if (await _syncService.HasAnyPendingAsync().ConfigureAwait(false))
+            {
+                fingerprint    = _syncService.GetLibraryFingerprint();
+                libraryChanged = fingerprint == null ||
                                  !string.Equals(fingerprint, _lastLibraryFingerprint, StringComparison.Ordinal);
+            }
             var retriedThisTick = false;
 
             var i = 0;
