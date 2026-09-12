@@ -100,6 +100,19 @@ namespace Jellyfin.Plugin.InternalRating
         /// <summary>Show only the rating on the media-page badge instead of the rating plus "StarTrack (N)".</summary>
         public bool CompactMediaBadge { get; set; } = false;
 
+        /// <summary>[#19, Imgonnagitit] Also show the /10 equivalent next to the
+        /// StarTrack average on the media details page, e.g. "4.5 (9/10)".
+        ///
+        /// StarTrack rates out of 5 while Trakt, Simkl and IMDb all use 10, so a
+        /// score of 7 imported from Simkl correctly becomes 3.5 stars and then
+        /// sits beside IMDb's 7 on the same row, reading as a disagreement rather
+        /// than the same score on a different scale.
+        ///
+        /// Display only. 0.5-5 in half-steps and 1-10 in whole steps are the same
+        /// ten positions, so nothing is converted, rounded or lost — the stars
+        /// remain the rating. Off by default.</summary>
+        public bool ShowTenPointEquivalent { get; set; } = false;
+
         /// <summary>Size of the rating badges + floating pill: "normal" (default) or "large".</summary>
         public string RatingSize { get; set; } = "normal";
 

@@ -1711,11 +1711,30 @@
 
     // The badge's visible text for this data — computed before any DOM work so
     // an already-correct badge can be left completely alone.
+    // [#19, Imgonnagitit] Optional "/10" alongside the stars.
+    //
+    // StarTrack rates out of 5; Trakt, Simkl and IMDb all use 10. A film he
+    // scored 7 on Simkl imports correctly as 3.5 stars and then sits on the
+    // detail page next to IMDb's 7, reading as a disagreement rather than the
+    // same score on a different scale.
+    //
+    // Shown, not converted: 0.5-5 in half-steps and 1-10 in whole steps are the
+    // same ten positions, so this adds no precision and loses none. The stars
+    // stay the rating. Off by default.
+    function _tenPointSuffix(v) {
+        if (!_STARTRACK_CONFIG.showTenPointEquivalent) return '';
+        if (!(v > 0)) return '';
+        var ten = v * 2;
+        // Whole numbers print as "7", not "7.0" \u2014 it is a 1-10 integer scale.
+        return ' (' + (ten % 1 === 0 ? ten.toFixed(0) : ten.toFixed(1)) + '/10)';
+    }
+
     function _badgeTextFor(data, hasRatings) {
         if (!hasRatings) return tr('widget.badge_rate_prompt', null, '\u2606 Rate');
+        var num = data.averageRating.toFixed(1) + _tenPointSuffix(data.averageRating);
         return _STARTRACK_CONFIG.compactMediaBadge
-            ? '\u2605 ' + data.averageRating.toFixed(1)
-            : '\u2605 ' + data.averageRating.toFixed(1) + '  StarTrack' +
+            ? '\u2605 ' + num
+            : '\u2605 ' + num + '  StarTrack' +
               (data.totalRatings > 1 ? ' (' + data.totalRatings + ')' : '');
     }
 
@@ -8742,6 +8761,7 @@
         var mrl = root.querySelector('#stMaxReviewLength');
         if (mrl) mrl.value = _adminPickKey(c, 'MaxReviewLength') || 10000;
         _adminSetCheckbox(root.querySelector('#stCompactMediaBadge'), _adminPickKey(c, 'CompactMediaBadge'));
+        _adminSetCheckbox(root.querySelector('#stShowTenPointEquivalent'), _adminPickKey(c, 'ShowTenPointEquivalent'));
         _adminSetCheckbox(root.querySelector('#stMirrorToNativeRating'), _adminPickKey(c, 'MirrorToNativeRating'));
         _adminSetCheckbox(root.querySelector('#stRetainUnmatchedLetterboxdRows'), _adminPickKey(c, 'RetainUnmatchedLetterboxdRows'));
         var rsz = root.querySelector('#stRatingSize');
@@ -8791,6 +8811,7 @@
         var _mrl = root.querySelector('#stMaxReviewLength');
         if (_mrl) { var _mrlN = parseInt(_mrl.value, 10); c.MaxReviewLength = isNaN(_mrlN) ? 10000 : Math.min(10000, Math.max(1, _mrlN)); }
         c.CompactMediaBadge = !!(root.querySelector('#stCompactMediaBadge') && root.querySelector('#stCompactMediaBadge').checked);
+        c.ShowTenPointEquivalent = !!(root.querySelector('#stShowTenPointEquivalent') && root.querySelector('#stShowTenPointEquivalent').checked);
         c.MirrorToNativeRating = !!(root.querySelector('#stMirrorToNativeRating') && root.querySelector('#stMirrorToNativeRating').checked);
         c.RetainUnmatchedLetterboxdRows = !!(root.querySelector('#stRetainUnmatchedLetterboxdRows') && root.querySelector('#stRetainUnmatchedLetterboxdRows').checked);
         var _rsz = root.querySelector('#stRatingSize');
