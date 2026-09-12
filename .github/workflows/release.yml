@@ -17,33 +17,49 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Both SDKs: the 10.11 build targets net9.0 and the Jellyfin 12 build
+      # targets net10.0, and one `dotnet build` produces both.
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: |
+            9.0.x
+            10.0.x
 
       - name: Restore
         run: dotnet restore InternalRatingSystem/InternalRatingSystem.csproj
 
-      - name: Build
-        run: dotnet publish InternalRatingSystem/InternalRatingSystem.csproj -c Release -o ./publish
+      # Publish each ABI separately. A multi-targeted project cannot publish to
+      # a single -o without -f, and they must not share an output directory
+      # anyway: the two DLLs have the same filename and would overwrite each
+      # other, silently shipping one ABI's assembly inside both zips.
+      - name: Build 10.11 (net9.0)
+        run: dotnet publish InternalRatingSystem/InternalRatingSystem.csproj -c Release -f net9.0 -o ./publish-jf10
 
-      - name: Package ZIP
+      - name: Build 12 (net10.0)
+        run: dotnet publish InternalRatingSystem/InternalRatingSystem.csproj -c Release -f net10.0 -o ./publish-jf12
+
+      - name: Package ZIPs
         run: |
+          set -euo pipefail
           VERSION="${GITHUB_REF_NAME#v}"
-          ZIP="Jellyfin.Plugin.InternalRating_${VERSION}.zip"
 
-          # meta.json needs the FOUR-part version. .NET's Version treats an
-          # omitted revision as -1, so "1.7.0" compares as LESS THAN the
-          # "1.7.0.0" in manifest.json and a manual install is told an update
-          # is available forever - which would undo the point of shipping
-          # meta.json at all (#22).
-          META_VERSION="$VERSION"
-          while [ "$(echo "$META_VERSION" | tr -cd '.' | wc -c)" -lt 3 ]; do
-            META_VERSION="${META_VERSION}.0"
-          done
+          # The fourth version segment is the ABI discriminator and it is
+          # load-bearing. Jellyfin's catalogue offers the HIGHEST version whose
+          # targetAbi the server satisfies, so the two builds MUST NOT share a
+          # version or a 12 host could be handed the 10.11 assembly:
+          #
+          #   x.y.z.0 / targetAbi 10.11.0.0 -> the only candidate 10.11 accepts
+          #   x.y.z.1 / targetAbi 12.0.0.0  -> refused by 10.11, preferred by 12
+          #
+          # These must stay in lockstep with the <Version> values in the csproj
+          # and with the two entries in manifest.json. The verify step below
+          # fails the build if any of them drift.
+          BASE="$VERSION"
+          while [ "$(echo "$BASE" | tr -cd '.' | wc -c)" -lt 2 ]; do BASE="${BASE}.0"; done
+          BASE="$(echo "$BASE" | cut -d. -f1-3)"
 
-          # Ship meta.json INSIDE the zip.
+          # Ship meta.json INSIDE each zip.
           #
           # Issue #22: the archive used to contain nothing but the DLL. A
           # catalogue install is fine because Jellyfin writes meta.json from
@@ -52,10 +68,13 @@ jobs:
           # which is how a server on 10.11.5 ends up reporting "Not supported"
           # for a plugin whose manifest says 10.11.0.0.
           #
-          # targetAbi MUST match manifest.json (10.11.0.0). StarTrack does not
-          # use any 10.11.10-only API, so pinning it higher only locks out
-          # servers that would have run it perfectly well.
-          cat > publish/meta.json <<META
+          # It also needs the FOUR-part version: .NET's Version treats an
+          # omitted revision as -1, so "1.8.0" compares as LESS THAN the
+          # "1.8.0.0" in manifest.json and a manual install is told an update is
+          # available forever.
+          write_meta() {
+            local dir="$1" ver="$2" abi="$3"
+            cat > "$dir/meta.json" <<META
           {
             "category": "General",
             "guid": "a8b5e2f3-4c1d-4e8a-b2f9-6d3c7e1a5b2f",
@@ -63,62 +82,121 @@ jobs:
             "description": "Community star ratings for movies and TV shows - stored privately on your Jellyfin server.",
             "owner": "ZL154",
             "overview": "Letterboxd-style ratings, reviews, watchlist, diary and lists for Jellyfin.",
-            "targetAbi": "10.11.0.0",
-            "version": "${META_VERSION}",
+            "targetAbi": "${abi}",
+            "version": "${ver}",
             "status": "Active",
             "autoUpdate": false,
             "imagePath": "",
             "assemblies": []
           }
           META
+          }
 
-          zip -j "$ZIP" publish/Jellyfin.Plugin.InternalRating.dll publish/meta.json
-          echo "ZIP=$ZIP" >> $GITHUB_ENV
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          write_meta publish-jf10 "${BASE}.0" "10.11.0.0"
+          write_meta publish-jf12 "${BASE}.1" "12.0.0.0"
 
-      - name: Verify the packaged targetAbi matches manifest.json
+          ZIP10="Jellyfin.Plugin.InternalRating_${BASE}.0.zip"
+          ZIP12="Jellyfin.Plugin.InternalRating_${BASE}.1.zip"
+          zip -j "$ZIP10" publish-jf10/Jellyfin.Plugin.InternalRating.dll publish-jf10/meta.json
+          zip -j "$ZIP12" publish-jf12/Jellyfin.Plugin.InternalRating.dll publish-jf12/meta.json
+
+          {
+            echo "BASE=$BASE"
+            echo "VERSION=$VERSION"
+            echo "ZIP10=$ZIP10"
+            echo "ZIP12=$ZIP12"
+          } >> "$GITHUB_ENV"
+
+      - name: Verify both zips against manifest.json
         run: |
-          # A drift here is invisible until a user on an older 10.11.x reports
-          # "Not supported", so fail the build instead of shipping it.
-          ZIP_ABI=$(grep -o '"targetAbi": *"[^"]*"' publish/meta.json | head -1 | sed 's/.*"\([0-9.]*\)"$/\1/')
-          MAN_ABI=$(grep -o '"targetAbi": *"[^"]*"' manifest.json | head -1 | sed 's/.*"\([0-9.]*\)"$/\1/')
-          echo "zip=$ZIP_ABI manifest=$MAN_ABI"
-          if [ "$ZIP_ABI" != "$MAN_ABI" ]; then
-            echo "::error::targetAbi mismatch: zip=$ZIP_ABI manifest=$MAN_ABI"
-            exit 1
-          fi
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, sys, zipfile
 
-          # Same reasoning for the version itself: a 3-part meta.json version
-          # reads as older than the 4-part manifest entry.
-          ZIP_VER=$(python3 -c "import json;print(json.load(open('publish/meta.json'))['version'])")
-          if [ "$(echo "$ZIP_VER" | tr -cd '.' | wc -c)" -ne 3 ]; then
-            echo "::error::meta.json version must have four parts, got $ZIP_VER"
-            exit 1
-          fi
+          base = os.environ["BASE"]
+          failures = []
 
-      - name: Compute MD5 checksum
+          # What the two builds are REQUIRED to be. A drift in any of these is
+          # invisible until a user reports "Not supported" or, worse, a 12 host
+          # quietly installs the 10.11 DLL and every endpoint 500s — so it fails
+          # the build instead of shipping.
+          expected = {
+              f"{base}.0": ("10.11.0.0", os.environ["ZIP10"], "net9.0"),
+              f"{base}.1": ("12.0.0.0",  os.environ["ZIP12"], "net10.0"),
+          }
+
+          # Explicit encoding: manifest.json carries non-ASCII in the changelogs
+          # and a locale-default decode would blow up before the checks run.
+          with open("manifest.json", encoding="utf-8") as fh:
+              manifest = json.load(fh)
+          versions = {v["version"]: v for v in manifest[0]["versions"]}
+
+          for ver, (abi, zip_name, tfm) in expected.items():
+              meta = json.loads(zipfile.ZipFile(zip_name).read("meta.json"))
+
+              if meta["version"] != ver:
+                  failures.append(f"{zip_name}: meta.json version {meta['version']!r}, expected {ver!r}")
+              if len(meta["version"].split(".")) != 4:
+                  failures.append(f"{zip_name}: meta.json version must have four parts, got {meta['version']!r}")
+              if meta["targetAbi"] != abi:
+                  failures.append(f"{zip_name}: meta.json targetAbi {meta['targetAbi']!r}, expected {abi!r}")
+
+              entry = versions.get(ver)
+              if entry is None:
+                  failures.append(f"manifest.json has no entry for version {ver!r} ({tfm})")
+              elif entry["targetAbi"] != abi:
+                  failures.append(f"manifest.json {ver}: targetAbi {entry['targetAbi']!r}, expected {abi!r}")
+
+          # The whole point of two entries is that they are distinguishable.
+          if len(set(expected)) != 2:
+              failures.append("the two builds share a version; the catalogue could offer either to either server")
+
+          for f in failures:
+              print(f"::error::{f}")
+          sys.exit(1 if failures else 0)
+          PY
+
+      - name: Compute MD5 checksums
         id: checksum
         run: |
-          MD5=$(md5sum "$ZIP" | awk '{print $1}')
-          echo "md5=$MD5" >> $GITHUB_OUTPUT
-          echo "Checksum: $MD5"
+          MD5_10=$(md5sum "$ZIP10" | awk '{print $1}')
+          MD5_12=$(md5sum "$ZIP12" | awk '{print $1}')
+          echo "md5_10=$MD5_10" >> $GITHUB_OUTPUT
+          echo "md5_12=$MD5_12" >> $GITHUB_OUTPUT
+          echo "Jellyfin 10.11 ($BASE.0): $MD5_10"
+          echo "Jellyfin 12    ($BASE.1): $MD5_12"
 
-      - name: Show checksum (update manifest.json manually before tagging)
-        run: echo "MD5 checksum for manifest.json -> ${{ steps.checksum.outputs.md5 }}"
+      - name: Show checksums (update manifest.json manually before tagging)
+        run: |
+          echo "manifest.json checksums:"
+          echo "  ${BASE}.0  (targetAbi 10.11.0.0) -> ${{ steps.checksum.outputs.md5_10 }}"
+          echo "  ${BASE}.1  (targetAbi 12.0.0.0)  -> ${{ steps.checksum.outputs.md5_12 }}"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ env.ZIP }}
+          files: |
+            ${{ env.ZIP10 }}
+            ${{ env.ZIP12 }}
           generate_release_notes: true
           body: |
             ## StarTrack ${{ env.VERSION }}
 
-            ### Install via Jellyfin Plugin Repository
+            ### Install via Jellyfin Plugin Repository (recommended)
             Add this URL in **Dashboard → Plugins → Repositories**:
             ```
             https://raw.githubusercontent.com/ZL154/jellyfin-plugin-startrack/main/manifest.json
             ```
+            The catalogue picks the right build for your server automatically.
 
             ### Manual Install
-            Download the ZIP below and extract the DLL into your Jellyfin plugins directory.
+            Two builds are attached — **pick the one matching your server**:
+
+            | Your Jellyfin | Download | .NET |
+            |---|---|---|
+            | 10.11.x | `Jellyfin.Plugin.InternalRating_${{ env.BASE }}.0.zip` | 9 |
+            | 12.x    | `Jellyfin.Plugin.InternalRating_${{ env.BASE }}.1.zip` | 10 |
+
+            Extract the DLL into your Jellyfin plugins directory. Installing the
+            wrong one leaves the plugin showing as "Not supported" (or failing to
+            load) — it cannot damage anything, but it will not run.

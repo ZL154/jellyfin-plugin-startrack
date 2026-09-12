@@ -1,20 +1,78 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!--
+    DUAL ABI, ONE BRANCH.
+
+    Jellyfin 12 moved to .NET 10 and its own assembly versions, so one DLL
+    cannot serve both server generations: a plugin compiled against
+    Jellyfin.Controller 10.11 fails to load on 12, and the reverse fails on
+    10.11. Maintaining that as two long-lived branches means every fix has to
+    be written, reviewed and cherry-picked twice, and the branches drift.
+
+    Multi-targeting keeps it as one source tree. `dotnet build` produces both
+    DLLs in one pass; the release workflow packages each into its own zip and
+    the catalogue decides which one a given server may install.
+
+    Nothing here is conditionally compiled — StarTrack needs no #if. The whole
+    source tree builds unchanged against both, because the runtime differences
+    that do exist (IUserManager.Users disappearing, for one) were already
+    handled reflectively in IUserManagerAbiExtensions for the 10.11.6 -> 10.11.10
+    break. Adding an ABI cost nothing there, which is the payoff for having
+    fixed it properly the first time.
+  -->
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFrameworks>net9.0;net10.0</TargetFrameworks>
     <AssemblyName>Jellyfin.Plugin.InternalRating</AssemblyName>
     <RootNamespace>Jellyfin.Plugin.InternalRating</RootNamespace>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <Nullable>enable</Nullable>
-    <Version>1.7.0.0</Version>
     <Authors>ZL154</Authors>
     <Copyright>Copyright © 2025 ZL154</Copyright>
     <Description>StarTrack – community star ratings for Jellyfin movies and TV shows</Description>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+
+    <!-- Shared across both builds; only the fourth segment differs below. -->
+    <StarTrackBaseVersion>1.8.0</StarTrackBaseVersion>
   </PropertyGroup>
 
-  <ItemGroup>
+  <!--
+    net9.0 -> Jellyfin 10.11.x.
+
+    The Controller reference stays pinned at 10.11.6, the OLDEST 10.11 the
+    plugin supports, NOT the newest. targetAbi is 10.11.0.0, and compiling
+    against a later patch would let a member API that only exists from, say,
+    10.11.9 bind at build time and then throw MissingMethodException on a
+    server the manifest said was fine. Do not let Dependabot move this.
+  -->
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net9.0'">
+    <Version>$(StarTrackBaseVersion).0</Version>
+    <StarTrackTargetAbi>10.11.0.0</StarTrackTargetAbi>
+  </PropertyGroup>
+
+  <!--
+    net10.0 -> Jellyfin 12.x.
+
+    The fourth version segment is the ABI discriminator, and it is load-bearing
+    rather than cosmetic. Jellyfin's catalogue offers the HIGHEST version whose
+    targetAbi its own version satisfies, so:
+
+      1.8.0.0 / targetAbi 10.11.0.0  -> the only candidate a 10.11 server accepts
+      1.8.0.1 / targetAbi 12.0.0.0   -> rejected by 10.11, preferred by 12
+
+    Two entries with the SAME version would be ambiguous and the server could
+    offer a 10.11 build to a 12 host. Keep the two segments in lockstep.
+  -->
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <Version>$(StarTrackBaseVersion).1</Version>
+    <StarTrackTargetAbi>12.0.0.0</StarTrackTargetAbi>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
     <PackageReference Include="Jellyfin.Controller" Version="10.11.6" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <PackageReference Include="Jellyfin.Controller" Version="12.0.0" />
   </ItemGroup>
 
   <ItemGroup>
