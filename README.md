@@ -296,6 +296,17 @@ Seven top-level views - Media / Watchlist / Liked / Diary / Reviews / For You / 
 ### Stats, sort, search, Letterboxd + export
 Live search with a 150 ms debounce, seven sort options (date rated, film year, your rating, community rating, runtime - each ↑↓), one-click Letterboxd settings pane, and CSV export in Letterboxd-compatible format.
 
+**Bringing ratings in.** *My Ratings → ⇄ External Sync → ⇧ Import file* takes a
+StarTrack CSV or JSON export, a Letterboxd export, **or an IMDb ratings export**
+(imdb.com → Your Ratings → Export). The format is detected from the file — there
+is nothing to choose. IMDb's 1–10 maps exactly onto StarTrack's 0.5–5 stars, the
+same ten positions, so nothing is rounded.
+
+**Sending ratings out.** CSV (Letterboxd-compatible), JSON, and an IMDb-format
+CSV for Yamtrack's *Import → IMDb*. That last format cannot carry episodes, or
+anything your library has no IMDb id for — StarTrack now tells you how many rows
+that was, rather than handing back a quietly shorter file.
+
 <p align="center">
   <img alt="Controls bar" src="assets/screenshots/controls-bar.png" />
 </p>
@@ -403,12 +414,27 @@ needs nothing more than letting the catalogue update the plugin.
 
 ### Verify
 
-After restarting, visit:
-```
-https://your-jellyfin-server[/your-baseurl]/Plugins/StarTrack/Debug
-```
+**Dashboard → Plugins → StarTrack → "Is StarTrack working?" → Run self-check.**
 
-You should see `Plugin loaded: YES`. Then open any Movie, TV Show, or Episode detail page: the `☆ Rate` pill and one StarTrack badge should appear, and clicking either should open the rating panel.
+It checks eight things — five on the server, three that only your browser can
+answer — and tells you which one is failing:
+
+- plugin loaded, and whether this build matches your server
+- the widget script is reachable, and injected into the web UI
+- your reverse-proxy base path, if you have one
+- the `<script>` tag is actually in the page's HTML
+- the widget then *executed* (if the tag is there but it didn't run, something is blocking it)
+- your browser is running the current widget, not a cached older one
+
+If nothing at all appears, that answer is itself the diagnosis: the plugin is
+installed but **not running**. On a manual install that nearly always means the
+downloaded build doesn't match your Jellyfin version — see
+[Which build do I need?](#which-build-do-i-need).
+
+The panel also produces a paste-ready summary for bug reports.
+
+Then open any Movie, TV Show, or Episode detail page: the `☆ Rate` pill and one
+StarTrack badge should appear, and clicking either should open the rating panel.
 
 ---
 
