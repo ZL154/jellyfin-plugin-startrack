@@ -411,6 +411,14 @@ needs nothing more than letting the catalogue update the plugin.
 > ⚠️ **If you install the wrong one, it fails silently.** Jellyfin logs nothing,
 > the plugin simply does not appear and `/Plugins/StarTrack/Debug` returns 404.
 > If StarTrack has "vanished" after a manual install, check the last digit first.
+>
+> **And installing the right one afterwards is not enough on its own.** Jellyfin
+> marks the plugin `NotSupported` the moment it fails to load the wrong build,
+> and that mark survives the swap — the correct DLL is then skipped as
+> "disabled" at every start. After replacing the DLL, open **Dashboard →
+> Plugins**, find StarTrack, and **Enable** it (or set `"status": "Active"` in
+> its `meta.json`), then restart. The self-check below calls this out: no answer
+> at all from the plugin, on a manual install, is almost always this.
 
 ### Verify
 
