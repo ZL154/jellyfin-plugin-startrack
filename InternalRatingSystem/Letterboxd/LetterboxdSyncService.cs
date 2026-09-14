@@ -46,6 +46,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         private readonly DiaryRepository _diaryRepo;
         private readonly ILibraryManager _libraryManager;
         private readonly ILogger<LetterboxdSyncService> _logger;
+        private readonly LetterboxdPendingStore? _pending;
 
         public LetterboxdSyncService(
             RatingRepository ratingRepo,
@@ -53,7 +54,8 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             UserInteractionsRepository interactions,
             DiaryRepository diaryRepo,
             ILibraryManager libraryManager,
-            ILogger<LetterboxdSyncService> logger)
+            ILogger<LetterboxdSyncService> logger,
+            LetterboxdPendingStore? pending = null)
         {
             _ratingRepo     = ratingRepo;
             _settingsRepo   = settingsRepo;
@@ -61,6 +63,46 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             _diaryRepo      = diaryRepo;
             _libraryManager = libraryManager;
             _logger         = logger;
+            _pending        = pending;
+        }
+
+        /// <summary>
+        /// Whether unmatched rows should be queued for a later retry (issue #25).
+        /// Server-wide and admin-controlled, so it is read fresh on every import
+        /// rather than cached — an admin toggling it takes effect on the next
+        /// import without a restart.
+        ///
+        /// Null-safe on both sides: Plugin.Instance is null in unit tests, and
+        /// the store is an optional dependency for the same reason.
+        /// </summary>
+        private bool RetainUnmatched =>
+            _pending != null && (Plugin.Instance?.Configuration?.RetainUnmatchedLetterboxdRows ?? false);
+
+        /// <summary>
+        /// Parks a batch of unmatched rows for a later retry. One write per CSV,
+        /// not per row — an import against a small library can leave thousands of
+        /// rows unmatched, and a file write each would dominate the import.
+        ///
+        /// Never throws: a failure to queue is strictly worse than the old
+        /// behaviour only in that the rows stay lost, so it is logged and
+        /// swallowed rather than failing an import that otherwise succeeded.
+        /// </summary>
+        private async Task<int> QueueUnmatchedAsync(
+            string userId, List<(string Normalized, LetterboxdPendingRow Row)> rows)
+        {
+            if (!RetainUnmatched || rows.Count == 0) return 0;
+            try
+            {
+                var queued = await _pending!.MergeAsync(userId, rows).ConfigureAwait(false);
+                if (queued > 0)
+                    _logger.LogInformation("[StarTrack] Queued {N} unmatched Letterboxd rows for future retry", queued);
+                return queued;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[StarTrack] Could not queue unmatched Letterboxd rows — continuing");
+                return 0;
+            }
         }
 
         // ============================================================= //
@@ -112,6 +154,10 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             result.LibraryMovieCount = lookup.TotalMovies;
             _logger.LogInformation("[StarTrack] Letterboxd import: library has {N} movies indexed for matching", lookup.TotalMovies);
 
+            // Rows that match nothing are collected here and queued in one write
+            // at the end, rather than a file write per unmatched row.
+            var unmatchedRows = new List<(string, LetterboxdPendingRow)>();
+
             foreach (var row in rows)
             {
                 var name   = GetCol(row, "Name", "Title", "Film");
@@ -138,6 +184,23 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 int? year = null;
                 if (int.TryParse(yearS, out var y)) year = y;
 
+                // Use the Letterboxd Date column as the RatedAt timestamp so
+                // imported ratings keep their original chronology and sort
+                // correctly. Without this, every imported rating clusters at
+                // DateTime.UtcNow and the Newest-rated sort returns junk.
+                //
+                // Parsed before the library match, not after, because an
+                // unmatched row carries this timestamp into the pending queue —
+                // a rating that lands months from now still has to sort by when
+                // it was actually made on Letterboxd.
+                DateTime? ratedAt = null;
+                if (!string.IsNullOrWhiteSpace(dateS) &&
+                    DateTime.TryParse(dateS, System.Globalization.CultureInfo.InvariantCulture,
+                                      System.Globalization.DateTimeStyles.AssumeUniversal, out var parsedDate))
+                {
+                    ratedAt = parsedDate.ToUniversalTime();
+                }
+
                 var matched = lookup.Find(name, year, out var ambiguous);
                 if (matched == null)
                 {
@@ -147,19 +210,19 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                         result.UnmatchedTitles.Add($"{name}{(year.HasValue ? $" ({year})" : "")}");
                     _logger.LogDebug("[StarTrack] Letterboxd unmatched: '{Name}' ({Year}) -> normalized '{Norm}'",
                         name, year, NormalizeTitle(name));
-                    continue;
-                }
 
-                // Use the Letterboxd Date column as the RatedAt timestamp so
-                // imported ratings keep their original chronology and sort
-                // correctly. Without this, every imported rating clusters at
-                // DateTime.UtcNow and the Newest-rated sort returns junk.
-                DateTime? ratedAt = null;
-                if (!string.IsNullOrWhiteSpace(dateS) &&
-                    DateTime.TryParse(dateS, System.Globalization.CultureInfo.InvariantCulture,
-                                      System.Globalization.DateTimeStyles.AssumeUniversal, out var parsedDate))
-                {
-                    ratedAt = parsedDate.ToUniversalTime();
+                    if (RetainUnmatched)
+                    {
+                        unmatchedRows.Add((NormalizeTitle(name), new LetterboxdPendingRow
+                        {
+                            Kind   = LetterboxdPendingKind.Rating,
+                            Name   = name,
+                            Year   = year,
+                            Rating = stars,
+                            Date   = ratedAt
+                        }));
+                    }
+                    continue;
                 }
 
                 // Check if already rated by this user — counts as Update vs Imported
@@ -172,8 +235,10 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 else         result.Imported++;
             }
 
-            _logger.LogInformation("[StarTrack] Letterboxd CSV import done: library={L}, rows={R}, imported={I}, updated={U}, unmatched={N}, ambiguous={A}",
-                result.LibraryMovieCount, rows.Count, result.Imported, result.Updated, result.Unmatched, result.Ambiguous);
+            result.PendingQueued += await QueueUnmatchedAsync(userId, unmatchedRows).ConfigureAwait(false);
+
+            _logger.LogInformation("[StarTrack] Letterboxd CSV import done: library={L}, rows={R}, imported={I}, updated={U}, unmatched={N}, ambiguous={A}, queued={Q}",
+                result.LibraryMovieCount, rows.Count, result.Imported, result.Updated, result.Unmatched, result.Ambiguous, result.PendingQueued);
 
             await _settingsRepo.SetSyncStateAsync(userId, null, DateTime.UtcNow, result.Imported + result.Updated, result.Unmatched).ConfigureAwait(false);
             return result;
@@ -202,6 +267,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 return (0, 0);
             }
 
+            var unmatchedRows = new List<(string, LetterboxdPendingRow)>();
             foreach (var row in rows)
             {
                 var name  = GetCol(row, "Name", "Title", "Film");
@@ -210,7 +276,20 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 int? year = int.TryParse(yearS, out var y) ? y : null;
 
                 var matched = lookup.Find(name, year, out _);
-                if (matched == null) { notInLib++; continue; }
+                if (matched == null)
+                {
+                    notInLib++;
+                    if (RetainUnmatched)
+                    {
+                        unmatchedRows.Add((NormalizeTitle(name), new LetterboxdPendingRow
+                        {
+                            Kind = LetterboxdPendingKind.Watchlist,
+                            Name = name,
+                            Year = year
+                        }));
+                    }
+                    continue;
+                }
 
                 var itemIdStr = matched.Id.ToString("N");
                 if (await _interactions.AddToWatchlistAsync(userId, itemIdStr).ConfigureAwait(false))
@@ -218,6 +297,9 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 else
                     alreadyOn++;
             }
+
+            await QueueUnmatchedAsync(userId, unmatchedRows).ConfigureAwait(false);
+
             _logger.LogInformation("[StarTrack] Letterboxd watchlist import: rows={R}, added={A}, alreadyOnWatchlist={O}, notInLibrary={N}",
                 rows.Count, added, alreadyOn, notInLib);
             return (added, alreadyOn + notInLib);
@@ -244,6 +326,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 return (0, 0);
             }
 
+            var unmatchedRows = new List<(string, LetterboxdPendingRow)>();
             foreach (var row in rows)
             {
                 var name  = GetCol(row, "Name", "Title", "Film");
@@ -252,7 +335,20 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 int? year = int.TryParse(yearS, out var y) ? y : null;
 
                 var matched = lookup.Find(name, year, out _);
-                if (matched == null) { notInLib++; continue; }
+                if (matched == null)
+                {
+                    notInLib++;
+                    if (RetainUnmatched)
+                    {
+                        unmatchedRows.Add((NormalizeTitle(name), new LetterboxdPendingRow
+                        {
+                            Kind = LetterboxdPendingKind.Like,
+                            Name = name,
+                            Year = year
+                        }));
+                    }
+                    continue;
+                }
 
                 var itemIdStr = matched.Id.ToString("N");
                 if (await _interactions.AddLikeAsync(userId, itemIdStr).ConfigureAwait(false))
@@ -260,6 +356,9 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 else
                     alreadyOn++;
             }
+
+            await QueueUnmatchedAsync(userId, unmatchedRows).ConfigureAwait(false);
+
             _logger.LogInformation("[StarTrack] Letterboxd likes import: rows={R}, added={A}, alreadyLiked={O}, notInLibrary={N}",
                 rows.Count, added, alreadyOn, notInLib);
             return (added, alreadyOn + notInLib);
@@ -290,6 +389,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             }
 
             var entries = new List<Models.DiaryEntry>();
+            var unmatchedRows = new List<(string, LetterboxdPendingRow)>();
             foreach (var row in rows)
             {
                 var name    = GetCol(row, "Name", "Title", "Film");
@@ -301,9 +401,11 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
 
                 if (string.IsNullOrWhiteSpace(name)) continue;
                 int? year = int.TryParse(yearS, out var y) ? y : null;
-                var matched = lookup.Find(name, year, out _);
-                if (matched == null) continue;
 
+                // Rating, watched date and rewatch flag are all parsed before the
+                // library match: an unmatched diary row carries every one of them
+                // into the pending queue, and the watched date is part of its
+                // identity there (rewatches are separate entries).
                 double? stars = null;
                 if (!string.IsNullOrWhiteSpace(ratingS) &&
                     double.TryParse(ratingS, System.Globalization.NumberStyles.Float,
@@ -318,17 +420,42 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 {
                     watched = DateTime.UtcNow;
                 }
+                watched = watched.ToUniversalTime();
+
+                var isRewatch = string.Equals(rewatchS, "Yes", StringComparison.OrdinalIgnoreCase) ||
+                                string.Equals(rewatchS, "true", StringComparison.OrdinalIgnoreCase);
+                var reviewText = string.IsNullOrWhiteSpace(review) ? null : review.Trim();
+
+                var matched = lookup.Find(name, year, out _);
+                if (matched == null)
+                {
+                    if (RetainUnmatched)
+                    {
+                        unmatchedRows.Add((NormalizeTitle(name), new LetterboxdPendingRow
+                        {
+                            Kind    = LetterboxdPendingKind.Diary,
+                            Name    = name,
+                            Year    = year,
+                            Rating  = stars,
+                            Date    = watched,
+                            Rewatch = isRewatch,
+                            Review  = reviewText
+                        }));
+                    }
+                    continue;
+                }
 
                 entries.Add(new Models.DiaryEntry
                 {
                     ItemId    = matched.Id.ToString("N"),
-                    WatchedAt = watched.ToUniversalTime(),
+                    WatchedAt = watched,
                     Stars     = stars,
-                    Review    = string.IsNullOrWhiteSpace(review) ? null : review.Trim(),
-                    Rewatch   = string.Equals(rewatchS, "Yes", StringComparison.OrdinalIgnoreCase) ||
-                                string.Equals(rewatchS, "true", StringComparison.OrdinalIgnoreCase)
+                    Review    = reviewText,
+                    Rewatch   = isRewatch
                 });
             }
+
+            await QueueUnmatchedAsync(userId, unmatchedRows).ConfigureAwait(false);
 
             var added = await _diaryRepo.ImportEntriesAsync(userId, entries).ConfigureAwait(false);
             _logger.LogInformation("[StarTrack] Letterboxd diary import: added {N} entries (of {T} rows)", added, entries.Count);
@@ -506,6 +633,233 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         internal MovieLookup BuildLookupForImport() => BuildMovieLookup();
 
         // ============================================================= //
+        // PENDING RETRY (#25)
+        // ============================================================= //
+
+        /// <summary>
+        /// Replays rows that matched nothing on an earlier import, applying any
+        /// whose film has since been added to the library.
+        ///
+        /// This is the half of issue #25 that makes the queue worth keeping: a
+        /// rating imported when the server had 400 films lands by itself once
+        /// film 401 is the one it was waiting for.
+        ///
+        /// Row outcomes, per the issue:
+        ///   - matched and written      -> removed
+        ///   - already satisfied        -> removed (the user rated it in the
+        ///                                 meantime; the row has nothing to add)
+        ///   - still no library match   -> kept, LastTriedAt stamped
+        ///   - write threw              -> kept, so a transient failure retries
+        ///
+        /// Pass a <paramref name="lookup"/> when the caller already built one —
+        /// it is a full library scan and there is no reason to pay for it twice
+        /// in a single sync.
+        /// </summary>
+        /// <returns>How many rows were resolved and dropped from the queue.</returns>
+        internal async Task<int> RetryPendingAsync(
+            string userId, string userName, MovieLookup? lookup = null)
+        {
+            if (_pending == null) return 0;
+
+            // Deliberately NOT gated on RetainUnmatched. An admin who turns the
+            // setting off should stop new rows being queued, but a backlog that
+            // is already on disk should still drain — the alternative is rows
+            // stranded forever with no way to apply them.
+            List<LetterboxdPendingRow> rows;
+            try
+            {
+                rows = await _pending.GetAsync(userId).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[StarTrack] Could not read the pending Letterboxd queue");
+                return 0;
+            }
+            if (rows.Count == 0) return 0;
+
+            lookup ??= BuildMovieLookup();
+
+            var resolved  = new List<string>();
+            var stillOpen = new List<string>();
+            var diaryAdds = new List<Models.DiaryEntry>();
+            var now       = DateTime.UtcNow;
+
+            foreach (var row in rows)
+            {
+                var norm = NormalizeTitle(row.Name);
+                var key  = LetterboxdPendingStore.Key(row.Kind, norm, row.Year, row.Date);
+
+                var matched = lookup.Find(row.Name, row.Year, out _);
+                if (matched == null)
+                {
+                    stillOpen.Add(key);
+                    continue;
+                }
+
+                var itemId = matched.Id.ToString("N");
+                try
+                {
+                    switch (row.Kind)
+                    {
+                        case LetterboxdPendingKind.Rating:
+                            // An existing rating counts as satisfied rather than
+                            // something to overwrite: the user rating it in
+                            // StarTrack directly is a newer, deliberate act than
+                            // a row imported from an old export.
+                            var existing = await _ratingRepo.GetRatingsAsync(itemId).ConfigureAwait(false);
+                            var alreadyRated = existing.UserRatings?.Any(r => r.UserId == userId) == true;
+                            if (!alreadyRated)
+                            {
+                                await _ratingRepo.SaveRatingAsync(
+                                    itemId, userId, userName,
+                                    Math.Clamp(row.Rating ?? 0.5, 0.5, 5.0),
+                                    null, row.Date).ConfigureAwait(false);
+                            }
+                            break;
+
+                        case LetterboxdPendingKind.Watchlist:
+                            // Add*Async are idempotent and report false when the
+                            // entry was already there — either way the row is done.
+                            await _interactions.AddToWatchlistAsync(userId, itemId).ConfigureAwait(false);
+                            break;
+
+                        case LetterboxdPendingKind.Like:
+                            await _interactions.AddLikeAsync(userId, itemId).ConfigureAwait(false);
+                            break;
+
+                        case LetterboxdPendingKind.Diary:
+                            // Batched below: ImportEntriesAsync dedupes on
+                            // (itemId, watched-day) across the whole set.
+                            diaryAdds.Add(new Models.DiaryEntry
+                            {
+                                ItemId    = itemId,
+                                WatchedAt = row.Date ?? now,
+                                Stars     = row.Rating,
+                                Review    = row.Review,
+                                Rewatch   = row.Rewatch
+                            });
+                            break;
+                    }
+
+                    resolved.Add(key);
+                }
+                catch (Exception ex)
+                {
+                    // Keep the row. A failed write here is usually transient
+                    // (locked store, disk hiccup) and dropping it would lose the
+                    // rating permanently.
+                    _logger.LogWarning(ex, "[StarTrack] Pending Letterboxd row '{Name}' failed to apply — keeping it queued", row.Name);
+                    stillOpen.Add(key);
+                }
+            }
+
+            if (diaryAdds.Count > 0)
+            {
+                try
+                {
+                    await _diaryRepo.ImportEntriesAsync(userId, diaryAdds).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "[StarTrack] Pending diary entries failed to write — continuing");
+                }
+            }
+
+            try
+            {
+                if (resolved.Count > 0)
+                    await _pending.RemoveAsync(userId, resolved).ConfigureAwait(false);
+                if (stillOpen.Count > 0)
+                    await _pending.MarkTriedAsync(userId, stillOpen, now).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                // The writes above already landed; failing to update the queue
+                // only risks re-applying idempotent operations on the next run.
+                _logger.LogWarning(ex, "[StarTrack] Could not update the pending Letterboxd queue after a retry");
+            }
+
+            if (resolved.Count > 0)
+            {
+                _logger.LogInformation(
+                    "[StarTrack] Pending Letterboxd retry for {User}: applied {R}, still waiting {W}",
+                    userName, resolved.Count, stillOpen.Count);
+            }
+            return resolved.Count;
+        }
+
+        /// <summary>
+        /// Cheap check for whether a retry is worth building a movie lookup for.
+        /// The lookup is a full library scan, and the scheduled task ticks every
+        /// ten minutes — asking this first keeps an empty queue free.
+        /// </summary>
+        internal async Task<int> PendingCountAsync(string userId)
+        {
+            if (_pending == null) return 0;
+            try { return await _pending.CountAsync(userId).ConfigureAwait(false); }
+            catch { return 0; }
+        }
+
+        /// <summary>
+        /// A cheap stand-in for "has the movie library changed since last time" —
+        /// the local equivalent of the ETag the RSS poll uses, and used the same
+        /// way: unchanged means skip.
+        ///
+        /// This is not a heuristic. The ONLY thing that can resolve a pending row
+        /// is an item appearing that was not there before, so if the fingerprint
+        /// has not moved, a retry provably cannot succeed and skipping it loses
+        /// nothing. That makes it strictly better than a fixed interval, which
+        /// either wastes scans or delays a match that was already possible.
+        ///
+        /// Movie count plus the newest DateCreated: the count moves on any add or
+        /// remove, and the timestamp separates "one in, one out between ticks"
+        /// from a genuinely unchanged library. Two indexed queries against
+        /// BuildMovieLookup's full materialisation plus a File.Exists per item.
+        ///
+        /// KNOWN GAP: an in-place metadata edit that fixes a title — the other
+        /// way an unmatched row becomes matchable — moves neither part, so it is
+        /// not detected until the next add or remove. Deliberate: DateLastSaved
+        /// is not among ItemSortBy's members in 10.11, so catching it would mean
+        /// materialising the library anyway, which is the cost being avoided.
+        /// A manual "Sync now" always forces a retry and covers that case.
+        /// </summary>
+        /// <returns>An opaque token to compare against the previous call, or null if the library could not be read.</returns>
+        internal string? GetLibraryFingerprint()
+        {
+            try
+            {
+                var count = _libraryManager.GetCount(new InternalItemsQuery
+                {
+                    IncludeItemTypes = new[] { BaseItemKind.Movie },
+                    Recursive        = true
+                });
+
+                var newest = _libraryManager.GetItemList(new InternalItemsQuery
+                {
+                    IncludeItemTypes = new[] { BaseItemKind.Movie },
+                    Recursive        = true,
+                    OrderBy          = new[]
+                    {
+                        (ItemSortBy.DateCreated, Jellyfin.Database.Implementations.Enums.SortOrder.Descending)
+                    },
+                    Limit = 1
+                }).FirstOrDefault();
+
+                var stamp = newest?.DateCreated.Ticks ?? 0L;
+                return count.ToString(CultureInfo.InvariantCulture) + ":" +
+                       stamp.ToString(CultureInfo.InvariantCulture);
+            }
+            catch (Exception ex)
+            {
+                // Null means "unknown", and callers treat unknown as changed —
+                // a wasted scan is a far better failure than a rating that never
+                // lands because a query quirk made the library look frozen.
+                _logger.LogDebug(ex, "[StarTrack] Library fingerprint query failed — assuming the library changed");
+                return null;
+            }
+        }
+
+        // ============================================================= //
         // RSS SYNC
         // ============================================================= //
 
@@ -604,6 +958,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             // Collect RSS entries that need to become diary entries too
             var diaryAdds = new List<Models.DiaryEntry>();
             var likesFromRss = 0;
+            var unmatchedRows = new List<(string, LetterboxdPendingRow)>();
 
             foreach (var entry in toImport)
             {
@@ -616,6 +971,22 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                         result.UnmatchedTitles.Add($"{entry.FilmTitle}{(entry.FilmYear.HasValue ? $" ({entry.FilmYear})" : "")}");
                     _logger.LogDebug("[StarTrack] Letterboxd RSS unmatched: '{Name}' ({Year}) -> normalized '{Norm}'",
                         entry.FilmTitle, entry.FilmYear, NormalizeTitle(entry.FilmTitle));
+
+                    // Queue the rating the same way a CSV row would be. An RSS
+                    // entry is only ever seen once — it scrolls off the feed and
+                    // lastSyncedGuid moves past it — so without this a film rated
+                    // on Letterboxd before it reaches the library is lost for good.
+                    if (RetainUnmatched)
+                    {
+                        unmatchedRows.Add((NormalizeTitle(entry.FilmTitle), new LetterboxdPendingRow
+                        {
+                            Kind   = LetterboxdPendingKind.Rating,
+                            Name   = entry.FilmTitle,
+                            Year   = entry.FilmYear,
+                            Rating = Math.Clamp(entry.Rating!.Value, 0.5, 5.0),
+                            Date   = (entry.WatchedDate ?? DateTime.UtcNow).ToUniversalTime()
+                        }));
+                    }
                     continue;
                 }
 
@@ -745,6 +1116,8 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             {
                 _logger.LogWarning(ex, "[StarTrack] Likes scrape threw — continuing");
             }
+
+            result.PendingQueued += await QueueUnmatchedAsync(userId, unmatchedRows).ConfigureAwait(false);
 
             // Mark newest entry as the last-seen guid so the next run diffs correctly
             var newest = entries.FirstOrDefault();
@@ -1086,7 +1459,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         ///   4. Lowercase invariant
         ///   5. Whitespace collapse
         /// </summary>
-        private static string NormalizeTitle(string? s)
+        internal static string NormalizeTitle(string? s)
         {
             if (string.IsNullOrEmpty(s)) return string.Empty;
 
