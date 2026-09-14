@@ -7377,7 +7377,8 @@
                     status('\u2713 ' + tr('lb.full_done', {
                         ratings: p.ratingsFound || 0, diary: p.diaryFound || 0, imported: r.imported || 0, updated: r.updated || 0,
                         unmatched: r.unmatched || 0, watchlist: r.watchlistAdded || 0, likes: r.likesAdded || 0
-                    }, '{ratings} ratings and {diary} diary entries on Letterboxd \u2014 {imported} imported, {updated} updated, {unmatched} not in library; watchlist +{watchlist}, likes +{likes}'), 'ok');
+                    }, '{ratings} ratings and {diary} diary entries on Letterboxd \u2014 {imported} imported, {updated} updated, {unmatched} not in library; watchlist +{watchlist}, likes +{likes}') +
+                        (p.warning ? ' \u26a0 ' + p.warning : ''), p.warning ? 'warn' : 'ok');
                     try { if (typeof loadOverlayView === 'function' && _overlay && _overlay.style.display !== 'none') loadOverlayView(); } catch (e) {}
                 });
             };
@@ -9189,7 +9190,8 @@
                             if (!p || p.error || (p.result && p.result.error)) { say('✗ ' + ((p && (p.error || (p.result && p.result.error))) || tr('lb.full_failed', null, 'Full sync failed.')), 'err'); return; }
                             var res = p.result || {};
                             say('✓ ' + tr('lb.full_done', { ratings: p.ratingsFound || 0, diary: p.diaryFound || 0, imported: res.imported || 0, updated: res.updated || 0, unmatched: res.unmatched || 0, watchlist: res.watchlistAdded || 0, likes: res.likesAdded || 0 },
-                                '{ratings} ratings and {diary} diary entries on Letterboxd — {imported} imported, {updated} updated, {unmatched} not in library; watchlist +{watchlist}, likes +{likes}'), 'ok');
+                                '{ratings} ratings and {diary} diary entries on Letterboxd — {imported} imported, {updated} updated, {unmatched} not in library; watchlist +{watchlist}, likes +{likes}') +
+                                (p.warning ? ' ⚠ ' + p.warning : ''), p.warning ? 'warn' : 'ok');
                         }).catch(function () { btn.disabled = false; });
                 };
                 setTimeout(poll, 1500);

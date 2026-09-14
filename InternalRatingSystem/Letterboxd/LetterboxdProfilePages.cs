@@ -186,6 +186,8 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         [System.Text.Json.Serialization.JsonPropertyName("startedAt")]    public DateTime StartedAt    { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("finishedAt")]   public DateTime? FinishedAt  { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("error")]        public string?  Error        { get; set; }
+        /// <summary>Set when some pages could not be read: the sync finished, but on part of the profile.</summary>
+        [System.Text.Json.Serialization.JsonPropertyName("warning")]      public string?  Warning      { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("result")]       public LetterboxdImportResult? Result { get; set; }
 
         /// <summary>One in-flight or last-finished sync per user.</summary>

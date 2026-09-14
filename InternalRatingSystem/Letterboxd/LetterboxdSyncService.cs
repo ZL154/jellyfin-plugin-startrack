@@ -228,9 +228,20 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                     continue;
                 }
 
-                // Check if already rated by this user — counts as Update vs Imported
+                // Check if already rated by this user — counts as Update vs Imported.
+                // With duplicate copies in the library, the one the user already
+                // rated is the one this rating belongs to.
                 var existing = await _ratingRepo.GetRatingsAsync(matched.Id.ToString("N")).ConfigureAwait(false);
                 var mine     = existing.UserRatings?.FirstOrDefault(r => r.UserId == userId);
+                if (mine == null)
+                {
+                    foreach (var twin in lookup.SameFilm(matched))
+                    {
+                        var twinRatings = await _ratingRepo.GetRatingsAsync(twin.Id.ToString("N")).ConfigureAwait(false);
+                        var twinMine = twinRatings.UserRatings?.FirstOrDefault(r => r.UserId == userId);
+                        if (twinMine != null) { matched = twin; existing = twinRatings; mine = twinMine; break; }
+                    }
+                }
                 var userHad  = mine != null;
 
                 // An import carries a score and maybe a date. It must not wipe
@@ -773,6 +784,8 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             for (var i = 0; i < items.Count; i++)
             {
                 var m = lookup.Find(items[i].Title, items[i].Year, out _);
+                if (m != null && !have.ContainsKey(m.Id.ToString("N")))
+                    m = lookup.SameFilm(m).FirstOrDefault(t => have.ContainsKey(t.Id.ToString("N"))) ?? m;
                 matchedIds[i] = m?.Id.ToString("N");
                 if (matchedIds[i] != null && have.TryGetValue(matchedIds[i]!, out var mine)) known[i] = mine;
                 else if (likedOn != null && likedOn.TryGetValue(items[i].Slug, out var d)) known[i] = d;
@@ -890,8 +903,25 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             progress.PagesDone  += 1;
             for (var page = 2; page <= last && !ct.IsCancellationRequested; page++)
             {
-                var html = await FetchGatedAsync($"{LetterboxdSession.BaseUrl}{prefix}page/{page}/", what, username, force: true).ConfigureAwait(false);
-                if (html == null) break;
+                var url = $"{LetterboxdSession.BaseUrl}{prefix}page/{page}/";
+                var html = await FetchGatedAsync(url, what, username, force: true).ConfigureAwait(false);
+                if (html == null)
+                {
+                    // One solver timeout mid-list used to end the read silently, and
+                    // 4 of 6 pages were then reported as the whole profile. Try once
+                    // more; if the page still will not come, say so.
+                    await Task.Delay(TimeSpan.FromSeconds(5), ct).ConfigureAwait(false);
+                    html = await FetchGatedAsync(url, what, username, force: true).ConfigureAwait(false);
+                }
+                if (html == null)
+                {
+                    var note = $"{what}: only {page - 1} of {last} pages could be read" +
+                               (LetterboxdFeedGate.LastSolverError != null ? " (" + LetterboxdFeedGate.LastSolverError + ")" : string.Empty) +
+                               ". Run Sync everything again for the rest.";
+                    progress.Warning = progress.Warning == null ? note : progress.Warning + " " + note;
+                    _logger.LogWarning("[StarTrack] {Note}", note);
+                    break;
+                }
                 pages.Add(html);
                 progress.PagesDone++;
             }
@@ -1800,6 +1830,21 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             /// copies of the same movie in different libraries would have
             /// 100+ "ambiguous" matches and nothing got imported.
             /// </summary>
+            /// <summary>
+            /// The other library items that are the same film — same normalised
+            /// title and year. A library with two copies of a film has two ids
+            /// for it; an import that matched "the first" while the user had
+            /// rated "the second" wrote a second rating stamped now, on a real
+            /// server, on every sync. Callers prefer the copy the user already
+            /// touched.
+            /// </summary>
+            public IReadOnlyList<BaseItem> SameFilm(BaseItem item)
+            {
+                var norm = NormalizeTitle(item.Name ?? string.Empty);
+                if (string.IsNullOrEmpty(norm) || !_byTitle.TryGetValue(norm, out var candidates)) return Array.Empty<BaseItem>();
+                return candidates.Where(c => c.Id != item.Id && c.ProductionYear == item.ProductionYear).ToList();
+            }
+
             public BaseItem? Find(string title, int? year, out bool ambiguous)
             {
                 ambiguous = false;

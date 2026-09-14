@@ -71,5 +71,20 @@ namespace Jellyfin.Plugin.InternalRating.Tests
             var lookup = Lookup(M("The Fall", 2006));
             Assert.NotNull(lookup.Find("Fall", null, out _));
         }
-    }
+    
+        [Fact]
+        public void SameFilmListsTheOtherCopiesOfADuplicate()
+        {
+            // Two library entries for the same film (a real library had two "How to
+            // Train Your Dragon" 2010s): whichever Find returns, the other is its twin.
+            var a = M("How to Train Your Dragon", 2010); var b = M("How to Train Your Dragon", 2010);
+            var sequel = M("How to Train Your Dragon 2", 2014);
+            var lookup = Lookup(a, b, sequel);
+            var hit = lookup.Find("How to Train Your Dragon", 2010, out _)!;
+            var twins = lookup.SameFilm(hit);
+            Assert.Single(twins);
+            Assert.NotEqual(hit.Id, twins[0].Id);
+            Assert.Empty(lookup.SameFilm(sequel));
+        }
+}
 }
