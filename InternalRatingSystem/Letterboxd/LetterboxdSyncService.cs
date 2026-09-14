@@ -351,6 +351,9 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 var yearS = GetCol(row, "Year");
                 if (string.IsNullOrWhiteSpace(name)) { notInLib++; continue; }
                 int? year = int.TryParse(yearS, out var y) ? y : null;
+                // likes/films.csv carries the day the like was made.
+                DateTime? likedAt = DateTime.TryParse(GetCol(row, "Date"), System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal, out var ld) ? ld : null;
 
                 var matched = lookup.Find(name, year, out _);
                 if (matched == null)
@@ -369,7 +372,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 }
 
                 var itemIdStr = matched.Id.ToString("N");
-                if (await _interactions.AddLikeAsync(userId, itemIdStr).ConfigureAwait(false))
+                if (await _interactions.AddLikeAsync(userId, itemIdStr, likedAt).ConfigureAwait(false))
                     added++;
                 else
                     alreadyOn++;
@@ -683,6 +686,17 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             return (last, prefix ?? listPath);
         }
 
+        /// <summary>
+        /// True when the page links an "Older" page after this one. The likes
+        /// page has no numbered pagination at all — only Newer/Older — so its
+        /// first page names page 2 and nothing else, and a reader that trusts
+        /// the highest number it sees stops at 2 with most of the list unread
+        /// (a member's 275 likes came back as 144). Walk while there is a next.
+        /// </summary>
+        internal static bool HasNextPage(string html)
+            => !string.IsNullOrEmpty(html) &&
+               System.Text.RegularExpressions.Regex.IsMatch(html, "<a\\b[^>]*\\bclass=\"[^\"]*\\bnext\\b[^\"]*\"[^>]*\\bhref=\"[^\"]*?/page/\\d+/\"", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
         // Politeness cap. 28 posters a page, so this is 4,200 films. The first
         // live run hit the previous cap of 25 pages on a real account (exactly
         // 700 read, more existed), so it was too low; a page is one cheap,
@@ -708,6 +722,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             if (reported > MaxListPages)
                 _logger.LogWarning("[StarTrack] {What} for {User} has {Pages} pages; only the first {Cap} were read.",
                     what, username, reported, MaxListPages);
+            if (HasNextPage(first) && last < 2) last = 2;
             for (var page = 2; page <= last; page++)
             {
                 var html = await FetchGatedAsync($"{LetterboxdSession.BaseUrl}{prefix}page/{page}/", what, username, force).ConfigureAwait(false);
@@ -715,6 +730,8 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 var items = ParsePosterList(html);
                 if (items.Count == 0) break;
                 all.AddRange(items);
+                // Newer/Older-only lists reveal one page at a time.
+                if (HasNextPage(html) && last < Math.Min(page + 1, MaxListPages)) last = page + 1;
             }
             return all;
         }
@@ -729,7 +746,12 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         /// markup, which also never captured the year — so "Heat" matched
         /// whichever Heat the library found first.
         /// </summary>
-        internal async Task<int> SyncLikesScrapeAsync(string userId, string letterboxdUsername, MovieLookup lookup, bool force = false)
+        /// <param name="likedOn">The likes page has no dates. When the caller
+        /// knows when a film was last logged (the full sync has the whole
+        /// diary), that date stands in for the like's, keyed by slug, so the
+        /// liked page keeps its order instead of a block of "today".</param>
+        internal async Task<int> SyncLikesScrapeAsync(string userId, string letterboxdUsername, MovieLookup lookup, bool force = false,
+            IReadOnlyDictionary<string, DateTime>? likedOn = null)
         {
             if (string.IsNullOrWhiteSpace(letterboxdUsername)) return 0;
 
@@ -741,7 +763,8 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             {
                 var matched = lookup.Find(item.Title, item.Year, out _);
                 if (matched == null) { unmatched++; continue; }
-                if (await _interactions.AddLikeAsync(userId, matched.Id.ToString("N")).ConfigureAwait(false))
+                DateTime? when = likedOn != null && likedOn.TryGetValue(item.Slug, out var d) ? d : null;
+                if (await _interactions.AddLikeAsync(userId, matched.Id.ToString("N"), when).ConfigureAwait(false))
                     added++;
             }
             _logger.LogInformation("[StarTrack] Letterboxd likes sync for {User}: {Total} on Letterboxd, {Added} added, {Unmatched} not in library",
@@ -933,7 +956,10 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 progress.Phase = "watchlist";
                 result.WatchlistAdded += await SyncWatchlistRssAsync(userId, username, lookup, force: true).ConfigureAwait(false);
                 progress.Phase = "likes";
-                result.LikesAdded += await SyncLikesScrapeAsync(userId, username, lookup, force: true).ConfigureAwait(false);
+                var lastLogged = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
+                foreach (var row in diaryRows)
+                    if (!lastLogged.TryGetValue(row.Slug, out var seen) || row.WatchedOn > seen) lastLogged[row.Slug] = row.WatchedOn;
+                result.LikesAdded += await SyncLikesScrapeAsync(userId, username, lookup, force: true, likedOn: lastLogged).ConfigureAwait(false);
                 progress.Phase = "top 4";
                 try { await ScrapeLetterboxdFavoritesAsync(userId, username, lookup, force: true).ConfigureAwait(false); } catch (Exception ex) { _logger.LogWarning(ex, "[StarTrack] Full sync: Top 4 failed — continuing"); }
 
@@ -1384,7 +1410,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 {
                     try
                     {
-                        if (await _interactions.AddLikeAsync(userId, itemIdStr).ConfigureAwait(false))
+                        if (await _interactions.AddLikeAsync(userId, itemIdStr, entry.WatchedDate).ConfigureAwait(false))
                             likesFromRss++;
                     }
                     catch (Exception ex)
@@ -1419,7 +1445,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 var itemIdStr = matched.Id.ToString("N");
                 try
                 {
-                    if (await _interactions.AddLikeAsync(userId, itemIdStr).ConfigureAwait(false))
+                    if (await _interactions.AddLikeAsync(userId, itemIdStr, entry.WatchedDate).ConfigureAwait(false))
                         likesCatchup++;
                 }
                 catch (Exception ex)

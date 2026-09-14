@@ -122,5 +122,26 @@ namespace Jellyfin.Plugin.InternalRating.Tests
             Assert.Equal(1, last);
             Assert.Equal("/h201ha/likes/films/", prefix);
         }
-    }
+    
+        [Fact]
+        public void ALikesPageWithOnlyOlderNewerLinksReportsANextPage()
+        {
+            // The likes page: no numbered pagination, just Newer/Older.
+            var html = "<ul class=\"poster-list\"></ul><div class=\"pagination\">" +
+                       "<div class=\"paginate-nextprev paginate-disabled\"><span class=\"previous\">Newer</span></div>" +
+                       "<div class=\"paginate-nextprev\"><a class=\"next\" href=\"/sawagerry/likes/films/page/2/\">Older</a></div></div>";
+            Assert.True(LetterboxdSyncService.HasNextPage(html));
+            // Pagination() alone would stop at 2 — the trap this guards.
+            Assert.Equal((2, "/sawagerry/likes/films/"), LetterboxdSyncService.Pagination(html, "/Sawagerry/likes/films/"));
+        }
+
+        [Fact]
+        public void TheLastPageHasNoNextLink()
+        {
+            var html = "<div class=\"pagination\"><div class=\"paginate-nextprev\"><a class=\"previous\" href=\"/sawagerry/likes/films/page/3/\">Newer</a></div>" +
+                       "<div class=\"paginate-nextprev paginate-disabled\"><span class=\"next\">Older</span></div></div>";
+            Assert.False(LetterboxdSyncService.HasNextPage(html));
+            Assert.False(LetterboxdSyncService.HasNextPage(null!));
+        }
+}
 }

@@ -139,14 +139,21 @@ namespace Jellyfin.Plugin.InternalRating.Data
             finally { _lock.Release(); }
         }
 
-        public async Task<bool> AddLikeAsync(string userId, string itemId)
+        /// <summary>
+        /// Like an item. <paramref name="likedAt"/> is the moment the like
+        /// really happened when an import knows it (a Letterboxd export's
+        /// Date column, the diary date of a liked viewing); the liked page is
+        /// ordered by this, so a bulk import that stamps "now" on every row
+        /// shoves the whole batch to the top in library order.
+        /// </summary>
+        public async Task<bool> AddLikeAsync(string userId, string itemId, DateTime? likedAt = null)
         {
             await _lock.WaitAsync().ConfigureAwait(false);
             try
             {
                 var u = GetOrInit(userId);
                 if (u.Liked.Any(e => e.ItemId == itemId)) return false;
-                u.Liked.Add(new InteractionEntry { ItemId = itemId, AddedAt = DateTime.UtcNow });
+                u.Liked.Add(new InteractionEntry { ItemId = itemId, AddedAt = likedAt?.ToUniversalTime() ?? DateTime.UtcNow });
                 await SaveAsync().ConfigureAwait(false);
                 return true;
             }
