@@ -94,6 +94,13 @@ namespace Jellyfin.Plugin.InternalRating
             var userId = e.Users?.FirstOrDefault()?.Id ?? Guid.Empty;
             if (userId == Guid.Empty) return;
 
+            // Pre-roll clips, idents and trailers are Movie items too when they
+            // live in a library, and they play "to completion" every single
+            // time. Nine seconds of a cinema ident is not a viewing. Seen on a
+            // real server: a "Projectionist Prerolls" library whose 5-9 second
+            // clips were logged as watches before every film.
+            if (!IsLoggableRuntime(item.RunTimeTicks)) return;
+
             if (!Completed(e, item)) return;
 
             var userKey = userId.ToString("N");
@@ -147,6 +154,20 @@ namespace Jellyfin.Plugin.InternalRating
             _logger.LogInformation("[StarTrack] Diary: logged \"{Item}\" for {User}{Rewatch}",
                 item.Name, userKey, rewatch ? " (rewatch)" : string.Empty);
         }
+
+        /// <summary>
+        /// Shortest thing that counts as a viewing. Two minutes is well under
+        /// any film or episode and well over any pre-roll, ident or trailer.
+        /// </summary>
+        internal static readonly TimeSpan MinimumRuntime = TimeSpan.FromMinutes(2);
+
+        /// <summary>
+        /// True when an item is long enough to be something someone watched
+        /// rather than something that played before it. Unknown runtime is
+        /// allowed through: a missing value is a metadata gap, not a clip.
+        /// </summary>
+        internal static bool IsLoggableRuntime(long? runtimeTicks)
+            => runtimeTicks is null or <= 0 || runtimeTicks.Value >= MinimumRuntime.Ticks;
 
         /// <summary>
         /// True when the session got far enough in to count as watched.

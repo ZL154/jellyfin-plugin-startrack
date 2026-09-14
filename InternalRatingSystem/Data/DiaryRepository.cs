@@ -100,27 +100,83 @@ namespace Jellyfin.Plugin.InternalRating.Data
         /// (itemId, watchedAt) so reimporting the same CSV doesn't
         /// duplicate every entry.
         /// </summary>
+        /// <summary>
+        /// The calendar day an entry falls on, server-local. Used to spot a
+        /// second import of the same rated viewing.
+        /// </summary>
+        internal static DateTime LocalDay(DateTime utc) => utc.ToLocalTime().Date;
+
+        /// <summary>
+        /// How far apart two timestamps can be and still describe one viewing,
+        /// when one of them is an unrated playback row.
+        ///
+        /// WHY NOT "SAME DAY": the server usually runs in UTC (every container
+        /// does) while the person watching is in their own timezone, and the
+        /// server cannot know which. A film that ended at 00:19 BST on the 13th
+        /// is stored as 23:19Z on the 12th; the Letterboxd watched-date the user
+        /// then sets is "the 13th", stored as 00:00Z. Forty-one minutes apart,
+        /// on different UTC days, and both rows render as "Sep 13" in the
+        /// browser — which is exactly the duplicate that was reported. A
+        /// calendar test cannot be made right from the server side; a window
+        /// can. 36 hours covers a date-only Letterboxd stamp landing either
+        /// side of the real timestamp, in any timezone.
+        /// </summary>
+        internal static readonly TimeSpan SameViewingWindow = TimeSpan.FromHours(36);
+
+        internal static bool WithinSameViewing(DateTime a, DateTime b)
+            => (a - b).Duration() <= SameViewingWindow;
+
+        /// <summary>
+        /// Adds imported entries (Letterboxd RSS, export ZIP), returning how many
+        /// diary rows were created or enriched.
+        ///
+        /// An import meets three kinds of existing entry for the same item:
+        ///   - an UNRATED row within <see cref="SameViewingWindow"/> — the
+        ///     playback logger's placeholder for the same viewing, written before
+        ///     the user rated on Letterboxd. Fold the rating, review and rewatch
+        ///     flag into it rather than adding a second row. Its timestamp is
+        ///     kept: it is the truer record of when the film was actually seen.
+        ///   - a RATED row on the same day — already there; skip.
+        ///   - nothing — add it.
+        /// </summary>
         public async Task<int> ImportEntriesAsync(string userId, IEnumerable<DiaryEntry> entries)
         {
             await _lock.WaitAsync().ConfigureAwait(false);
             try
             {
                 var d = GetOrInit(userId);
-                var existing = new HashSet<string>(
-                    d.Entries.Select(e => e.ItemId + "|" + e.WatchedAt.ToString("yyyy-MM-dd")),
-                    StringComparer.OrdinalIgnoreCase);
-                int added = 0;
+                int changed = 0;
                 foreach (var e in entries)
                 {
-                    var key = e.ItemId + "|" + e.WatchedAt.ToString("yyyy-MM-dd");
-                    if (existing.Contains(key)) continue;
+                    var sameItem = d.Entries
+                        .Where(x => string.Equals(x.ItemId, e.ItemId, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+
+                    if (e.Stars is not null)
+                    {
+                        var placeholder = sameItem
+                            .Where(x => x.Stars is null && WithinSameViewing(x.WatchedAt, e.WatchedAt))
+                            .OrderBy(x => (x.WatchedAt - e.WatchedAt).Duration())
+                            .FirstOrDefault();
+                        if (placeholder != null)
+                        {
+                            placeholder.Stars   = e.Stars;
+                            placeholder.Review  = string.IsNullOrWhiteSpace(placeholder.Review) ? e.Review : placeholder.Review;
+                            placeholder.Rewatch = placeholder.Rewatch || e.Rewatch;
+                            changed++;
+                            continue;
+                        }
+                    }
+
+                    if (sameItem.Any(x => LocalDay(x.WatchedAt) == LocalDay(e.WatchedAt)))
+                        continue;
+
                     if (string.IsNullOrEmpty(e.Id)) e.Id = Guid.NewGuid().ToString("N");
                     d.Entries.Add(e);
-                    existing.Add(key);
-                    added++;
+                    changed++;
                 }
-                await SaveAsync().ConfigureAwait(false);
-                return added;
+                if (changed > 0) await SaveAsync().ConfigureAwait(false);
+                return changed;
             }
             finally { _lock.Release(); }
         }
