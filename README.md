@@ -29,7 +29,7 @@
 - [Data storage](#data-storage)
 - [Building from source](#building-from-source)
 - [Contributing](#contributing)
-- [Earlier release highlights](#earlier-release-highlights) - 1.5.2, 1.5 and 1.4
+- [Changelog](#changelog) - release notes from 1.7.0 back to 1.4
 - [Support the project](#-support-the-project)
 - [License](#license)
 
@@ -81,84 +81,6 @@ Designed to integrate cleanly with modern Jellyfin setups: desktop, mobile, TV/w
 
 Fully translated into all eight languages.
 
-### New in 1.7.0
-
-The largest release so far: a second external service, a new thing you can rate, and the Letterboxd integration finally going both ways.
-
-**External services**
-
-- **Two-way Letterboxd** - send ratings, watched status, likes, your watchlist and dated diary entries back to Letterboxd, either as a CSV you upload yourself (no password) or as an hourly automatic push (password stored encrypted). Letterboxd has no public write API, so the push signs in as you; the CSV route never needs a password and always works.
-- **Serializd integration, both ways** - Serializd is television only and Letterboxd is films only, so between them StarTrack can mirror a whole library. **Importing needs your username and nothing else**, because your Serializd diary is public. Only pushing needs a password.
-- **Overwrite toggle** - decide whether a push may change a rating that already exists on Letterboxd, or leave the remote one alone. Off by default, so a push never silently overrules a rating you made somewhere else.
-- **Simkl import fixed** ([#19](https://github.com/ZL154/jellyfin-plugin-startrack/issues/19)) - pulling from Simkl returned nothing at all. StarTrack read the wrong fields and choked on Simkl's string-typed TMDb ids, so every pull silently reported zero while the export kept re-sending the same items. Anime ratings and TV series ids now import too.
-
-**Rating seasons**
-
-- **Seasons are rateable** - not just series and episodes. A season gets the same detail-page panel, its own **Seasons** type tab in My Ratings, and its own Top 4 row.
-- Season ratings stay between StarTrack and Serializd. Trakt, Simkl, Yamtrack and Letterboxd have no concept of a season rating, so seasons are deliberately withheld from them rather than filed as a show or, worse, a film.
-
-**Diary**
-
-- **Log a watch** - a dated "log this" control on the rating panel, so a diary is something you build in Jellyfin rather than only import from Letterboxd.
-- **Automatic logging on playback** - finishing something records it, server-side, so every client counts and not just the web UI.
-- **Automatic rewatch detection** - logging something you have already watched is recorded as a rewatch without you having to say so.
-
-**TV and clients**
-
-- **TV rating panel is usable again** - the panel opened but the stars could not be reached with a remote, so a rating could not actually be set. Focus now lands on the stars and stays inside the panel until you close it.
-- **Readable on TV** - the panel scales properly in Large mode instead of rendering at desktop size on a 1080p screen.
-- **[Where StarTrack works](#where-startrack-works)** is now documented, because "it doesn't show up on Roku" has a real answer and it is not a bug.
-
-**Contributed**
-
-- **Media Bar Enhanced support** - replace the hero rating with the StarTrack average (thanks @mysticalsoap).
-- **Admin-managed Letterboxd setup** - link a Letterboxd username to any user from the plugin config page (thanks @mysticalsoap).
-
-### 🆕 New in 1.6.4
-
-- **One canonical media-page badge** - removes duplicate, stale and attribute-stripped ghost badges left behind by Jellyfin SPA transitions. The surviving badge is clickable and opens the rating panel.
-- **Reliable native-rating replacement** - Jellyfin's delayed community-rating node remains hidden when replacement is enabled, without creating a second StarTrack renderer.
-- **TV/webOS whole-star controls** - each whole-star target can receive D-pad focus and be selected with OK/Enter, with webOS-compatible focus feedback.
-- **Native rating backfill** - admins can copy every existing StarTrack rating into Jellyfin's native per-user rating field. The elevated operation is safe to run more than once.
-- **BaseURL follow-up** - native Jellyfin item, poster and avatar requests consistently include the configured reverse-proxy sub-path.
-
-### 🆕 New in 1.6.3
-
-- **TV/webOS accessibility pass** - the media-page badge, floating Rate pill and post-playback prompt are D-pad reachable; unrated items retain a dimmed `☆ Rate` target on TV.
-- **Readable TV presentation** - IMDb-style white rating numbers, gold StarTrack accents and corrected **Large / Large (TV only)** sizing.
-- **Per-device rating size** - users can choose Normal, Large or Large (TV only) from **My Ratings → ⚙ Preferences**; large mode is automatically constrained on small phone screens.
-- **Reverse-proxy support throughout the widget** - injected assets and StarTrack API calls respect Jellyfin's BaseURL, including installations served from paths such as `/jelly`.
-- **Optional native rating mirror** - new and changed StarTrack ratings can be written to Jellyfin's built-in 0–10 per-user field; removing a StarTrack rating clears its mirrored value.
-- **Media-page cleanup** - stale, missing and duplicated badges are removed or rebuilt only on the visible detail page.
-
-### 🆕 New in 1.6.2
-
-- **Initial BaseURL support** - fixed widget and API routing behind reverse proxies that mount Jellyfin below the domain root.
-- **Native Jellyfin rating integration** - added the opt-in live mirror for Jellyfin filters, native UI and backups.
-- **Per-device sizing** - introduced user-level Normal / Large overrides while protecting small phone layouts.
-- **Media badge reliability** - improved duplicate, stale and missing badge cleanup on web and iPad.
-
-### 🆕 New in 1.6.1
-
-- **Clickable, deduplicated detail-page badge** - clears Jellyfin's cached/cloned copies and opens the rating panel from the remaining badge.
-- **Widget cache-busting** - each plugin update refreshes the injected script token so browsers receive the current widget.
-- **Configurable review cap** - admins can set reviews from 1 to 10,000 characters instead of relying on a fixed limit.
-- **Display controls** - Normal, Large and Large (TV only) rating sizes plus a compact media-page badge that shows only the rating.
-- **Early TV remote support** - the floating pill and media badge can receive D-pad focus and open with OK/Enter.
-- **Cleaner placement** - StarTrack appears before IMDb, Rotten Tomatoes and Jellyfin community ratings; a single rating no longer shows a redundant `(1)` count.
-- **Eight-language coverage** - all new configuration and user-facing text was translated.
-
-### 🆕 New in 1.6.0
-
-- **External rating sync (Trakt · Simkl · Yamtrack)** - connect an external service and StarTrack keeps your ratings in sync. Trakt uses device-code login, Simkl uses a PIN; admins drop the client ID/secret into the plugin config page, each user connects from the **⇄ External Sync** panel in *My Ratings*. Pick a direction per service - **Off / Export only / Import only / Two-way** - and a background task syncs every 10 minutes.
-- **Newer-wins conflict resolution** - in two-way mode, the most recently changed rating wins, so a fresh local edit is never clobbered by a stale remote value (and vice-versa).
-- **Watched history + likes push** *(Trakt)* - rated movies/episodes are also marked **watched** on Trakt (so History / Up Next populate), and your ♡ liked items are pushed to a "StarTrack Liked" list (plus Favorites if your Trakt account is VIP).
-- **One-shot Backfill** - a button that seeds the whole service from your existing library in one pass. Simkl gets a dedicated date-accuracy repair so watched/rated dates are preserved instead of all stamped "today".
-- **Yamtrack CSV export** - no released Yamtrack build exposes a public API yet, so StarTrack exports an **IMDb-format CSV** you import via Yamtrack → *Import → IMDb*. Marked experimental; the native provider is ready for when their REST API ships.
-- **Daily auto-export** - a scheduled task writes your ratings out to a file every day for automatic backup.
-- **Configurable poster rating badge position** - the gold ★ badge corner is now a setting (**top-right** default / top-left / bottom-right / bottom-left) so it no longer collides with Jellyfin's watched checkmark (issue #8).
-- **Full 8-language i18n** for all of the new External Sync UI.
-
 ### ⭐ Ratings & reviews
 - **Half-star ratings** (0.5 – 5★) per item, per user
 - **Rate movies, series, seasons and episodes** - seasons were added in 1.7.0 and behave like any other item: panel, badge, Top 4 slot and type tab
@@ -168,6 +90,7 @@ The largest release so far: a second external service, a new thing you can rate,
 - **Per-user breakdown** - expandable list of every user's score and review on the detail panel
 - **Star tier colours** - five visual tiers (5★ glowing gold → 1★ muted red) so the rating grid is scannable at a glance
 - **Optional native mirror** - write StarTrack's 0.5–5★ value into Jellyfin's 0–10 per-user rating field, clear it when the StarTrack rating is removed, and backfill older ratings from the admin page
+- **How ratings are shown** - an admin choice of stars only (`3.5`, the default), both (`3.5 (7/10)`) or out of ten (`7/10`), applied everywhere an average is displayed. Display only: you still rate with five stars and nothing is converted
 
 ### 📺 Media-page, TV & reverse-proxy compatibility
 - **Duplicate-resistant media badge** - reconciles Jellyfin SPA navigation, cached DOM clones and delayed native-rating nodes so only the current page owns a StarTrack badge
@@ -186,6 +109,14 @@ The largest release so far: a second external service, a new thing you can rate,
 | **✍ Reviews feed** | Server-wide vertical feed of every rating that has a review, with poster, reviewer, star bar, date and review text |
 | **✨ For you** | Personalised recommendations weighted by your top genres (movies + series). Reshuffle button rerolls 30 picks from a 60-candidate pool |
 | **📃 Lists** | Create collaborative film lists that other users on your server can contribute to. Owner-only delete |
+
+### 📖 Diary
+- **Automatic logging on playback** - finishing something records it, server-side, so every client counts and not just the web UI. Anything under two minutes (pre-rolls, idents, trailers) is not a viewing
+- **Log a watch** - a dated "log this" control on the rating panel, so a diary is something you build in Jellyfin rather than only import
+- **Rewatch detection** - logging something you have already watched is recorded as a rewatch without you saying so
+- **One viewing, one row** - a film logged by playback and later rated (in StarTrack, on Letterboxd, or from a ZIP) keeps one entry with the score on it; a rating from any source fills an unrated row
+- **Imports with dates** - Letterboxd's diary (via Sync everything or the export ZIP) and Serializd's diary come in with their original dates, rewatches and likes
+- **Grouped by month** with visual star bars, and pushed back to Letterboxd as dated entries if you turn on diary logging there
 
 ### ⭐ Top 4 favourites (per type)
 - Pin up to 4 movies, 4 series, 4 seasons and 4 episodes to your profile
@@ -210,17 +141,21 @@ The CSV route is offered first and is what most people should use. Automatic pus
 - **Push ratings, watched status and likes** - ratings and watched marks use Letterboxd's idempotent endpoints, so re-running is harmless and changing a rating updates it in place
 - **Optional diary logging** - writes dated diary entries for films you rate **from the moment you switch it on**. It deliberately does *not* backfill: your existing diary is left completely alone, because StarTrack has no way to tell an existing entry apart from a new one and would otherwise duplicate years of history
 - **Verify login** button tells you immediately whether the password and any Cloudflare cookies work, instead of failing silently an hour later
-- **Drop in your Letterboxd export ZIP** to import everything in one pass: `ratings.csv`, `diary.csv`, `watchlist.csv` and `likes/films.csv`
-- **Sync now** button pulls your latest ratings (diary RSS), watchlist (the watchlist page - Letterboxd removed the RSS feed for it) and likes - one click, three data types
+- **⟳ Sync everything** - imports your *entire* Letterboxd history live, no file needed: every rating (including films you rated but never logged, placed in the order you rated them), every diary entry with its date, then watchlist, likes and Top 4. Safe to run again - unchanged ratings are left alone, dates included. Admins can run it for any linked user. Needs [FlareSolverr](#cloudflare-and-flaresolverr)
+- **Drop in your Letterboxd export ZIP** to import everything in one pass: `ratings.csv`, `diary.csv`, `watchlist.csv` and `likes/films.csv` - the offline equivalent
+- **Sync now** button pulls your latest diary entries (RSS, the last ~50), your watchlist (the watchlist page - Letterboxd removed the RSS feed for it) and your likes - one click, three data types
 - **Hourly auto-sync** scheduled task for every user with a Letterboxd username configured
-- **Import Top 4** button scrapes your Letterboxd profile's "favourite films" section
+- **Import Top 4** button reads your Letterboxd profile's "favourite films" section, year included, so "Heat" is the right Heat
+- **Imports never overwrite what they do not carry** - a review you wrote here, or the date you rated something, survives every import; a like is dated by the viewing it belongs to, not the moment of import; a library with two copies of a film gets the rating on the copy you already rated
 
 #### Cloudflare, and FlareSolverr
 
-Letterboxd puts a Cloudflare JavaScript challenge in front of two things StarTrack
-needs: the **likes page** and the **sign-in** used for automatic push. No server
-can pass a JavaScript challenge on its own, and no header makes it go away.
-Diary import and the watchlist are not affected.
+Letterboxd puts a Cloudflare JavaScript challenge in front of most of what StarTrack
+needs: the **likes page**, the **profile page** (Top 4), the **ratings and diary
+pages** that Sync everything reads, and the **sign-in** used for automatic push.
+No server can pass a JavaScript challenge on its own, and no header makes it go
+away. The diary RSS feed and the watchlist page are not affected, so Sync now
+keeps working without help.
 
 Without help, StarTrack notices the challenge, stops asking for six hours instead
 of hammering Letterboxd every few minutes, and says so in the Letterboxd panel.
@@ -230,7 +165,7 @@ solves the challenge in a real headless browser - the same tool Prowlarr, Jacket
 and Sonarr use for the same wall, so if you run those you already have one.
 Put its URL in **Dashboard → Plugins → StarTrack → FlareSolverr URL**, and:
 
-- **likes sync** works, wherever FlareSolverr runs
+- **likes sync, Top 4 import and Sync everything** work, wherever FlareSolverr runs
 - **automatic push** works **only if FlareSolverr leaves for the internet from
   the same IP as Jellyfin**. Cloudflare ties its clearance cookie to the IP, so a
   FlareSolverr behind a VPN (common - people run it next to their download
@@ -275,14 +210,15 @@ Season ratings stay between StarTrack and Serializd. Trakt, Simkl, Yamtrack and 
 - **Trakt history and likes** - rated movies and episodes can be marked watched; liked items are pushed to a `StarTrack Liked` list and, for VIP accounts, Trakt Favorites
 - **Backfill watched history** - seed Trakt or Simkl from existing Jellyfin played state; Simkl preserves the original watched/rated dates
 - **Yamtrack workflow** - export an IMDb-compatible CSV for **Yamtrack → Import → IMDb** while native provider support remains experimental
-- **Portable import/export** - authenticated CSV/JSON endpoints plus Letterboxd- and IMDb-compatible export formats
+- **IMDb ratings import** - drop your imdb.com ratings export into *Import file*; the format is detected automatically and 1–10 maps exactly onto half-stars
+- **Portable import/export** - authenticated CSV/JSON endpoints plus Letterboxd- and IMDb-compatible export formats; the IMDb/Yamtrack export says how many episodes and id-less items it had to leave out instead of handing back a quietly shorter file
 - **Daily server backup** - optional scheduled CSV or JSON exports for every user with ratings, written at 03:00 UTC
 
 ### 🔍 Search & filter
 - **Live search input** in the topbar - filters the active view by title with a 150 ms debounce
 - **Discrete star filter dropdown** - `5★ only`, `4.5★ only`, `4★ only` … down to `0.5★ only`
 - **Sort dropdown** - date rated, film year, your rating, community rating, runtime, each ↑↓
-- **Type tabs** - All / Movies / TV Shows / Episodes - drives both the grid and which Top 4 row is visible
+- **Type tabs** - All / Movies / TV Shows / Seasons / Episodes - drives both the grid and which Top 4 row is visible
 
 ### 👥 Collaborative & social
 - **Members directory** - searchable profile cards with avatars, rating totals, average scores and each member's pinned Top 4
@@ -296,6 +232,8 @@ Season ratings stay between StarTrack and Serializd. Trakt, Simkl, Yamtrack and 
 - **Per-user attribution** on community averages so you know who rated what
 
 ### 🛠 Admin & infrastructure
+- **Runs on Jellyfin 10.11 and 12** from one codebase, as two builds; the plugin repository picks the right one - see [Which build do I need?](#which-build-do-i-need)
+- **"Is StarTrack working?"** - a self-check on the plugin page: eight checks, server and browser side, with a paste-ready summary for bug reports. It also flags a stale cached widget and a FlareSolverr behind a VPN
 - **Presentation controls** - badge position and size, compact media badge, poster overlays, native/Media Bar replacement and post-playback prompts
 - **Native Jellyfin integration** - opt-in live mirroring plus an elevation-gated, idempotent backfill for existing StarTrack ratings
 - **Review policy** - choose a maximum review length between 1 and 10,000 characters
@@ -532,12 +470,15 @@ Click **My Ratings** in the Jellyfin sidebar to open the full overlay. The view 
 Each view supports search, sort, star filter (where applicable) and a type filter: **All / Movies / TV Shows / Seasons / Episodes / Anime**.
 
 ### Letterboxd sync
-1. Export your data from letterboxd.com → **Settings → Import & Export → Export Your Data**
-2. In StarTrack, click the **⚙ Letterboxd** button in the topbar
-3. Enter your Letterboxd username, optionally enable hourly auto-sync, save
-4. Drop the export ZIP into the upload box - ratings, diary, watchlist and likes import in one pass
-5. Click **⭐ Import Top 4** to scrape your Letterboxd profile's favourite films
-6. Click **Sync now** any time to pull your latest ratings + watchlist + likes via RSS / HTML scrape
+1. In StarTrack, click the **⚙ Letterboxd** button in the topbar (or **My Ratings → ⚙ Preferences → Connected accounts**)
+2. Enter your Letterboxd username, optionally enable hourly auto-sync, save
+3. Click **⟳ Sync everything** to import your whole history - ratings, diary, watchlist, likes and Top 4 - in one go. This needs a [FlareSolverr](#cloudflare-and-flaresolverr) configured by your admin
+4. No FlareSolverr? Export your data from letterboxd.com → **Settings → Import & Export → Export Your Data** and drop the ZIP into the upload box - the same import, offline
+5. Click **Sync now** any time to pull your latest diary entries + watchlist + likes; hourly auto-sync does the same on its own
+6. To send ratings *back*, use **Download CSV for letterboxd.com/import** (no password) or turn on automatic push
+
+### Is StarTrack working?
+**Dashboard → Plugins → StarTrack → Is StarTrack working?** runs eight checks - plugin loaded, script injected, widget executed, token fresh, FlareSolverr reachable and on the same IP as Jellyfin, and so on - and gives you a summary to paste into a bug report. If the page itself returns 404, the plugin is installed but not running, which almost always means the [wrong build](#which-build-do-i-need) for your Jellyfin version.
 
 ### Serializd sync
 
@@ -750,9 +691,87 @@ Issues and pull requests are welcome.
 
 ---
 
-## Earlier release highlights
+## Changelog
 
-The current 1.6.x changes stay at the top of [Features](#features). Highlights from older feature releases live here so the main feature reference remains easy to scan.
+What is new in the current release stays at the top of [Features](#features); everything it describes is also folded into the feature sections above, so those read as a description of StarTrack today. Older release notes live here.
+
+### New in 1.7.0
+
+The largest release so far: a second external service, a new thing you can rate, and the Letterboxd integration finally going both ways.
+
+**External services**
+
+- **Two-way Letterboxd** - send ratings, watched status, likes, your watchlist and dated diary entries back to Letterboxd, either as a CSV you upload yourself (no password) or as an hourly automatic push (password stored encrypted). Letterboxd has no public write API, so the push signs in as you; the CSV route never needs a password and always works.
+- **Serializd integration, both ways** - Serializd is television only and Letterboxd is films only, so between them StarTrack can mirror a whole library. **Importing needs your username and nothing else**, because your Serializd diary is public. Only pushing needs a password.
+- **Overwrite toggle** - decide whether a push may change a rating that already exists on Letterboxd, or leave the remote one alone. Off by default, so a push never silently overrules a rating you made somewhere else.
+- **Simkl import fixed** ([#19](https://github.com/ZL154/jellyfin-plugin-startrack/issues/19)) - pulling from Simkl returned nothing at all. StarTrack read the wrong fields and choked on Simkl's string-typed TMDb ids, so every pull silently reported zero while the export kept re-sending the same items. Anime ratings and TV series ids now import too.
+
+**Rating seasons**
+
+- **Seasons are rateable** - not just series and episodes. A season gets the same detail-page panel, its own **Seasons** type tab in My Ratings, and its own Top 4 row.
+- Season ratings stay between StarTrack and Serializd. Trakt, Simkl, Yamtrack and Letterboxd have no concept of a season rating, so seasons are deliberately withheld from them rather than filed as a show or, worse, a film.
+
+**Diary**
+
+- **Log a watch** - a dated "log this" control on the rating panel, so a diary is something you build in Jellyfin rather than only import from Letterboxd.
+- **Automatic logging on playback** - finishing something records it, server-side, so every client counts and not just the web UI.
+- **Automatic rewatch detection** - logging something you have already watched is recorded as a rewatch without you having to say so.
+
+**TV and clients**
+
+- **TV rating panel is usable again** - the panel opened but the stars could not be reached with a remote, so a rating could not actually be set. Focus now lands on the stars and stays inside the panel until you close it.
+- **Readable on TV** - the panel scales properly in Large mode instead of rendering at desktop size on a 1080p screen.
+- **[Where StarTrack works](#where-startrack-works)** is now documented, because "it doesn't show up on Roku" has a real answer and it is not a bug.
+
+**Contributed**
+
+- **Media Bar Enhanced support** - replace the hero rating with the StarTrack average (thanks @mysticalsoap).
+- **Admin-managed Letterboxd setup** - link a Letterboxd username to any user from the plugin config page (thanks @mysticalsoap).
+
+### New in 1.6.4
+
+- **One canonical media-page badge** - removes duplicate, stale and attribute-stripped ghost badges left behind by Jellyfin SPA transitions. The surviving badge is clickable and opens the rating panel.
+- **Reliable native-rating replacement** - Jellyfin's delayed community-rating node remains hidden when replacement is enabled, without creating a second StarTrack renderer.
+- **TV/webOS whole-star controls** - each whole-star target can receive D-pad focus and be selected with OK/Enter, with webOS-compatible focus feedback.
+- **Native rating backfill** - admins can copy every existing StarTrack rating into Jellyfin's native per-user rating field. The elevated operation is safe to run more than once.
+- **BaseURL follow-up** - native Jellyfin item, poster and avatar requests consistently include the configured reverse-proxy sub-path.
+
+### New in 1.6.3
+
+- **TV/webOS accessibility pass** - the media-page badge, floating Rate pill and post-playback prompt are D-pad reachable; unrated items retain a dimmed `☆ Rate` target on TV.
+- **Readable TV presentation** - IMDb-style white rating numbers, gold StarTrack accents and corrected **Large / Large (TV only)** sizing.
+- **Per-device rating size** - users can choose Normal, Large or Large (TV only) from **My Ratings → ⚙ Preferences**; large mode is automatically constrained on small phone screens.
+- **Reverse-proxy support throughout the widget** - injected assets and StarTrack API calls respect Jellyfin's BaseURL, including installations served from paths such as `/jelly`.
+- **Optional native rating mirror** - new and changed StarTrack ratings can be written to Jellyfin's built-in 0–10 per-user field; removing a StarTrack rating clears its mirrored value.
+- **Media-page cleanup** - stale, missing and duplicated badges are removed or rebuilt only on the visible detail page.
+
+### New in 1.6.2
+
+- **Initial BaseURL support** - fixed widget and API routing behind reverse proxies that mount Jellyfin below the domain root.
+- **Native Jellyfin rating integration** - added the opt-in live mirror for Jellyfin filters, native UI and backups.
+- **Per-device sizing** - introduced user-level Normal / Large overrides while protecting small phone layouts.
+- **Media badge reliability** - improved duplicate, stale and missing badge cleanup on web and iPad.
+
+### New in 1.6.1
+
+- **Clickable, deduplicated detail-page badge** - clears Jellyfin's cached/cloned copies and opens the rating panel from the remaining badge.
+- **Widget cache-busting** - each plugin update refreshes the injected script token so browsers receive the current widget.
+- **Configurable review cap** - admins can set reviews from 1 to 10,000 characters instead of relying on a fixed limit.
+- **Display controls** - Normal, Large and Large (TV only) rating sizes plus a compact media-page badge that shows only the rating.
+- **Early TV remote support** - the floating pill and media badge can receive D-pad focus and open with OK/Enter.
+- **Cleaner placement** - StarTrack appears before IMDb, Rotten Tomatoes and Jellyfin community ratings; a single rating no longer shows a redundant `(1)` count.
+- **Eight-language coverage** - all new configuration and user-facing text was translated.
+
+### New in 1.6.0
+
+- **External rating sync (Trakt · Simkl · Yamtrack)** - connect an external service and StarTrack keeps your ratings in sync. Trakt uses device-code login, Simkl uses a PIN; admins drop the client ID/secret into the plugin config page, each user connects from the **⇄ External Sync** panel in *My Ratings*. Pick a direction per service - **Off / Export only / Import only / Two-way** - and a background task syncs every 10 minutes.
+- **Newer-wins conflict resolution** - in two-way mode, the most recently changed rating wins, so a fresh local edit is never clobbered by a stale remote value (and vice-versa).
+- **Watched history + likes push** *(Trakt)* - rated movies/episodes are also marked **watched** on Trakt (so History / Up Next populate), and your ♡ liked items are pushed to a "StarTrack Liked" list (plus Favorites if your Trakt account is VIP).
+- **One-shot Backfill** - a button that seeds the whole service from your existing library in one pass. Simkl gets a dedicated date-accuracy repair so watched/rated dates are preserved instead of all stamped "today".
+- **Yamtrack CSV export** - no released Yamtrack build exposes a public API yet, so StarTrack exports an **IMDb-format CSV** you import via Yamtrack → *Import → IMDb*. Marked experimental; the native provider is ready for when their REST API ships.
+- **Daily auto-export** - a scheduled task writes your ratings out to a file every day for automatic backup.
+- **Configurable poster rating badge position** - the gold ★ badge corner is now a setting (**top-right** default / top-left / bottom-right / bottom-left) so it no longer collides with Jellyfin's watched checkmark (issue #8).
+- **Full 8-language i18n** for all of the new External Sync UI.
 
 ### New in 1.5.2
 
