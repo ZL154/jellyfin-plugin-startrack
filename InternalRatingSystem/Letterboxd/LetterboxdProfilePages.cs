@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Globalization;
 using System.Net;
 using System.Text;
@@ -126,19 +127,28 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             foreach (var d in diary)
                 if (!latest.TryGetValue(d.Slug, out var have) || d.WatchedOn > have) latest[d.Slug] = d.WatchedOn;
 
-            var sb = new StringBuilder("Date,Name,Year,Letterboxd URI,Rating\n");
-            foreach (var f in films)
+            // The films list is read newest-rated first, so a film with no diary
+            // entry still has a place in time: between its dated neighbours.
+            // Those slotted dates are ESTIMATES and the column says so — the
+            // importer uses one only for a rating it does not already have, so
+            // nothing real is overwritten and nothing drifts on the next sync.
+            var list = films as IList<LetterboxdRatedFilm> ?? films.ToList();
+            var known = new DateTime?[list.Count];
+            for (var i = 0; i < list.Count; i++)
+                known[i] = latest.TryGetValue(list[i].Slug, out var dt) ? dt : null;
+            var dates = ListOrderDates.Fill(known, fallbackDate);
+
+            var sb = new StringBuilder("Date,Name,Year,Letterboxd URI,Rating,Date Source\n");
+            for (var i = 0; i < list.Count; i++)
             {
-                // A film with no diary entry has no date Letterboxd will tell us.
-                // Leave the column empty: the importer then keeps the timestamp an
-                // existing rating already has, and stamps "now" only on a genuinely
-                // new one. A made-up date would overwrite real history — it did.
-                var date = latest.TryGetValue(f.Slug, out var dt) ? dt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) : string.Empty;
-                sb.Append(date).Append(',')
+                var f = list[i];
+                var source = known[i].HasValue ? "diary" : "estimate";
+                sb.Append(dates[i].ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture)).Append(',')
                   .Append(Csv(f.Title)).Append(',')
                   .Append(f.Year?.ToString(CultureInfo.InvariantCulture) ?? string.Empty).Append(',')
                   .Append(Uri(f.Slug)).Append(',')
-                  .Append(f.Stars.ToString(CultureInfo.InvariantCulture)).Append('\n');
+                  .Append(f.Stars.ToString(CultureInfo.InvariantCulture)).Append(',')
+                  .Append(source).Append('\n');
             }
             return sb.ToString();
         }

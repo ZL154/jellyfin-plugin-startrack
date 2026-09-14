@@ -110,23 +110,28 @@ namespace Jellyfin.Plugin.InternalRating.Tests
         // ---- rendered in Letterboxd's own CSV layouts ----
 
         [Fact]
-        public void RatingsCsvUsesTheLatestDiaryDateElseLeavesItEmpty()
+        public void RatingsCsvDatesDiariedFilmsFromTheDiaryAndSlotsTheRestInListOrder()
         {
-            var films = LetterboxdProfilePages.ParseRatingsPage(RatingsPage);
+            var films = LetterboxdProfilePages.ParseRatingsPage(RatingsPage);   // newest-rated first: Spider-Man, Heat, ...
             var diary = new[]
             {
                 new LetterboxdDiaryPageRow("Heat", 1995, "heat-1995", new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), 5.0, false, false, false),
                 new LetterboxdDiaryPageRow("Heat", 1995, "heat-1995", new DateTime(2025, 3, 3, 0, 0, 0, DateTimeKind.Utc), 5.0, true,  false, false),
             };
-            var csv = LetterboxdProfilePages.RenderRatingsCsv(films, diary, new DateTime(2026, 9, 14));
+            var now = new DateTime(2026, 9, 14, 12, 0, 0, DateTimeKind.Utc);
+            var csv = LetterboxdProfilePages.RenderRatingsCsv(films, diary, now);
 
             var lines = csv.TrimEnd('\n').Split('\n');
-            Assert.Equal("Date,Name,Year,Letterboxd URI,Rating", lines[0]);
-            Assert.Contains("2025-03-03,Heat,1995,https://letterboxd.com/film/heat-1995/,5", lines);            // latest diary date
-            // Never diaried: no date. A made-up one would overwrite the timestamp an
-            // existing rating already carries — on a real server it stamped 94 ratings
-            // with "today" and the media page, sorted by rating date, went alphabetical.
-            Assert.Contains(",Spider-Man: Brand New Day,2026,https://letterboxd.com/film/spider-man-brand-new-day/,3.5", lines);
+            Assert.Equal("Date,Name,Year,Letterboxd URI,Rating,Date Source", lines[0]);
+            Assert.Contains("2025-03-03T00:00:00Z,Heat,1995,https://letterboxd.com/film/heat-1995/,5,diary", lines);   // latest diary date, real
+
+            // Never diaried, but rated more recently than Heat (it is above Heat in
+            // the rated-date list): an ESTIMATE between Heat's date and now, flagged
+            // so the importer never moves a rating the user already has with it.
+            var spidey = Assert.Single(lines, l => l.Contains("Spider-Man: Brand New Day"));
+            Assert.EndsWith(",3.5,estimate", spidey);
+            var when = DateTime.Parse(spidey.Split(',')[0], null, System.Globalization.DateTimeStyles.AdjustToUniversal);
+            Assert.InRange(when, new DateTime(2025, 3, 3, 0, 0, 1, DateTimeKind.Utc), now);
         }
 
         [Fact]

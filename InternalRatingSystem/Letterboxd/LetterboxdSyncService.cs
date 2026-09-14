@@ -240,6 +240,11 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 // 54 ratings stamped every one of them with today's date and
                 // dropped their reviews, and the media page, sorted by when you
                 // rated, went alphabetical.
+                // A date the full sync only ESTIMATED from the list order (see
+                // RenderRatingsCsv) is good enough to place a new rating in time,
+                // not good enough to move one the user already has.
+                var estimated = string.Equals(GetCol(row, "Date Source"), "estimate", StringComparison.OrdinalIgnoreCase);
+                if (userHad && estimated) ratedAt = null;
                 if (userHad && Math.Abs(mine!.Stars - stars) < 0.01 && (ratedAt == null || mine.RatedAt.Date == ratedAt.Value.Date))
                 {
                     result.Skipped++;          // already exactly this; nothing to write
@@ -758,13 +763,27 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             var items = await FetchPosterListAsync(letterboxdUsername, "likes/films/", "Likes page", force).ConfigureAwait(false);
             if (items.Count == 0) return 0;
 
-            int added = 0, unmatched = 0;
-            foreach (var item in items)
+            // The page is newest-liked first and carries no dates. Known dates —
+            // a like already here, or the diary date the caller passed — anchor
+            // the rest, so a new like lands where it belongs instead of "now".
+            var have = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
+            foreach (var l in await _interactions.GetLikedAsync(userId).ConfigureAwait(false)) have[l.ItemId] = l.LikedAt;
+            var matchedIds = new string?[items.Count];
+            var known = new DateTime?[items.Count];
+            for (var i = 0; i < items.Count; i++)
             {
-                var matched = lookup.Find(item.Title, item.Year, out _);
-                if (matched == null) { unmatched++; continue; }
-                DateTime? when = likedOn != null && likedOn.TryGetValue(item.Slug, out var d) ? d : null;
-                if (await _interactions.AddLikeAsync(userId, matched.Id.ToString("N"), when).ConfigureAwait(false))
+                var m = lookup.Find(items[i].Title, items[i].Year, out _);
+                matchedIds[i] = m?.Id.ToString("N");
+                if (matchedIds[i] != null && have.TryGetValue(matchedIds[i]!, out var mine)) known[i] = mine;
+                else if (likedOn != null && likedOn.TryGetValue(items[i].Slug, out var d)) known[i] = d;
+            }
+            var dates = ListOrderDates.Fill(known, DateTime.UtcNow);
+
+            int added = 0, unmatched = 0;
+            for (var i = 0; i < items.Count; i++)
+            {
+                if (matchedIds[i] == null) { unmatched++; continue; }
+                if (await _interactions.AddLikeAsync(userId, matchedIds[i]!, dates[i]).ConfigureAwait(false))
                     added++;
             }
             _logger.LogInformation("[StarTrack] Letterboxd likes sync for {User}: {Total} on Letterboxd, {Added} added, {Unmatched} not in library",
@@ -911,7 +930,9 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 // /films/ is every film the member has marked watched, with their
                 // rating on each rated one; the parser skips the unrated. It is what
                 // /films/ratings/ serves anyway, and it pages under its own path.
-                foreach (var html in await FetchProfilePagesAsync(username, "films/", "Films page", progress, ct).ConfigureAwait(false))
+                // by/rated-date: newest rated first. The order is the only clue
+                // to WHEN a never-logged film was rated; RenderRatingsCsv uses it.
+                foreach (var html in await FetchProfilePagesAsync(username, "films/by/rated-date/", "Films page", progress, ct).ConfigureAwait(false))
                     ratedFilms.AddRange(LetterboxdProfilePages.ParseRatingsPage(html));
                 progress.RatingsFound = ratedFilms.Count;
 
@@ -938,7 +959,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 progress.Phase = "importing ratings";
                 if (ratedFilms.Count > 0)
                 {
-                    var csv = LetterboxdProfilePages.RenderRatingsCsv(ratedFilms, diaryRows, DateTime.UtcNow.Date);
+                    var csv = LetterboxdProfilePages.RenderRatingsCsv(ratedFilms, diaryRows, DateTime.UtcNow);
                     using var ms = new MemoryStream(Encoding.UTF8.GetBytes(csv));
                     result = await ImportCsvAsync(userId, userName, ms, lookup).ConfigureAwait(false);
                 }
