@@ -2567,7 +2567,11 @@
 
         function ovPushLoad() {
             apiLbGetAccount().then(function (a) {
-                if (!a) return;
+                // A failed fetch used to fall through to a panel full of unticked
+                // boxes, which reads as "my settings were wiped". They were not: the
+                // server was busy or restarting and this one request did not get
+                // through. Say that, instead of presenting blanks as the truth.
+                if (!a) { ovLbShowStatus(tr('lb.load_failed', null, 'Could not load your Letterboxd settings just now (server busy?). Reload the page to try again.'), 'err', null); return; }
                 if (ovPushOn)  ovPushOn.checked  = (a.direction === 2 || a.direction === 3);
                 if (ovPushBox) ovPushBox.style.display = ovPushOn && ovPushOn.checked ? '' : 'none';
                 if (ovPushRat) ovPushRat.checked = !!a.pushRatings;
@@ -2714,7 +2718,11 @@
             if (opening) {
                 ovLbShowStatus('', '', null);
                 apiLbGetSettings().then(function (s) {
-                    if (!s) return;
+                    // A failed fetch used to fall through to blank boxes, which
+                    // reads as "my settings were wiped". They were not — the
+                    // server was busy or restarting. Say so, in the status line
+                    // that is always visible, not one inside a collapsed section.
+                    if (!s) { ovLbShowStatus(tr('lb.load_failed', null, 'Could not load your Letterboxd settings just now (server busy?). Reload the page to try again.'), 'err', null); return; }
                     ovLbUser.value = s.username || '';
                     ovLbAuto.checked = !!s.enableAutoSync;
                     if (s.lastSyncedAt) {
@@ -7030,7 +7038,11 @@
 
         function loadPushAccount() {
             apiLbGetAccount().then(function (a) {
-                if (!a) return;
+                // A failed fetch used to fall through to a panel full of unticked
+                // boxes, which reads as "my settings were wiped". They were not: the
+                // server was busy or restarting and this one request did not get
+                // through. Say that, instead of presenting blanks as the truth.
+                if (!a) { showLbStatus(tr('lb.load_failed', null, 'Could not load your Letterboxd settings just now (server busy?). Reload the page to try again.'), 'err'); return; }
                 if (lbPushOn)   lbPushOn.checked   = (a.direction === 2 || a.direction === 3);
                 if (lbPushBox)  lbPushBox.style.display = lbPushOn && lbPushOn.checked ? '' : 'none';
                 if (lbPRatings) lbPRatings.checked = !!a.pushRatings;
@@ -7158,7 +7170,7 @@
             showLbStatus('', '');
             // Load current settings into the form
             apiLbGetSettings().then(function (s) {
-                if (!s) return;
+                if (!s) { showLbStatus(tr('lb.load_failed', null, 'Could not load your Letterboxd settings just now (server busy?). Reload the page to try again.'), 'err'); return; }
                 if (lbUser) lbUser.value = s.username || '';
                 if (lbAuto) lbAuto.checked = !!s.enableAutoSync;
                 if (s.lastSyncedAt) {
