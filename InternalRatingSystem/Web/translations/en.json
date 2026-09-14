@@ -732,5 +732,21 @@
   "ph.yourname": "e.g. yourname",
   "es.import_tip": "Accepts a StarTrack CSV or JSON export, or an IMDb ratings export (imdb.com → Your Ratings → Export). The format is detected from the file.",
   "ratings.none_yet": "No ratings yet – be the first!",
-  "es.export_imdb_tip": "IMDb-format CSV — import it into Yamtrack via \"Import from IMDb\". Episodes and items with no IMDb id cannot be written to this format; you will be told how many were left out."
+  "es.export_imdb_tip": "IMDb-format CSV — import it into Yamtrack via \"Import from IMDb\". Episodes and items with no IMDb id cannot be written to this format; you will be told how many were left out.",
+  "lb.full_starting": "Reading your whole Letterboxd profile…",
+  "lb.full_failed_start": "Could not start the full sync. Is a Letterboxd username saved?",
+  "lb.full_running": "Syncing: {phase}",
+  "lb.full_pages": "page {done} of {total}",
+  "lb.full_failed": "Full sync failed.",
+  "lb.full_done": "{ratings} ratings and {diary} diary entries on Letterboxd — {imported} imported, {updated} updated, {unmatched} not in library; watchlist +{watchlist}, likes +{likes}",
+  "lb.full_phase_ratings": "ratings",
+  "lb.full_phase_diary": "diary",
+  "lb.full_phase_importing_ratings": "importing ratings",
+  "lb.full_phase_importing_diary": "importing diary",
+  "lb.full_phase_watchlist": "watchlist",
+  "lb.full_phase_likes": "likes",
+  "lb.full_phase_top_4": "Top 4",
+  "lb.full_phase_retrying_pending": "retrying films not yet in the library",
+  "cfg.lb_fullsync": "⟳ Sync everything",
+  "cfg.lb_fullsync_tip": "Import this user’s entire Letterboxd history: every rating, including films rated but never logged, and every diary entry. Safe to run again."
 }

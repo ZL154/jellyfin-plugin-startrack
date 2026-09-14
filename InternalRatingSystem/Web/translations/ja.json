@@ -732,5 +732,21 @@
   "ph.yourname": "例: yourname",
   "es.import_tip": "StarTrack の CSV/JSON エクスポート、または IMDb の評価エクスポート（imdb.com → Your Ratings → Export）を受け付けます。形式はファイルから自動判別されます。",
   "ratings.none_yet": "まだ評価がありません – 最初の一人になりましょう！",
-  "es.export_imdb_tip": "IMDb 形式の CSV — Yamtrack の「Import from IMDb」で取り込めます。エピソードや IMDb ID のない項目はこの形式に書き出せません。除外された件数が表示されます。"
+  "es.export_imdb_tip": "IMDb 形式の CSV — Yamtrack の「Import from IMDb」で取り込めます。エピソードや IMDb ID のない項目はこの形式に書き出せません。除外された件数が表示されます。",
+  "lb.full_starting": "Letterboxd プロフィール全体を読み込み中…",
+  "lb.full_failed_start": "完全同期を開始できませんでした。Letterboxd のユーザー名は保存されていますか？",
+  "lb.full_running": "同期中: {phase}",
+  "lb.full_pages": "{total} ページ中 {done} ページ",
+  "lb.full_failed": "完全同期に失敗しました。",
+  "lb.full_done": "Letterboxd に {ratings} 件の評価と {diary} 件の日記 — {imported} 件インポート、{updated} 件更新、{unmatched} 件はライブラリに未登録。ウォッチリスト +{watchlist}、いいね +{likes}",
+  "lb.full_phase_ratings": "評価",
+  "lb.full_phase_diary": "日記",
+  "lb.full_phase_importing_ratings": "評価をインポート中",
+  "lb.full_phase_importing_diary": "日記をインポート中",
+  "lb.full_phase_watchlist": "ウォッチリスト",
+  "lb.full_phase_likes": "いいね",
+  "lb.full_phase_top_4": "トップ 4",
+  "lb.full_phase_retrying_pending": "ライブラリ未登録の映画を再試行中",
+  "cfg.lb_fullsync": "⟳ すべて同期",
+  "cfg.lb_fullsync_tip": "このユーザーの Letterboxd 履歴全体をインポートします。評価はすべて（日記に記録していない映画も含む）、日記の項目もすべて。再実行しても安全です。"
 }

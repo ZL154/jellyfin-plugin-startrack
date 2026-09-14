@@ -152,6 +152,70 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         }
 
         /// <summary>
+        /// Start a full profile sync — every rating and every diary entry, not
+        /// just the last ~50 the RSS feed carries. Runs in the background
+        /// because a large profile is dozens of Cloudflare-solved pages; poll
+        /// <c>FullSyncStatus</c>. 409 if one is already running for this user.
+        /// </summary>
+        [HttpPost("FullSync")]
+        [ProducesResponseType(typeof(LetterboxdFullSyncProgress), StatusCodes.Status202Accepted)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        public async Task<IActionResult> FullSync()
+        {
+            var me = await GetCurrentUserIdAsync().ConfigureAwait(false);
+            if (me == null) return Unauthorized();
+            return await StartFullSyncAsync(me.Value.ToString("N"), GetCurrentUserName()).ConfigureAwait(false);
+        }
+
+        /// <summary>Admin: start a full profile sync for any linked user (e.g. from the config page).</summary>
+        [HttpPost("FullSync/{userId}")]
+        [Authorize(Policy = "RequiresElevation")]
+        [ProducesResponseType(typeof(LetterboxdFullSyncProgress), StatusCodes.Status202Accepted)]
+        public async Task<IActionResult> FullSyncFor([FromRoute] string userId)
+        {
+            if (!Guid.TryParse(userId, out var g)) return BadRequest("Invalid userId.");
+            var name = _userManager.GetUserById(g)?.Username ?? g.ToString("N");
+            return await StartFullSyncAsync(g.ToString("N"), name).ConfigureAwait(false);
+        }
+
+        private async Task<IActionResult> StartFullSyncAsync(string targetId, string targetName)
+        {
+            var settings = await _settings.GetAsync(targetId).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(settings.Username))
+                return BadRequest("No Letterboxd username is linked to this account.");
+
+            if (LetterboxdFullSyncProgress.ByUser.TryGetValue(targetId, out var running) && running.Running)
+                return Conflict(running);
+
+            var username = settings.Username;
+            _logger.LogInformation("[StarTrack] Full Letterboxd sync requested for {User} ({Lb})", targetName, username);
+            var progress = LetterboxdFullSyncProgress.ByUser.GetOrAdd(targetId, _ => new LetterboxdFullSyncProgress());
+            progress.Running = true; progress.Phase = "starting"; progress.Error = null; progress.Result = null; progress.StartedAt = DateTime.UtcNow; progress.FinishedAt = null;
+            _ = Task.Run(() => _sync.FullSyncAsync(targetId, targetName, username));
+            return Accepted(progress);
+        }
+
+        /// <summary>Progress of the current user's full sync.</summary>
+        [HttpGet("FullSyncStatus")]
+        [ProducesResponseType(typeof(LetterboxdFullSyncProgress), StatusCodes.Status200OK)]
+        public async Task<IActionResult> FullSyncStatus()
+        {
+            var me = await GetCurrentUserIdAsync().ConfigureAwait(false);
+            if (me == null) return Unauthorized();
+            return Ok(LetterboxdFullSyncProgress.ByUser.TryGetValue(me.Value.ToString("N"), out var p) ? p : new LetterboxdFullSyncProgress());
+        }
+
+        /// <summary>Admin: progress of any user's full sync.</summary>
+        [HttpGet("FullSyncStatus/{userId}")]
+        [Authorize(Policy = "RequiresElevation")]
+        [ProducesResponseType(typeof(LetterboxdFullSyncProgress), StatusCodes.Status200OK)]
+        public IActionResult FullSyncStatusFor([FromRoute] string userId)
+        {
+            if (!Guid.TryParse(userId, out var g)) return BadRequest("Invalid userId.");
+            return Ok(LetterboxdFullSyncProgress.ByUser.TryGetValue(g.ToString("N"), out var p) ? p : new LetterboxdFullSyncProgress());
+        }
+
+        /// <summary>
         /// Triggers an immediate RSS sync for the current user. Returns the
         /// import report synchronously.
         /// </summary>

@@ -51,6 +51,7 @@ Designed to integrate cleanly with modern Jellyfin setups: desktop, mobile, TV/w
 
 **Letterboxd, repaired**
 
+- **⟳ Sync everything** - one button that imports your *entire* Letterboxd history: every rating (including films you rated but never logged - "watched, not sure when"), every diary entry with its date, then watchlist, likes and Top 4. The RSS feed only ever carried your last ~50 diary entries, which is why a member with 800 ratings on Letterboxd could have 369 here. This is the export ZIP, live, and it needs no file. Safe to run again. Admins can run it for any linked user from the plugin page. Needs [FlareSolverr](#cloudflare-and-flaresolverr), because the diary and ratings pages are challenged.
 - **Watchlist sync works again** - Letterboxd removed the watchlist RSS feed, which is why it had silently stopped. StarTrack now reads your watchlist page instead, every page of it.
 - **Import Top 4 works again, with FlareSolverr** - same cause as likes: the profile page is challenged. It also reads the year now, so "Heat" is the right Heat.
 - **Likes sync works again, with FlareSolverr** - Letterboxd puts a Cloudflare challenge in front of the likes page and the sign-in. Point StarTrack at a [FlareSolverr](#cloudflare-and-flaresolverr) and both get through; without one, it backs off politely and *tells you* in the panel instead of retrying every five minutes forever.

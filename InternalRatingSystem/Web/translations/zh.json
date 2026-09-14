@@ -732,5 +732,21 @@
   "ph.yourname": "例如 yourname",
   "es.import_tip": "支持 StarTrack 的 CSV/JSON 导出，或 IMDb 评分导出（imdb.com → Your Ratings → Export）。格式会自动从文件识别。",
   "ratings.none_yet": "还没有评分 – 来做第一个吧！",
-  "es.export_imdb_tip": "IMDb 格式 CSV — 可通过 Yamtrack 的“Import from IMDb”导入。剧集和没有 IMDb ID 的条目无法写入此格式；会告知你有多少条被省略。"
+  "es.export_imdb_tip": "IMDb 格式 CSV — 可通过 Yamtrack 的“Import from IMDb”导入。剧集和没有 IMDb ID 的条目无法写入此格式；会告知你有多少条被省略。",
+  "lb.full_starting": "正在读取你的完整 Letterboxd 资料…",
+  "lb.full_failed_start": "无法启动完整同步。是否已保存 Letterboxd 用户名？",
+  "lb.full_running": "同步中：{phase}",
+  "lb.full_pages": "第 {done} 页，共 {total} 页",
+  "lb.full_failed": "完整同步失败。",
+  "lb.full_done": "Letterboxd 上有 {ratings} 条评分和 {diary} 条日记 — 已导入 {imported}，已更新 {updated}，{unmatched} 条不在库中；待看 +{watchlist}，喜欢 +{likes}",
+  "lb.full_phase_ratings": "评分",
+  "lb.full_phase_diary": "日记",
+  "lb.full_phase_importing_ratings": "正在导入评分",
+  "lb.full_phase_importing_diary": "正在导入日记",
+  "lb.full_phase_watchlist": "待看列表",
+  "lb.full_phase_likes": "喜欢",
+  "lb.full_phase_top_4": "Top 4",
+  "lb.full_phase_retrying_pending": "正在重试尚未入库的影片",
+  "cfg.lb_fullsync": "⟳ 全部同步",
+  "cfg.lb_fullsync_tip": "导入该用户的完整 Letterboxd 历史：所有评分（包括评过分但从未记录的影片）和所有日记条目。可安全重复运行。"
 }

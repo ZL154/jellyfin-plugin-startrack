@@ -732,5 +732,21 @@
   "ph.yourname": "es. tuonome",
   "es.import_tip": "Accetta un'esportazione CSV o JSON di StarTrack, oppure un'esportazione delle valutazioni IMDb (imdb.com → Your Ratings → Export). Il formato viene rilevato dal file.",
   "ratings.none_yet": "Ancora nessuna valutazione – sii il primo!",
-  "es.export_imdb_tip": "CSV in formato IMDb: importalo in Yamtrack tramite \"Import from IMDb\". Episodi ed elementi senza id IMDb non possono essere scritti in questo formato; ti verrà detto quanti sono stati esclusi."
+  "es.export_imdb_tip": "CSV in formato IMDb: importalo in Yamtrack tramite \"Import from IMDb\". Episodi ed elementi senza id IMDb non possono essere scritti in questo formato; ti verrà detto quanti sono stati esclusi.",
+  "lb.full_starting": "Lettura di tutto il tuo profilo Letterboxd…",
+  "lb.full_failed_start": "Impossibile avviare la sincronizzazione completa. È salvato un nome utente Letterboxd?",
+  "lb.full_running": "Sincronizzazione: {phase}",
+  "lb.full_pages": "pagina {done} di {total}",
+  "lb.full_failed": "Sincronizzazione completa non riuscita.",
+  "lb.full_done": "{ratings} valutazioni e {diary} voci di diario su Letterboxd — {imported} importate, {updated} aggiornate, {unmatched} non in libreria; watchlist +{watchlist}, mi piace +{likes}",
+  "lb.full_phase_ratings": "valutazioni",
+  "lb.full_phase_diary": "diario",
+  "lb.full_phase_importing_ratings": "importazione valutazioni",
+  "lb.full_phase_importing_diary": "importazione diario",
+  "lb.full_phase_watchlist": "watchlist",
+  "lb.full_phase_likes": "mi piace",
+  "lb.full_phase_top_4": "Top 4",
+  "lb.full_phase_retrying_pending": "nuovo tentativo per i film non ancora in libreria",
+  "cfg.lb_fullsync": "⟳ Sincronizza tutto",
+  "cfg.lb_fullsync_tip": "Importa l’intera cronologia Letterboxd di questo utente: ogni valutazione, compresi i film valutati ma mai registrati, e ogni voce di diario. Può essere rieseguito senza rischi."
 }

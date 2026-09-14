@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using Jellyfin.Data.Enums;
@@ -776,6 +777,136 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             await _interactions.SetFavoritesAsync(userId, ids).ConfigureAwait(false);
             _logger.LogInformation("[StarTrack] Letterboxd Top 4 for {User}: {N} on Letterboxd, {M} set as favourites", letterboxdUsername, favourites.Count, ids.Count);
             return ids.Count;
+        }
+
+        // ------------------------------------------------------------------ //
+        // Full profile sync — the ZIP, live
+        // ------------------------------------------------------------------ //
+
+        /// <summary>
+        /// Walk one paged profile list through the gate, reporting progress.
+        /// Stops at the first page that cannot be read, so a mid-list
+        /// challenge produces "stopped at page N", not a silently short result.
+        /// </summary>
+        private async Task<List<string>> FetchProfilePagesAsync(
+            string username, string listPath, string what, LetterboxdFullSyncProgress progress, CancellationToken ct)
+        {
+            var pages = new List<string>();
+            var basePath = $"/{Uri.EscapeDataString(username)}/{listPath}";
+            var first = await FetchGatedAsync(LetterboxdSession.BaseUrl + basePath, what, username).ConfigureAwait(false);
+            if (first == null) return pages;
+            pages.Add(first);
+            var last = Math.Min(LastPageNumber(first, basePath), MaxListPages);
+            progress.PagesTotal += last;
+            progress.PagesDone  += 1;
+            for (var page = 2; page <= last && !ct.IsCancellationRequested; page++)
+            {
+                var html = await FetchGatedAsync($"{LetterboxdSession.BaseUrl}{basePath}page/{page}/", what, username).ConfigureAwait(false);
+                if (html == null) break;
+                pages.Add(html);
+                progress.PagesDone++;
+            }
+            return pages;
+        }
+
+        /// <summary>
+        /// Import a member's ENTIRE Letterboxd history: every rating (including
+        /// films rated but never logged) and every diary entry with its date,
+        /// then the watchlist, likes and Top 4 the regular sync already covers.
+        ///
+        /// WHY: the RSS feed only carries the last ~50 diary entries, so a member
+        /// with 800 ratings on Letterboxd showed 369 here, and the only way to
+        /// close the gap was to export a ZIP by hand and upload it. This reads
+        /// the same data from the public profile pages and feeds it through the
+        /// same importers the ZIP uses — so overwrite policy, the pending queue
+        /// for films not yet in the library, and the diary merge all apply, and
+        /// running it twice changes nothing.
+        ///
+        /// The diary and ratings pages are Cloudflare-challenged, so this needs
+        /// FlareSolverr in practice; without it the gate backs off and the
+        /// result says which sources it could not read.
+        /// </summary>
+        public async Task<LetterboxdImportResult> FullSyncAsync(string userId, string userName, string username, CancellationToken ct = default)
+        {
+            var progress = LetterboxdFullSyncProgress.ByUser.GetOrAdd(userId, _ => new LetterboxdFullSyncProgress());
+            progress.Running = true; progress.Error = null; progress.Result = null; progress.FinishedAt = null;
+            progress.PagesDone = 0; progress.PagesTotal = 0; progress.RatingsFound = 0; progress.DiaryFound = 0;
+            progress.StartedAt = DateTime.UtcNow;
+            var result = new LetterboxdImportResult();
+            try
+            {
+                // ---- ratings (all pages) ----
+                progress.Phase = "ratings";
+                var ratedFilms = new List<LetterboxdRatedFilm>();
+                foreach (var html in await FetchProfilePagesAsync(username, "films/ratings/", "Ratings page", progress, ct).ConfigureAwait(false))
+                    ratedFilms.AddRange(LetterboxdProfilePages.ParseRatingsPage(html));
+                progress.RatingsFound = ratedFilms.Count;
+
+                // ---- diary (all pages) ----
+                progress.Phase = "diary";
+                var diaryRows = new List<LetterboxdDiaryPageRow>();
+                foreach (var html in await FetchProfilePagesAsync(username, "films/diary/", "Diary page", progress, ct).ConfigureAwait(false))
+                    diaryRows.AddRange(LetterboxdProfilePages.ParseDiaryPage(html));
+                progress.DiaryFound = diaryRows.Count;
+
+                if (ratedFilms.Count == 0 && diaryRows.Count == 0)
+                {
+                    result.Error = LetterboxdFeedGate.IsClosed
+                        ? "Letterboxd is challenging these pages and no FlareSolverr is configured (or it could not solve them). Ratings and diary could not be read."
+                        : "No ratings or diary entries could be read from the profile.";
+                    return result;
+                }
+
+                var lookup = BuildMovieLookup();
+
+                // ---- ratings through the ZIP importer ----
+                progress.Phase = "importing ratings";
+                if (ratedFilms.Count > 0)
+                {
+                    var csv = LetterboxdProfilePages.RenderRatingsCsv(ratedFilms, diaryRows, DateTime.UtcNow.Date);
+                    using var ms = new MemoryStream(Encoding.UTF8.GetBytes(csv));
+                    result = await ImportCsvAsync(userId, userName, ms, lookup).ConfigureAwait(false);
+                }
+
+                // ---- diary through the ZIP importer ----
+                progress.Phase = "importing diary";
+                if (diaryRows.Count > 0)
+                {
+                    var csv = LetterboxdProfilePages.RenderDiaryCsv(diaryRows);
+                    using var ms = new MemoryStream(Encoding.UTF8.GetBytes(csv));
+                    await ImportDiaryCsvAsync(userId, ms, lookup).ConfigureAwait(false);
+                }
+
+                // ---- the parts the regular sync already handles ----
+                progress.Phase = "watchlist";
+                result.WatchlistAdded += await SyncWatchlistRssAsync(userId, username, lookup).ConfigureAwait(false);
+                progress.Phase = "likes";
+                result.LikesAdded += await SyncLikesScrapeAsync(userId, username, lookup).ConfigureAwait(false);
+                progress.Phase = "top 4";
+                try { await ScrapeLetterboxdFavoritesAsync(userId, username, lookup).ConfigureAwait(false); } catch (Exception ex) { _logger.LogWarning(ex, "[StarTrack] Full sync: Top 4 failed — continuing"); }
+
+                progress.Phase = "retrying pending";
+                try { result.PendingResolved += await RetryPendingAsync(userId, userName, lookup).ConfigureAwait(false); } catch (Exception ex) { _logger.LogWarning(ex, "[StarTrack] Full sync: pending retry failed — continuing"); }
+
+                _logger.LogInformation(
+                    "[StarTrack] Full Letterboxd sync for {User}: {R} ratings and {D} diary entries on Letterboxd; imported {I}, updated {U}, {N} not in library, watchlist +{W}, likes +{L}",
+                    username, ratedFilms.Count, diaryRows.Count, result.Imported, result.Updated, result.Unmatched, result.WatchlistAdded, result.LikesAdded);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[StarTrack] Full Letterboxd sync failed for {User}", username);
+                result.Error = ex.Message;
+                progress.Error = ex.Message;
+                return result;
+            }
+            finally
+            {
+                progress.Running = false;
+                progress.Phase = result.Error != null ? "failed" : "done";
+                progress.Result = result;
+                progress.FinishedAt = DateTime.UtcNow;
+            }
         }
 
         /// <summary>

@@ -780,6 +780,9 @@
             '.ir-ov-lb-save:hover,.ir-ov-lb-sync:hover{background:#ffd84d!important;transform:scale(1.04)!important}',
             '.ir-ov-lb-sync{background:rgba(200,30,30,.9)!important;color:#fff!important}',
             '.ir-ov-lb-sync:hover{background:#d42828!important}',
+            '.ir-ov-lb-fullsync{background:rgba(255,255,255,.08)!important;color:#fff!important;border:1px solid rgba(244,196,48,.55)!important;border-radius:6px!important;padding:8px 14px!important;font-weight:700!important;cursor:pointer!important;font-size:.85em!important}',
+            '.ir-ov-lb-fullsync:hover{background:rgba(244,196,48,.18)!important}',
+            '.ir-ov-lb-fullsync:disabled{opacity:.55!important;cursor:default!important}',
             '.ir-ov-lb-diag{background:rgba(255,255,255,.08)!important;color:rgba(255,255,255,.85)!important;border:1px solid rgba(255,255,255,.2)!important;border-radius:6px!important;padding:7px 14px!important;font-size:.78em!important;font-weight:600!important;cursor:pointer!important;transition:all .15s!important}',
             '.ir-ov-lb-diag:hover{background:rgba(255,255,255,.15)!important;border-color:rgba(255,255,255,.4)!important;color:#fff!important}',
             '.ir-ov-lb-scrapefav{background:rgba(244,196,48,.1)!important;color:#f4c430!important;border:1px solid rgba(244,196,48,.4)!important;border-radius:6px!important;padding:7px 14px!important;font-size:.78em!important;font-weight:600!important;cursor:pointer!important;transition:all .15s!important}',
@@ -966,6 +969,9 @@
             '.ir-lb-save:hover,.ir-lb-sync:hover{background:#ffd84d!important;transform:scale(1.04)!important}',
             '.ir-lb-sync{background:rgba(200,30,30,.9)!important;color:#fff!important}',
             '.ir-lb-sync:hover{background:#d42828!important}',
+            '.ir-lb-fullsync{background:rgba(255,255,255,.08)!important;color:#fff!important;border:1px solid rgba(244,196,48,.55)!important;border-radius:6px!important;padding:6px 12px!important;font-weight:700!important;cursor:pointer!important;font-size:.8em!important;margin-top:6px!important}',
+            '.ir-lb-fullsync:hover{background:rgba(244,196,48,.18)!important}',
+            '.ir-lb-fullsync:disabled{opacity:.55!important;cursor:default!important}',
             '.ir-lb-sep{height:1px!important;background:rgba(255,255,255,.1)!important;margin:14px 0 12px!important}',
             '.ir-lb-csv-title{font-size:.78em!important;font-weight:700!important;color:rgba(255,255,255,.85)!important;margin-bottom:4px!important}',
             '.ir-lb-csv-hint{font-size:.72em!important;color:rgba(255,255,255,.45)!important;line-height:1.5!important;margin-bottom:8px!important}',
@@ -2053,6 +2059,7 @@
                     '<div class="ir-lb-btn-row">' +
                         '<button class="ir-lb-save">Save</button>' +
                         '<button class="ir-lb-sync">Sync now</button>' +
+                        '<button class="ir-lb-fullsync" title="Import your entire Letterboxd history: every rating (including films rated but never logged) and every diary entry with its date, then watchlist, likes and Top 4. Safe to run again.">\u27f3 Sync everything</button>' +
                     '</div>' +
                     '<div class="ir-lb-sep"></div>' +
                     '<div class="ir-lb-csv-title">Import full history</div>' +
@@ -2366,6 +2373,7 @@
                         '<label class="ir-ov-lb-check"><input type="checkbox" class="ir-ov-lb-auto" /> Auto-sync hourly</label>' +
                         '<button class="ir-ov-lb-save">Save</button>' +
                         '<button class="ir-ov-lb-sync">Sync now</button>' +
+                        '<button class="ir-ov-lb-fullsync" title="Import your entire Letterboxd history: every rating (including films rated but never logged) and every diary entry with its date, then watchlist, likes and Top 4. Safe to run again.">\u27f3 Sync everything</button>' +
                         '<button class="ir-ov-lb-diag">\ud83d\udd0d Diagnose</button>' +
                         '<button class="ir-ov-lb-scrapefav" title="Pull your Letterboxd Top 4 from your public profile page">\u2b50 Import Top 4</button>' +
                         '<button class="ir-ov-lb-clean">\ud83d\uddd1 Clean dead ratings</button>' +
@@ -2976,6 +2984,8 @@
             return parts.join(', ') + '.' + libPart;
         }
 
+        var ovLbFull = _overlay.querySelector('.ir-ov-lb-fullsync');
+        if (ovLbFull) ovLbFull.addEventListener('click', function () { runLbFullSync(ovLbFull, function (t, k) { ovLbShowStatus(t, k, null); }); });
         ovLbSync.addEventListener('click', function () {
             if (!(ovLbUser.value || '').trim()) {
                 ovLbShowStatus('Save a Letterboxd username first.', 'err', null); return;
@@ -7257,6 +7267,8 @@
         }
 
         if (lbSync) {
+            var lbFull = el.querySelector('.ir-lb-fullsync');
+            if (lbFull) lbFull.addEventListener('click', function () { runLbFullSync(lbFull, showLbStatus); });
             lbSync.addEventListener('click', function (e) {
                 e.stopPropagation();
                 if (!(lbUser.value || '').trim()) {
@@ -7323,6 +7335,54 @@
             headers: { Authorization: auth, 'Content-Type': 'application/json' },
             body: JSON.stringify({ username: username, enableAutoSync: enableAutoSync })
         }).then(function (r) { return r.ok; }).catch(function () { return false; });
+    }
+
+    function apiLbFullSync() {
+        var auth = getAuth(); if (!auth) return Promise.resolve(null);
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Letterboxd/FullSync', { method: 'POST', headers: { Authorization: auth } })
+            .then(function (r) { return r.status === 409 ? 'running' : (r.ok ? 'started' : null); }).catch(function () { return null; });
+    }
+    function apiLbFullSyncStatus() {
+        var auth = getAuth(); if (!auth) return Promise.resolve(null);
+        return fetch(_ST_BASE + '/Plugins/StarTrack/Letterboxd/FullSyncStatus', { headers: { Authorization: auth }, cache: 'no-store' })
+            .then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
+    }
+
+    // "Sync everything": kick off the full profile import and narrate it until
+    // it finishes. The server does the work in the background — a big profile
+    // is dozens of pages behind Cloudflare, one to two minutes — so the button
+    // disables, the status line follows the phases, and the final line is the
+    // same import report a ZIP upload gives.
+    function runLbFullSync(btn, status) {
+        if (btn) btn.disabled = true;
+        status(tr('lb.full_starting', null, 'Reading your whole Letterboxd profile\u2026'), '');
+        apiLbFullSync().then(function (started) {
+            if (!started) { status(tr('lb.full_failed_start', null, 'Could not start the full sync. Is a Letterboxd username saved?'), 'err'); if (btn) btn.disabled = false; return; }
+            var ticks = 0;
+            var poll = function () {
+                apiLbFullSyncStatus().then(function (p) {
+                    if (!p) { if (++ticks < 200) return setTimeout(poll, 2000); }
+                    if (p && p.running) {
+                        var phase = tr('lb.full_phase_' + String(p.phase || '').replace(/[^a-z0-9]+/g, '_'), null, p.phase || '');
+                        var pages = p.pagesTotal ? ' \u2014 ' + tr('lb.full_pages', { done: p.pagesDone, total: p.pagesTotal }, 'page {done} of {total}') : '';
+                        status(tr('lb.full_running', { phase: phase }, 'Syncing: {phase}') + pages, '');
+                        if (++ticks < 600) return setTimeout(poll, 2000);
+                    }
+                    if (btn) btn.disabled = false;
+                    if (!p || p.error || (p.result && p.result.error)) {
+                        status('\u2717 ' + ((p && (p.error || (p.result && p.result.error))) || tr('lb.full_failed', null, 'Full sync failed.')), 'err');
+                        return;
+                    }
+                    var r = p.result || {};
+                    status('\u2713 ' + tr('lb.full_done', {
+                        ratings: p.ratingsFound || 0, diary: p.diaryFound || 0, imported: r.imported || 0, updated: r.updated || 0,
+                        unmatched: r.unmatched || 0, watchlist: r.watchlistAdded || 0, likes: r.likesAdded || 0
+                    }, '{ratings} ratings and {diary} diary entries on Letterboxd \u2014 {imported} imported, {updated} updated, {unmatched} not in library; watchlist +{watchlist}, likes +{likes}'), 'ok');
+                    try { if (typeof loadOverlayView === 'function' && _overlay && _overlay.style.display !== 'none') loadOverlayView(); } catch (e) {}
+                });
+            };
+            setTimeout(poll, 1500);
+        });
     }
 
     function apiLbSyncNow() {
@@ -9088,7 +9148,8 @@
                 '<td>' + esc(u.userName) + '</td>' +
                 '<td><input type="text" class="st-lb-username" value="' + esc(u.username || '') + '" placeholder="letterboxd username"></td>' +
                 '<td><input type="checkbox" class="st-cb st-lb-autosync"' + (u.enableAutoSync ? ' checked' : '') + '></td>' +
-                '<td><button type="button" class="st-lb-save">' + tr('cfg.lb_save_sync', null, 'Save & Sync') + '</button></td>' +
+                '<td><button type="button" class="st-lb-save">' + tr('cfg.lb_save_sync', null, 'Save & Sync') + '</button> ' +
+                    '<button type="button" class="st-lb-save st-lb-fullsync" style="background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(244,196,48,.55)" title="' + esc(tr('cfg.lb_fullsync_tip', null, 'Import this user’s entire Letterboxd history: every rating, including films rated but never logged, and every diary entry. Safe to run again.')) + '">' + tr('cfg.lb_fullsync', null, '⟳ Sync everything') + '</button></td>' +
                 '<td class="st-lb-status"></td>' +
                 '</tr>';
         }).join('');
@@ -9099,6 +9160,41 @@
             '<th>' + tr('cfg.lb_col_autosync', null, 'Auto-sync') + '</th>' +
             '<th></th><th></th>' +
             '</tr></thead><tbody>' + rows + '</tbody></table>';
+    }
+
+    // Admin-triggered "Sync everything" for one user, via the elevated routes.
+    // Same narration as the user-facing button, written into the row's status cell.
+    function _adminFullSyncLetterboxdUser(row, btn) {
+        var userId = row.getAttribute('data-user-id');
+        var status = row.querySelector('.st-lb-status');
+        var say = function (t, kind) { if (status) { status.textContent = t; status.style.color = kind === 'err' ? '#ff8080' : kind === 'ok' ? '#52b54b' : 'rgba(255,255,255,.6)'; } };
+        var auth = getAuth(); if (!auth) return;
+        btn.disabled = true;
+        say(tr('lb.full_starting', null, 'Reading your whole Letterboxd profile…'), '');
+        fetch(_ST_BASE + '/Plugins/StarTrack/Letterboxd/FullSync/' + userId, { method: 'POST', headers: { Authorization: auth } })
+            .then(function (r) {
+                if (r.status === 400) return r.text().then(function (t) { say('✗ ' + t, 'err'); btn.disabled = false; return null; });
+                if (!r.ok && r.status !== 409) { say(tr('lb.full_failed_start', null, 'Could not start the full sync. Is a Letterboxd username saved?'), 'err'); btn.disabled = false; return null; }
+                var ticks = 0;
+                var poll = function () {
+                    fetch(_ST_BASE + '/Plugins/StarTrack/Letterboxd/FullSyncStatus/' + userId, { headers: { Authorization: auth }, cache: 'no-store' })
+                        .then(function (r2) { return r2.ok ? r2.json() : null; })
+                        .then(function (p) {
+                            if (p && p.running) {
+                                var pages = p.pagesTotal ? ' — ' + tr('lb.full_pages', { done: p.pagesDone, total: p.pagesTotal }, 'page {done} of {total}') : '';
+                                say(tr('lb.full_running', { phase: p.phase || '' }, 'Syncing: {phase}') + pages, '');
+                                if (++ticks < 600) return setTimeout(poll, 2000);
+                            }
+                            btn.disabled = false;
+                            if (!p || p.error || (p.result && p.result.error)) { say('✗ ' + ((p && (p.error || (p.result && p.result.error))) || tr('lb.full_failed', null, 'Full sync failed.')), 'err'); return; }
+                            var res = p.result || {};
+                            say('✓ ' + tr('lb.full_done', { ratings: p.ratingsFound || 0, diary: p.diaryFound || 0, imported: res.imported || 0, updated: res.updated || 0, unmatched: res.unmatched || 0, watchlist: res.watchlistAdded || 0, likes: res.likesAdded || 0 },
+                                '{ratings} ratings and {diary} diary entries on Letterboxd — {imported} imported, {updated} updated, {unmatched} not in library; watchlist +{watchlist}, likes +{likes}'), 'ok');
+                        }).catch(function () { btn.disabled = false; });
+                };
+                setTimeout(poll, 1500);
+                return null;
+            }).catch(function () { say(tr('lb.full_failed', null, 'Full sync failed.'), 'err'); btn.disabled = false; });
     }
 
     function _adminSaveLetterboxdUser(row) {
@@ -9348,7 +9444,9 @@
                 var btn = ev.target.closest('.st-lb-save');
                 if (!btn) return;
                 var row = btn.closest('tr[data-user-id]');
-                if (row) _adminSaveLetterboxdUser(row);
+                if (!row) return;
+                if (btn.classList.contains('st-lb-fullsync')) { _adminFullSyncLetterboxdUser(row, btn); return; }
+                _adminSaveLetterboxdUser(row);
             });
         }
     }
