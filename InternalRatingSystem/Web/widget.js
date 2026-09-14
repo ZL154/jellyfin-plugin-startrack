@@ -1721,6 +1721,20 @@
     // Shown, not converted: 0.5-5 in half-steps and 1-10 in whole steps are the
     // same ten positions, so this adds no precision and loses none. The stars
     // stay the rating. Off by default.
+    // Letterboxd is Cloudflare-challenging the watchlist and likes feeds — a
+    // JS challenge no server can pass. The plugin used to retry every tick for
+    // every user and say nothing. Now it backs off, and this says so, in the
+    // one place the user is looking when they wonder why their watchlist has
+    // stopped arriving. Server-wide state, so the text is the same for everyone.
+    function _lbFeedsChallengedNote(a) {
+        if (!a || !a.feedsChallenged) return '';
+        var since = a.feedsChallengedSince ? ' ' + tr('lb.feeds_since', null, 'since') + ' ' + timeAgo(a.feedsChallengedSince) : '';
+        return tr('lb.feeds_challenged', null,
+            'Letterboxd is currently blocking automated reads of the watchlist and likes feeds' +
+            since + ' (Cloudflare challenge). Diary sync still works. StarTrack will re-check every ' +
+            '6 hours; nothing to do on your side.');
+    }
+
     // The 1-10 form of a star value. Whole numbers print as "7", not "7.0" \u2014
     // it is an integer scale. A community AVERAGE can land between positions,
     // so 3.75 becomes "7.5"; that is honest, since the average is not a rating
@@ -2569,6 +2583,8 @@
                 else if (a.lastPushedAt) ovPushStatus(
                     tr('lb.last_pushed', null, 'Last pushed') + ' ' + timeAgo(a.lastPushedAt) +
                     (a.lastPushedCount ? ' \u2014 ' + a.lastPushedCount : ''), '');
+                var ovNote = _lbFeedsChallengedNote(a);
+                if (ovNote && ovLbStatus) { ovLbStatus.textContent = '⚠ ' + ovNote; ovLbStatus.className = 'ir-ov-lb-status'; }
             });
         }
 
@@ -7035,6 +7051,8 @@
                 else if (a.lastPushedAt) showPushStatus(
                     tr('lb.last_pushed', null, 'Last pushed') + ' ' + timeAgo(a.lastPushedAt) +
                     (a.lastPushedCount ? ' \u2014 ' + a.lastPushedCount : ''), '');
+                var lbNote = _lbFeedsChallengedNote(a);
+                if (lbNote && lbStatus) { lbStatus.textContent = '⚠ ' + lbNote; lbStatus.className = 'ir-lb-status'; }
             });
         }
 

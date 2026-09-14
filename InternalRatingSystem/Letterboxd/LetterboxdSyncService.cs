@@ -463,6 +463,58 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         }
 
         /// <summary>
+        /// GET a Letterboxd page that Cloudflare is known to challenge, through
+        /// <see cref="LetterboxdFeedGate"/>. Returns the body, or null when the
+        /// fetch was skipped (gate closed), challenged (gate now closed), or
+        /// failed for an ordinary reason. Logs the challenge ONCE, at
+        /// information level, when the gate closes — not once per user per tick
+        /// as a warning, which is what produced 1,600 identical lines in three
+        /// days and told nobody anything.
+        /// </summary>
+        private async Task<string?> FetchGatedAsync(string url, string what, string letterboxdUsername)
+        {
+            if (LetterboxdFeedGate.IsClosed)
+                return null; // already know the answer; don't ask again yet
+
+            try
+            {
+                using var resp = await _http.GetAsync(url).ConfigureAwait(false);
+
+                if (LetterboxdFeedGate.IsChallenge(resp))
+                {
+                    if (LetterboxdFeedGate.NoteChallenge())
+                    {
+                        _logger.LogInformation(
+                            "[StarTrack] Letterboxd is challenging automated requests for watchlist and likes feeds " +
+                            "(Cloudflare JS challenge on {Url}). These two feeds cannot be read by a server; " +
+                            "pausing them for {Hours}h and re-probing after. Diary sync is unaffected.",
+                            url, (int)LetterboxdFeedGate.BackoffPeriod.TotalHours);
+                    }
+                    return null;
+                }
+
+                if (!resp.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("[StarTrack] {What} fetch failed for {User}: HTTP {Code}", what, letterboxdUsername, (int)resp.StatusCode);
+                    return null;
+                }
+
+                var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                if (LetterboxdFeedGate.ChallengeCount > 0)
+                {
+                    LetterboxdFeedGate.NoteSuccess();
+                    _logger.LogInformation("[StarTrack] Letterboxd watchlist/likes feeds are reachable again; resuming.");
+                }
+                return body;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning("[StarTrack] {What} fetch failed for {User}: {Msg}", what, letterboxdUsername, ex.Message);
+                return null;
+            }
+        }
+
+        /// <summary>
         /// Letterboxd has no public RSS feed for likes, so this scrapes the
         /// /username/likes/films/ HTML page (first page only — usually 72
         /// items per page). Same poster-list shape as the favourites scrape.
@@ -471,13 +523,8 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         {
             if (string.IsNullOrWhiteSpace(letterboxdUsername)) return 0;
             var url = $"https://letterboxd.com/{Uri.EscapeDataString(letterboxdUsername)}/likes/films/";
-            string html;
-            try { html = await _http.GetStringAsync(url).ConfigureAwait(false); }
-            catch (Exception ex)
-            {
-                _logger.LogWarning("[StarTrack] Likes page fetch failed for {User}: {Msg}", letterboxdUsername, ex.Message);
-                return 0;
-            }
+            var html = await FetchGatedAsync(url, "Likes page", letterboxdUsername).ConfigureAwait(false);
+            if (html == null) return 0;
 
             // The likes page has a long list of <li> elements with film cards.
             // Each card has alt="Film Name" inside an <img>. We extract every
@@ -529,13 +576,8 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         {
             if (string.IsNullOrWhiteSpace(letterboxdUsername)) return 0;
             var url = $"https://letterboxd.com/{Uri.EscapeDataString(letterboxdUsername)}/watchlist/rss/";
-            string xml;
-            try { xml = await _http.GetStringAsync(url).ConfigureAwait(false); }
-            catch (Exception ex)
-            {
-                _logger.LogWarning("[StarTrack] Watchlist RSS fetch failed for {User}: {Msg}", letterboxdUsername, ex.Message);
-                return 0;
-            }
+            var xml = await FetchGatedAsync(url, "Watchlist RSS", letterboxdUsername).ConfigureAwait(false);
+            if (xml == null) return 0;
 
             List<LetterboxdRssEntry> entries;
             try { entries = ParseRss(xml); }

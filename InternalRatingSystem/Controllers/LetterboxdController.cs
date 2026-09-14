@@ -536,7 +536,10 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 DiaryLoggingSince = s.DiaryLoggingSince,
                 LastPushedAt      = s.LastPushedAt,
                 LastPushedCount   = s.LastPushedCount,
-                LastPushError     = s.LastPushError
+                LastPushError     = s.LastPushError,
+                FeedsChallenged      = LetterboxdFeedGate.IsClosed,
+                FeedsChallengedSince = LetterboxdFeedGate.ClosedSince,
+                FeedsRetryAt         = LetterboxdFeedGate.RetryAt
             });
         }
 
@@ -710,6 +713,15 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             [JsonPropertyName("lastPushedAt")]      public DateTime? LastPushedAt      { get; set; }
             [JsonPropertyName("lastPushedCount")]   public int       LastPushedCount   { get; set; }
             [JsonPropertyName("lastPushError")]     public string?   LastPushError     { get; set; }
+
+            /// <summary>
+            /// True while Letterboxd is Cloudflare-challenging the watchlist and
+            /// likes feeds. Server-wide, not per user — the challenge is against
+            /// the server's IP. Diary sync is unaffected. See LetterboxdFeedGate.
+            /// </summary>
+            [JsonPropertyName("feedsChallenged")]      public bool      FeedsChallenged      { get; set; }
+            [JsonPropertyName("feedsChallengedSince")] public DateTime? FeedsChallengedSince { get; set; }
+            [JsonPropertyName("feedsRetryAt")]         public DateTime? FeedsRetryAt         { get; set; }
         }
 
         /// <summary>Write-back configuration submitted by the UI.</summary>
