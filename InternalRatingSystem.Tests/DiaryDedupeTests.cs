@@ -92,18 +92,75 @@ namespace Jellyfin.Plugin.InternalRating.Tests
         }
 
         [Fact]
-        public async Task ARatingImportedTwoDaysLaterIsNotFoldedIntoAnOldPlaceholder()
+        public async Task ARatingImportedDaysLaterStillLandsOnTheUnratedRow()
         {
+            // The user rates a film they watched last week. StarTrack holds one
+            // rating per film; an unrated diary row for a rated film is just the
+            // same film with the score missing. No window on this.
             using var paths = new TestPaths();
             var repo = new DiaryRepository(paths);
             await repo.AddEntryAsync(User, new DiaryEntry { ItemId = Item, WatchedAt = PlaybackAt, Stars = null });
 
-            var twoDaysOn = PlaybackAt.AddDays(2);
-            await repo.ImportEntriesAsync(User, new[] { new DiaryEntry { ItemId = Item, WatchedAt = twoDaysOn, Stars = 4.0 } });
+            await repo.ImportEntriesAsync(User, new[] { new DiaryEntry { ItemId = Item, WatchedAt = PlaybackAt.AddDays(6), Stars = 4.0 } });
 
-            var entries = await repo.GetEntriesAsync(User);
-            Assert.Equal(2, entries.Count);
-            Assert.Null(entries.Single(x => x.WatchedAt == PlaybackAt).Stars);   // the old unrated watch stays as it was
+            var one = Assert.Single(await repo.GetEntriesAsync(User));
+            Assert.Equal(4.0, one.Stars);
+            Assert.Equal(PlaybackAt, one.WatchedAt);
+        }
+
+        // ---- a rating written anywhere reaches the diary ----
+
+        [Fact]
+        public async Task ApplyingARatingFillsEveryUnratedRowForThatFilmAndNoOther()
+        {
+            using var paths = new TestPaths();
+            var repo = new DiaryRepository(paths);
+            await repo.AddEntryAsync(User, new DiaryEntry { ItemId = Item, WatchedAt = PlaybackAt, Stars = null });
+            await repo.AddEntryAsync(User, new DiaryEntry { ItemId = Item, WatchedAt = PlaybackAt.AddDays(-30), Stars = null });
+            await repo.AddEntryAsync(User, new DiaryEntry { ItemId = Item, WatchedAt = PlaybackAt.AddDays(-60), Stars = 2.0 });
+            await repo.AddEntryAsync(User, new DiaryEntry { ItemId = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", WatchedAt = PlaybackAt, Stars = null });
+
+            var n = await repo.ApplyRatingAsync(User, Item, 4.5, "Loved it");
+
+            Assert.Equal(2, n);
+            var rows = await repo.GetEntriesAsync(User);
+            Assert.All(rows.Where(r => r.ItemId == Item && r.WatchedAt != PlaybackAt.AddDays(-60)), r => Assert.Equal(4.5, r.Stars));
+            Assert.Equal(2.0, rows.Single(r => r.WatchedAt == PlaybackAt.AddDays(-60)).Stars);   // an existing rating is never overwritten
+            Assert.Null(rows.Single(r => r.ItemId.StartsWith("bbbb")).Stars);                    // other films untouched
+        }
+
+        [Fact]
+        public async Task SavingARatingAnywhereRaisesTheHookTheDiaryListensTo()
+        {
+            // The seven rating writers all go through RatingRepository; this is
+            // the one place the diary has to be told.
+            using var paths = new TestPaths();
+            var ratings = new RatingRepository(paths);
+            var diary = new DiaryRepository(paths);
+            ratings.RatingSaved += (u, i, st, rv) => diary.ApplyRatingAsync(u, i, st, rv);
+            await diary.AddEntryAsync(User, new DiaryEntry { ItemId = Item, WatchedAt = PlaybackAt, Stars = null });
+
+            await ratings.SaveRatingAsync(Item, User, "Zack", 4.0);
+
+            Assert.Equal(4.0, Assert.Single(await diary.GetEntriesAsync(User)).Stars);
+        }
+
+        [Fact]
+        public async Task StartupBackfillRepairsRowsWrittenBeforeTheHookExisted()
+        {
+            // The reporting user's diary: nine unrated rows for films rated the
+            // same day, written by playback before any of this existed.
+            using var paths = new TestPaths();
+            var diary = new DiaryRepository(paths);
+            await diary.AddEntryAsync(User, new DiaryEntry { ItemId = Item, WatchedAt = PlaybackAt, Stars = null });
+            await diary.AddEntryAsync(User, new DiaryEntry { ItemId = "cccccccccccccccccccccccccccccccc", WatchedAt = PlaybackAt, Stars = null });
+
+            var fixedRows = await diary.BackfillFromRatingsAsync((u, i) => Task.FromResult<double?>(i == Item ? 3.5 : null));
+
+            Assert.Equal(1, fixedRows);
+            var rows = await diary.GetEntriesAsync(User);
+            Assert.Equal(3.5, rows.Single(r => r.ItemId == Item).Stars);
+            Assert.Null(rows.Single(r => r.ItemId.StartsWith("cccc")).Stars);   // never rated: stays unrated, honestly
         }
 
         // ---- the pre-rolls ----

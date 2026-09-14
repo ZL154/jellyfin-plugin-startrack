@@ -143,6 +143,20 @@ namespace Jellyfin.Plugin.InternalRating.Data
             finally { _lock.Release(); }
         }
 
+        /// <summary>
+        /// Raised after a rating is stored, from every writer: the rating panel,
+        /// Trakt/Simkl/Yamtrack pulls, Letterboxd and Serializd imports, the
+        /// IMDb/CSV importers. Fired outside the lock.
+        ///
+        /// WHY: the diary keeps a row per viewing, and playback writes that row
+        /// before the user has rated. Whoever then writes the rating — and there
+        /// are seven such places — must put it on that row, or the diary shows
+        /// "unrated" for a film the user demonstrably rated. Doing that in each
+        /// writer was how it came to be done in one, behind an unrelated
+        /// setting. One hook at the one choke point instead.
+        /// </summary>
+        public event Func<string, string, double, string?, Task>? RatingSaved;
+
         /// <summary>Inserts or replaces a user's rating for an item.</summary>
         public Task SaveRatingAsync(string itemId, string userId, string userName, double stars, string? review = null)
         {
@@ -177,6 +191,13 @@ namespace Jellyfin.Plugin.InternalRating.Data
                 await SaveAsync().ConfigureAwait(false);
             }
             finally { _lock.Release(); }
+
+            var handler = RatingSaved;
+            if (handler != null)
+            {
+                try { await handler(userId, itemId, stars, review).ConfigureAwait(false); }
+                catch { /* a diary write must never fail the rating itself */ }
+            }
         }
 
         /// <summary>Removes a user's rating for an item.</summary>

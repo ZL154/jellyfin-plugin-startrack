@@ -180,34 +180,9 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 if (loggedToday.Any(x => x.Stars.HasValue && Math.Abs(x.Stars.Value - stars) < 0.01))
                     return;
 
-                // Watched recently with playback logging on, now being rated:
-                // that is one viewing, and the playback logger already wrote its
-                // row without a rating. Put the rating on that row instead of
-                // adding a second one beside it — the exact duplicate that showed
-                // up as "Batman: Under the Red Hood" twice, one 4.5 and one
-                // unrated. "Recently" is a window, not "today": the server's day
-                // is UTC and the user's is not (see DiaryRepository).
-                var now = DateTime.UtcNow;
-                var unrated = mine
-                    .Where(x => !x.Stars.HasValue && DiaryRepository.WithinSameViewing(x.WatchedAt, now))
-                    .OrderByDescending(x => x.WatchedAt)
-                    .FirstOrDefault();
-                if (unrated != null)
-                {
-                    await diary.ImportEntriesAsync(userKey, new[]
-                    {
-                        new Models.DiaryEntry
-                        {
-                            ItemId    = itemId,
-                            WatchedAt = now,
-                            Stars     = stars,
-                            Review    = string.IsNullOrWhiteSpace(review) ? null : review.Trim(),
-                            Rewatch   = unrated.Rewatch
-                        }
-                    }).ConfigureAwait(false);
-                    return;
-                }
-
+                // A placeholder row from playback has already had this rating
+                // applied by RatingRepository.RatingSaved, before we get here;
+                // it now carries these stars and is caught by the check above.
                 var rewatch = mine.Count > 0;
 
                 await diary.AddEntryAsync(userKey, new Models.DiaryEntry

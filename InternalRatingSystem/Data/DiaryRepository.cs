@@ -131,11 +131,11 @@ namespace Jellyfin.Plugin.InternalRating.Data
         /// diary rows were created or enriched.
         ///
         /// An import meets three kinds of existing entry for the same item:
-        ///   - an UNRATED row within <see cref="SameViewingWindow"/> — the
-        ///     playback logger's placeholder for the same viewing, written before
-        ///     the user rated on Letterboxd. Fold the rating, review and rewatch
-        ///     flag into it rather than adding a second row. Its timestamp is
+        ///   - an UNRATED row — the playback logger's placeholder, written before
+        ///     the user rated. Fold the rating, review and rewatch flag into the
+        ///     nearest one rather than adding a second row. Its timestamp is
         ///     kept: it is the truer record of when the film was actually seen.
+        ///     (See ApplyRatingAsync for why there is no time window on this.)
         ///   - a RATED row on the same day — already there; skip.
         ///   - nothing — add it.
         /// </summary>
@@ -155,7 +155,7 @@ namespace Jellyfin.Plugin.InternalRating.Data
                     if (e.Stars is not null)
                     {
                         var placeholder = sameItem
-                            .Where(x => x.Stars is null && WithinSameViewing(x.WatchedAt, e.WatchedAt))
+                            .Where(x => x.Stars is null)
                             .OrderBy(x => (x.WatchedAt - e.WatchedAt).Duration())
                             .FirstOrDefault();
                         if (placeholder != null)
@@ -179,6 +179,77 @@ namespace Jellyfin.Plugin.InternalRating.Data
                 return changed;
             }
             finally { _lock.Release(); }
+        }
+
+        /// <summary>
+        /// Put a rating the user just gave onto any unrated diary row for the
+        /// same film. Returns how many rows were enriched.
+        ///
+        /// No time window here, deliberately. StarTrack holds one rating per
+        /// user per film, so an unrated diary row for a film the user has rated
+        /// is not a different fact about a different viewing — it is the same
+        /// film with the score missing, and the film's own page already shows
+        /// the score. The reporting user's diary had nine such rows, every one
+        /// rated the same day it was watched. The window still applies to
+        /// deciding whether an IMPORTED rated row is a duplicate of an existing
+        /// rated one; that is a different question.
+        /// </summary>
+        public async Task<int> ApplyRatingAsync(string userId, string itemId, double stars, string? review)
+        {
+            await _lock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                if (!_store.Users.TryGetValue(userId, out var d)) return 0;
+                var n = 0;
+                foreach (var e in d.Entries)
+                {
+                    if (e.Stars is not null || !string.Equals(e.ItemId, itemId, StringComparison.OrdinalIgnoreCase)) continue;
+                    e.Stars = stars;
+                    if (string.IsNullOrWhiteSpace(e.Review) && !string.IsNullOrWhiteSpace(review)) e.Review = review.Trim();
+                    n++;
+                }
+                if (n > 0) await SaveAsync().ConfigureAwait(false);
+                return n;
+            }
+            finally { _lock.Release(); }
+        }
+
+        /// <summary>
+        /// One-time repair for diaries written before <see cref="ApplyRatingAsync"/>
+        /// existed: every unrated row whose film the user has since rated gets
+        /// that rating. Runs at startup; idempotent; cheap (one lookup per
+        /// unrated row, and unrated rows are the minority).
+        /// </summary>
+        public async Task<int> BackfillFromRatingsAsync(Func<string, string, Task<double?>> userStarsFor)
+        {
+            var fixes = new List<(string User, DiaryEntry Row, double Stars)>();
+            List<(string User, DiaryEntry Row)> unrated;
+            await _lock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                unrated = _store.Users
+                    .SelectMany(u => u.Value.Entries.Where(e => e.Stars is null).Select(e => (u.Key, e)))
+                    .ToList();
+            }
+            finally { _lock.Release(); }
+
+            foreach (var (user, row) in unrated)
+            {
+                double? stars = null;
+                try { stars = await userStarsFor(user, row.ItemId).ConfigureAwait(false); } catch { }
+                if (stars is > 0) fixes.Add((user, row, stars.Value));
+            }
+            if (fixes.Count == 0) return 0;
+
+            await _lock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                foreach (var (_, row, stars) in fixes)
+                    if (row.Stars is null) row.Stars = stars;
+                await SaveAsync().ConfigureAwait(false);
+            }
+            finally { _lock.Release(); }
+            return fixes.Count;
         }
 
         private UserDiary GetOrInit(string userId)

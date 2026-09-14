@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 using System.Collections.Generic;
 using Jellyfin.Plugin.InternalRating.Data;
 using Jellyfin.Plugin.InternalRating.ExternalSync;
@@ -94,6 +95,20 @@ namespace Jellyfin.Plugin.InternalRating
             Privacy               = new PrivacyRepository(applicationPaths);
             Follows               = new FollowsRepository(applicationPaths);
             ExternalSyncSettings  = new ExternalSyncSettingsRepository(applicationPaths);
+
+            // Every rating write, from every path, lands on any unrated diary
+            // row for that film. And repair the rows written before this hook
+            // existed, once, in the background.
+            Repository.RatingSaved += (userId, itemId, stars, review) => Diary.ApplyRatingAsync(userId, itemId, stars, review);
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var n = await Diary.BackfillFromRatingsAsync(Repository.GetUserStarsAsync).ConfigureAwait(false);
+                    if (n > 0) Console.WriteLine($"[StarTrack] Diary: filled in the rating on {n} previously unrated row(s).");
+                }
+                catch { /* best effort */ }
+            });
         }
 
         /// <inheritdoc />
