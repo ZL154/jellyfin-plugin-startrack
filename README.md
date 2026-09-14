@@ -4,10 +4,10 @@
 
 <br/>
 
-![Jellyfin](https://img.shields.io/badge/Jellyfin-10.11%2B-CC0000?style=for-the-badge&labelColor=0d0d0d&logo=jellyfin&logoColor=white)
-![.NET](https://img.shields.io/badge/.NET-9.0-CC0000?style=for-the-badge&labelColor=0d0d0d&logo=dotnet&logoColor=white)
+![Jellyfin](https://img.shields.io/badge/Jellyfin-10.11%20%7C%2012-CC0000?style=for-the-badge&labelColor=0d0d0d&logo=jellyfin&logoColor=white)
+![.NET](https://img.shields.io/badge/.NET-9%20%7C%2010-CC0000?style=for-the-badge&labelColor=0d0d0d&logo=dotnet&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-CC0000?style=for-the-badge&labelColor=0d0d0d)
-![Version](https://img.shields.io/badge/Version-1.7.0-CC0000?style=for-the-badge&labelColor=0d0d0d)
+![Version](https://img.shields.io/badge/Version-1.8.0-CC0000?style=for-the-badge&labelColor=0d0d0d)
 
 **Letterboxd-style ratings, watchlist, lists & social layer for Jellyfin**
 
@@ -45,7 +45,34 @@ Designed to integrate cleanly with modern Jellyfin setups: desktop, mobile, TV/w
 
 ## Features
 
-### 🆕 New in 1.7.0
+### 🆕 New in 1.8.0
+
+**Jellyfin 12.** StarTrack now runs on Jellyfin 12 and on 10.11, from one codebase, as two builds - see [Which build do I need?](#which-build-do-i-need). Installing from the repository picks the right one for you.
+
+**Letterboxd, repaired**
+
+- **Watchlist sync works again** - Letterboxd removed the watchlist RSS feed, which is why it had silently stopped. StarTrack now reads your watchlist page instead, every page of it.
+- **Likes sync works again, with FlareSolverr** - Letterboxd puts a Cloudflare challenge in front of the likes page and the sign-in. Point StarTrack at a [FlareSolverr](#cloudflare-and-flaresolverr) and both get through; without one, it backs off politely and *tells you* in the panel instead of retrying every five minutes forever.
+- **Simkl pull finally converges** ([#19](https://github.com/ZL154/jellyfin-plugin-startrack/issues/19)) - ratings were matched only when every id and the title *all* agreed, so a film Jellyfin scraped from TMDb could never match Simkl's copy and was re-imported every run. Any shared id now matches.
+- **A failed settings load says so** - if the server is busy when you open the Letterboxd panel, it now tells you to reload rather than drawing every box unticked as if your settings were gone.
+
+**Ratings**
+
+- **How ratings are shown** - an admin setting: stars only (`3.5`, the default), both (`3.5 (7/10)`), or out of ten (`7/10`). Applies everywhere an average is displayed, so a `3.5` sitting next to IMDb's `7` no longer reads as a disagreement. Display only - you still rate with five stars, nothing is converted.
+- **IMDb import** - drop your imdb.com ratings export straight into *Import file*; the format is detected, ratings map exactly.
+- **The IMDb/Yamtrack export tells you what it left out** - episodes and items without an IMDb id cannot be written to that format; it now says how many, instead of handing back a quietly shorter file.
+
+**Diagnostics**
+
+- **"Is StarTrack working?"** - a self-check on the plugin page that answers the single most common support question in one click: eight checks, server and browser side, with a paste-ready summary for bug reports. It also flags a stale cached widget and a FlareSolverr behind a VPN.
+
+**Contributed**
+
+- **Letterboxd ratings for films you don't have yet** are kept and applied when the film arrives ([#25](https://github.com/ZL154/jellyfin-plugin-startrack/issues/25), thanks @Tailes14).
+
+Fully translated into all eight languages.
+
+### New in 1.7.0
 
 The largest release so far: a second external service, a new thing you can rate, and the Letterboxd integration finally going both ways.
 

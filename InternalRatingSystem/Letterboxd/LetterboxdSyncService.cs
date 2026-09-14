@@ -637,9 +637,12 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             return last;
         }
 
-        // Politeness cap. 28 posters a page, so this is ~700 films; anyone with
-        // more has a watchlist no one is syncing by hand either.
-        private const int MaxListPages = 25;
+        // Politeness cap. 28 posters a page, so this is 4,200 films. The first
+        // live run hit the previous cap of 25 pages on a real account (exactly
+        // 700 read, more existed), so it was too low; a page is one cheap,
+        // unchallenged request, so there is no reason to be stingy. Hitting
+        // the cap is logged so it can never look like a complete read.
+        private const int MaxListPages = 150;
 
         /// <summary>
         /// Fetch a poster list and all its pages, through the gate. Stops early
@@ -654,7 +657,11 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             if (first == null) return all;
 
             all.AddRange(ParsePosterList(first));
-            var last = Math.Min(LastPageNumber(first, basePath), MaxListPages);
+            var reported = LastPageNumber(first, basePath);
+            var last = Math.Min(reported, MaxListPages);
+            if (reported > MaxListPages)
+                _logger.LogWarning("[StarTrack] {What} for {User} has {Pages} pages; only the first {Cap} were read.",
+                    what, username, reported, MaxListPages);
             for (var page = 2; page <= last; page++)
             {
                 var html = await FetchGatedAsync($"{LetterboxdSession.BaseUrl}{basePath}page/{page}/", what, username).ConfigureAwait(false);

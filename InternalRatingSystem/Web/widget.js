@@ -1728,11 +1728,11 @@
     // stopped arriving. Server-wide state, so the text is the same for everyone.
     function _lbFeedsChallengedNote(a) {
         if (!a || !a.feedsChallenged) return '';
-        var since = a.feedsChallengedSince ? ' ' + tr('lb.feeds_since', null, 'since') + ' ' + timeAgo(a.feedsChallengedSince) : '';
-        return tr('lb.feeds_challenged', null,
-            'Letterboxd is currently blocking automated reads of the watchlist and likes feeds' +
-            since + ' (Cloudflare challenge). Diary sync still works. StarTrack will re-check every ' +
-            '6 hours; nothing to do on your side.');
+        var since = a.feedsChallengedSince ? timeAgo(a.feedsChallengedSince) : '';
+        return tr(since ? 'lb.feeds_challenged_since' : 'lb.feeds_challenged', { since: since },
+            since
+              ? 'Letterboxd is currently blocking automated reads of the watchlist and likes feeds (since {since}, Cloudflare challenge). Diary sync still works. StarTrack will re-check every 6 hours; nothing to do on your side.'
+              : 'Letterboxd is currently blocking automated reads of the watchlist and likes feeds (Cloudflare challenge). Diary sync still works. StarTrack will re-check every 6 hours; nothing to do on your side.');
     }
 
     // The 1-10 form of a star value. Whole numbers print as "7", not "7.0" \u2014
@@ -9180,12 +9180,16 @@
                         ok: fresh,
                         detail: fresh
                             ? tr('selfcheck.cache_ok', null, 'Up to date.')
-                            : tr('selfcheck.cache_stale', null,
-                                'This page loaded an older widget (' + loaded + ') than the server has (' + d.widgetToken + '). Reload with Ctrl+Shift+R. Recently-changed settings may appear to do nothing until you do.')
+                            : tr('selfcheck.cache_stale', { loaded: loaded, server: d.widgetToken },
+                                'This page loaded an older widget ({loaded}) than the server has ({server}). Reload with Ctrl+Shift+R. Recently-changed settings may appear to do nothing until you do.')
                     });
                 }
 
                 out.innerHTML = checks.map(function (c) {
+                    // Server-side rows carry English labels; translate by id.
+                    // Details stay as sent — they are diagnostic text with
+                    // paths and versions, and go into bug reports verbatim.
+                    c.label = tr('selfcheck.row.' + c.id, null, c.label);
                     var mark  = c.ok ? '✓' : '✕';
                     var col   = c.ok ? '#52b54b' : '#ff8080';
                     return '<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid rgba(255,255,255,.06)">' +
