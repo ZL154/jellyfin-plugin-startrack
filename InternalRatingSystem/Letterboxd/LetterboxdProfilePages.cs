@@ -129,8 +129,12 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             var sb = new StringBuilder("Date,Name,Year,Letterboxd URI,Rating\n");
             foreach (var f in films)
             {
-                var date = latest.TryGetValue(f.Slug, out var dt) ? dt : fallbackDate;
-                sb.Append(date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)).Append(',')
+                // A film with no diary entry has no date Letterboxd will tell us.
+                // Leave the column empty: the importer then keeps the timestamp an
+                // existing rating already has, and stamps "now" only on a genuinely
+                // new one. A made-up date would overwrite real history — it did.
+                var date = latest.TryGetValue(f.Slug, out var dt) ? dt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) : string.Empty;
+                sb.Append(date).Append(',')
                   .Append(Csv(f.Title)).Append(',')
                   .Append(f.Year?.ToString(CultureInfo.InvariantCulture) ?? string.Empty).Append(',')
                   .Append(Uri(f.Slug)).Append(',')

@@ -230,9 +230,24 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
 
                 // Check if already rated by this user — counts as Update vs Imported
                 var existing = await _ratingRepo.GetRatingsAsync(matched.Id.ToString("N")).ConfigureAwait(false);
-                var userHad  = existing.UserRatings?.Any(r => r.UserId == userId) == true;
+                var mine     = existing.UserRatings?.FirstOrDefault(r => r.UserId == userId);
+                var userHad  = mine != null;
 
-                await _ratingRepo.SaveRatingAsync(matched.Id.ToString("N"), userId, userName, stars, null, ratedAt).ConfigureAwait(false);
+                // An import carries a score and maybe a date. It must not wipe
+                // what it does not carry: the review the user wrote here, and the
+                // timestamp of when they actually rated it. Saving a fresh record
+                // used to do both — on a real server, an import that "updated"
+                // 54 ratings stamped every one of them with today's date and
+                // dropped their reviews, and the media page, sorted by when you
+                // rated, went alphabetical.
+                if (userHad && Math.Abs(mine!.Stars - stars) < 0.01 && (ratedAt == null || mine.RatedAt.Date == ratedAt.Value.Date))
+                {
+                    result.Skipped++;          // already exactly this; nothing to write
+                    continue;
+                }
+                var keepReview  = userHad ? mine!.Review : null;
+                var keepRatedAt = ratedAt ?? (userHad ? mine!.RatedAt : (DateTime?)null);
+                await _ratingRepo.SaveRatingAsync(matched.Id.ToString("N"), userId, userName, stars, keepReview, keepRatedAt).ConfigureAwait(false);
 
                 if (userHad) result.Updated++;
                 else         result.Imported++;
@@ -635,14 +650,37 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         /// Letterboxd links the last page directly, so no need to walk.
         /// </summary>
         internal static int LastPageNumber(string html, string listPath)
+            => Pagination(html, listPath).LastPage;
+
+        /// <summary>
+        /// The paging of a Letterboxd list page, read from the page itself.
+        ///
+        /// Letterboxd does not always paginate under the path you asked for:
+        /// /{user}/films/ratings/ is served as the films list and pages as
+        /// /{user}/films/page/N/, lower-cased. Asking for "ratings/page/N/" found
+        /// nothing, so a member's 800 ratings were read as one page of 72.
+        /// So: take the page's own paginate links, whatever path they use, and
+        /// page with THEIR prefix. Falls back to the requested path.
+        /// </summary>
+        internal static (int LastPage, string PagePrefix) Pagination(string html, string listPath)
         {
-            var rx = new System.Text.RegularExpressions.Regex(
-                System.Text.RegularExpressions.Regex.Escape(listPath) + "page/(\\d+)/",
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-            var last = 1;
-            foreach (System.Text.RegularExpressions.Match m in rx.Matches(html ?? string.Empty))
-                if (int.TryParse(m.Groups[1].Value, out var n) && n > last) last = n;
-            return last;
+            html ??= string.Empty;
+            var block = System.Text.RegularExpressions.Regex.Match(html, "class=\"paginate-pages\"[\\s\\S]*?</ul>", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            var scope = block.Success ? block.Value : html;
+            var last = 1; string? prefix = null;
+            foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(scope, "href=\"([^\"]*?/)page/(\\d+)/\""))
+            {
+                if (int.TryParse(m.Groups[2].Value, out var n) && n > last) last = n;
+                prefix ??= m.Groups[1].Value;
+            }
+            if (prefix == null)
+            {
+                // No paginate block: honour links anywhere that use the requested path.
+                var rx = new System.Text.RegularExpressions.Regex(System.Text.RegularExpressions.Regex.Escape(listPath) + "page/(\\d+)/", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                foreach (System.Text.RegularExpressions.Match m in rx.Matches(html))
+                    if (int.TryParse(m.Groups[1].Value, out var n) && n > last) last = n;
+            }
+            return (last, prefix ?? listPath);
         }
 
         // Politeness cap. 28 posters a page, so this is 4,200 films. The first
@@ -665,14 +703,14 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             if (first == null) return all;
 
             all.AddRange(ParsePosterList(first));
-            var reported = LastPageNumber(first, basePath);
+            var (reported, prefix) = Pagination(first, basePath);
             var last = Math.Min(reported, MaxListPages);
             if (reported > MaxListPages)
                 _logger.LogWarning("[StarTrack] {What} for {User} has {Pages} pages; only the first {Cap} were read.",
                     what, username, reported, MaxListPages);
             for (var page = 2; page <= last; page++)
             {
-                var html = await FetchGatedAsync($"{LetterboxdSession.BaseUrl}{basePath}page/{page}/", what, username, force).ConfigureAwait(false);
+                var html = await FetchGatedAsync($"{LetterboxdSession.BaseUrl}{prefix}page/{page}/", what, username, force).ConfigureAwait(false);
                 if (html == null) break;
                 var items = ParsePosterList(html);
                 if (items.Count == 0) break;
@@ -804,12 +842,13 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             var first = await FetchGatedAsync(LetterboxdSession.BaseUrl + basePath, what, username, force: true).ConfigureAwait(false);
             if (first == null) return pages;
             pages.Add(first);
-            var last = Math.Min(LastPageNumber(first, basePath), MaxListPages);
+            var (reported, prefix) = Pagination(first, basePath);
+            var last = Math.Min(reported, MaxListPages);
             progress.PagesTotal += last;
             progress.PagesDone  += 1;
             for (var page = 2; page <= last && !ct.IsCancellationRequested; page++)
             {
-                var html = await FetchGatedAsync($"{LetterboxdSession.BaseUrl}{basePath}page/{page}/", what, username, force: true).ConfigureAwait(false);
+                var html = await FetchGatedAsync($"{LetterboxdSession.BaseUrl}{prefix}page/{page}/", what, username, force: true).ConfigureAwait(false);
                 if (html == null) break;
                 pages.Add(html);
                 progress.PagesDone++;
@@ -846,7 +885,10 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 // ---- ratings (all pages) ----
                 progress.Phase = "ratings";
                 var ratedFilms = new List<LetterboxdRatedFilm>();
-                foreach (var html in await FetchProfilePagesAsync(username, "films/ratings/", "Ratings page", progress, ct).ConfigureAwait(false))
+                // /films/ is every film the member has marked watched, with their
+                // rating on each rated one; the parser skips the unrated. It is what
+                // /films/ratings/ serves anyway, and it pages under its own path.
+                foreach (var html in await FetchProfilePagesAsync(username, "films/", "Films page", progress, ct).ConfigureAwait(false))
                     ratedFilms.AddRange(LetterboxdProfilePages.ParseRatingsPage(html));
                 progress.RatingsFound = ratedFilms.Count;
 
@@ -1720,12 +1762,20 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 if (!_byTitle.TryGetValue(norm, out var candidates) || candidates.Count == 0)
                     return null;
 
-                if (candidates.Count == 1) return candidates[0];
-
-                // Multiple candidates — pick the best one deterministically.
+                // A KNOWN year is a hard constraint, not a tie-breaker.
+                //
+                // The normaliser strips leading articles, so "Fall" (2022, the
+                // one about the radio tower) and "The Fall" (2006, Tarsem) are
+                // the same key. The old code returned a lone candidate whatever
+                // its year, and took the "closest" year among several with no
+                // limit — so a 1-star rating of the 2022 film was written onto
+                // the 2006 one, on a real server, over a rating the user had
+                // made themselves. Letterboxd and TMDb disagree by a year on
+                // festival releases, so ±1 is allowed; sixteen is not. A title
+                // with a year that matches nothing in the library is unmatched,
+                // and goes to the pending queue like any other.
                 if (year.HasValue)
                 {
-                    // 1. Exact year match (take first if multiple duplicates)
                     var exact = candidates.Where(c => c.ProductionYear == year.Value).ToList();
                     if (exact.Count >= 1)
                     {
@@ -1734,19 +1784,28 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                         return exact[0];
                     }
 
-                    // 2. Closest year within ±1 (or more, as a generous fallback)
-                    var withYear = candidates.Where(c => c.ProductionYear.HasValue).ToList();
-                    if (withYear.Count > 0)
+                    var near = candidates
+                        .Where(c => c.ProductionYear.HasValue && Math.Abs(c.ProductionYear.Value - year.Value) <= 1)
+                        .OrderBy(c => Math.Abs(c.ProductionYear!.Value - year.Value))
+                        .ThenBy(c => c.ProductionYear!.Value)
+                        .FirstOrDefault();
+                    if (near != null)
                     {
-                        var closest = withYear
-                            .OrderBy(c => Math.Abs(c.ProductionYear!.Value - year.Value))
-                            .ThenBy(c => c.ProductionYear!.Value)
-                            .First();
-                        _logger.LogDebug("[StarTrack] Title '{T}' year {Y}: no exact match, closest is {C} ({CY})",
-                            title, year, closest.Name, closest.ProductionYear);
-                        return closest;
+                        _logger.LogDebug("[StarTrack] Title '{T}' year {Y}: matched {C} ({CY}) within a year", title, year, near.Name, near.ProductionYear);
+                        return near;
                     }
+
+                    // Library items with no year at all can still match on title alone —
+                    // there is nothing to contradict. Items WITH a different year cannot.
+                    var yearless = candidates.Where(c => !c.ProductionYear.HasValue).ToList();
+                    if (yearless.Count == 1) return yearless[0];
+                    if (yearless.Count > 1) { ambiguous = true; return null; }
+
+                    _logger.LogDebug("[StarTrack] Title '{T}' year {Y}: candidates exist but none within a year — unmatched", title, year);
+                    return null;
                 }
+
+                if (candidates.Count == 1) return candidates[0];
 
                 // 3. No year given, or library items have no year metadata.
                 //    Prefer items that DO have a year (pick oldest as canonical).

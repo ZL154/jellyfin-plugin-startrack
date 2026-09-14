@@ -102,11 +102,25 @@ namespace Jellyfin.Plugin.InternalRating.Tests
         }
 
         [Fact]
-        public void PaginationForAnotherListIsIgnored()
+        public void PagingFollowsThePagesOwnLinksNotTheRequestedPath()
         {
-            // A likes page linking to /watchlist/page/N/ in its nav must not
-            // make the likes reader walk the watchlist.
-            Assert.Equal(1, LetterboxdSyncService.LastPageNumber(Page, "/h201ha/likes/films/"));
+            // Letterboxd serves /films/ratings/ as the films list and pages it as
+            // /{user}/films/page/N/, lower-cased. Asking for "ratings/page/N/"
+            // found nothing and a member's 800 ratings were read as one page.
+            // The page's own paginate block is the authority, prefix included.
+            var (last, prefix) = LetterboxdSyncService.Pagination(
+                "<div class=\"paginate-pages\"><ul><li><a href=\"/zl154/films/page/2/\">2</a></li><li><a href=\"/zl154/films/page/6/\">6</a></li></ul></div>",
+                "/ZL154/films/ratings/");
+            Assert.Equal(6, last);
+            Assert.Equal("/zl154/films/", prefix);
+        }
+
+        [Fact]
+        public void WithoutAPaginateBlockTheRequestedPathIsUsed()
+        {
+            var (last, prefix) = LetterboxdSyncService.Pagination("<html>" + Poster1 + "</html>", "/h201ha/likes/films/");
+            Assert.Equal(1, last);
+            Assert.Equal("/h201ha/likes/films/", prefix);
         }
     }
 }

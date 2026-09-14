@@ -110,7 +110,7 @@ namespace Jellyfin.Plugin.InternalRating.Tests
         // ---- rendered in Letterboxd's own CSV layouts ----
 
         [Fact]
-        public void RatingsCsvUsesTheLatestDiaryDateElseTheFallback()
+        public void RatingsCsvUsesTheLatestDiaryDateElseLeavesItEmpty()
         {
             var films = LetterboxdProfilePages.ParseRatingsPage(RatingsPage);
             var diary = new[]
@@ -123,7 +123,10 @@ namespace Jellyfin.Plugin.InternalRating.Tests
             var lines = csv.TrimEnd('\n').Split('\n');
             Assert.Equal("Date,Name,Year,Letterboxd URI,Rating", lines[0]);
             Assert.Contains("2025-03-03,Heat,1995,https://letterboxd.com/film/heat-1995/,5", lines);            // latest diary date
-            Assert.Contains("2026-09-14,Spider-Man: Brand New Day,2026,https://letterboxd.com/film/spider-man-brand-new-day/,3.5", lines); // never diaried → fallback
+            // Never diaried: no date. A made-up one would overwrite the timestamp an
+            // existing rating already carries — on a real server it stamped 94 ratings
+            // with "today" and the media page, sorted by rating date, went alphabetical.
+            Assert.Contains(",Spider-Man: Brand New Day,2026,https://letterboxd.com/film/spider-man-brand-new-day/,3.5", lines);
         }
 
         [Fact]
