@@ -734,70 +734,47 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         }
 
         /// <summary>
-        /// Scrapes the Letterboxd user profile page for the "favourite films"
-        /// section (the user's Top 4) and sets those as StarTrack favorites.
-        /// Best-effort HTML parsing; returns a count of favorites populated.
+        /// Reads the user's Letterboxd "favourite films" (their Top 4) from the
+        /// profile page and sets them as StarTrack favourites.
+        ///
+        /// The profile page is Cloudflare-challenged, so this goes through the
+        /// gate like the likes page — it was the one Letterboxd read that did
+        /// not, and so it failed on every click with a bare "fetch failed". The
+        /// favourites are rendered with the same React poster markup as every
+        /// other list, so the shared parser reads them, year included; the old
+        /// alt-text scrape had no year and matched whichever "Heat" came first.
         /// </summary>
         internal async Task<int> ScrapeLetterboxdFavoritesAsync(string userId, string letterboxdUsername, MovieLookup lookup)
         {
             if (string.IsNullOrWhiteSpace(letterboxdUsername)) return 0;
-            var url = $"https://letterboxd.com/{Uri.EscapeDataString(letterboxdUsername)}/";
-            string html;
-            try { html = await _http.GetStringAsync(url).ConfigureAwait(false); }
-            catch (Exception ex)
-            {
-                _logger.LogWarning("[StarTrack] Letterboxd profile fetch failed for {User}: {Msg}", letterboxdUsername, ex.Message);
-                return 0;
-            }
+            var url = $"{LetterboxdSession.BaseUrl}/{Uri.EscapeDataString(letterboxdUsername)}/";
+            var html = await FetchGatedAsync(url, "Profile page", letterboxdUsername).ConfigureAwait(false);
+            if (html == null) return 0;
 
-            // Letterboxd's favourites section has this shape (simplified):
-            //   <section id="favourites" ...>
-            //     <ul class="poster-list">
-            //       <li><div class="film-poster" data-film-slug="the-batman" ...>
-            //         <img alt="The Batman" ... >
-            //
-            // We regex-extract data-film-slug + alt text as the candidate
-            // (title, _) tuples, then title-match against the library.
-            var favoriteTitles = new List<string>();
-            try
-            {
-                // Find the favourites section first
-                var favIdx = html.IndexOf("id=\"favourites\"", StringComparison.OrdinalIgnoreCase);
-                if (favIdx < 0) return 0;
-                var favSection = html.Substring(favIdx, Math.Min(8000, html.Length - favIdx));
+            // Only the favourites section — the profile also shows recent
+            // activity and watchlist teasers in the same poster markup.
+            var favIdx = html.IndexOf("id=\"favourites\"", StringComparison.OrdinalIgnoreCase);
+            if (favIdx < 0) return 0;
+            var favEnd = html.IndexOf("</section>", favIdx, StringComparison.OrdinalIgnoreCase);
+            var section = favEnd > favIdx ? html.Substring(favIdx, favEnd - favIdx) : html.Substring(favIdx, Math.Min(12000, html.Length - favIdx));
 
-                // Extract alt="..." values from <img> tags inside
-                var altRx = new System.Text.RegularExpressions.Regex("alt=\"([^\"]+)\"",
-                    System.Text.RegularExpressions.RegexOptions.Compiled);
-                foreach (System.Text.RegularExpressions.Match m in altRx.Matches(favSection))
-                {
-                    var title = m.Groups[1].Value.Trim();
-                    if (title.Length > 0 && !favoriteTitles.Contains(title, StringComparer.OrdinalIgnoreCase))
-                    {
-                        favoriteTitles.Add(title);
-                        if (favoriteTitles.Count >= 4) break;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "[StarTrack] Letterboxd favorites HTML parse failed");
-                return 0;
-            }
-
-            if (favoriteTitles.Count == 0) return 0;
+            var favourites = ParsePosterList(section);
+            if (favourites.Count == 0) return 0;
 
             var ids = new List<string>();
-            foreach (var title in favoriteTitles)
+            foreach (var fav in favourites.Take(4))
             {
-                // No year in alt text — Find() will pick the oldest by default
-                var matched = lookup.Find(title, null, out _);
+                var matched = lookup.Find(fav.Title, fav.Year, out _);
                 if (matched != null) ids.Add(matched.Id.ToString("N"));
             }
 
-            if (ids.Count == 0) return 0;
+            if (ids.Count == 0)
+            {
+                _logger.LogInformation("[StarTrack] Letterboxd Top 4 for {User}: {N} on Letterboxd, none in the library", letterboxdUsername, favourites.Count);
+                return 0;
+            }
             await _interactions.SetFavoritesAsync(userId, ids).ConfigureAwait(false);
-            _logger.LogInformation("[StarTrack] Letterboxd profile scrape set {N} favorites for {User}", ids.Count, letterboxdUsername);
+            _logger.LogInformation("[StarTrack] Letterboxd Top 4 for {User}: {N} on Letterboxd, {M} set as favourites", letterboxdUsername, favourites.Count, ids.Count);
             return ids.Count;
         }
 

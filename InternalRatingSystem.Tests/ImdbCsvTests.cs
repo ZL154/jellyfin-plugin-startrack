@@ -136,6 +136,15 @@ namespace Jellyfin.Plugin.InternalRating.Tests
             Assert.False(ExternalSyncController.LooksLikeImdbCsv("Const,Title\ntt1,Heat\n"));
         }
 
+        [Fact]
+        public void ALetterboxdExportIsNotMistakenForOneEither()
+        {
+            // Letterboxd's ratings.csv / diary.csv / watchlist.csv headers.
+            Assert.False(ExternalSyncController.LooksLikeImdbCsv("Date,Name,Year,Letterboxd URI,Rating\n2024-01-01,Heat,1995,https://boxd.it/x,4\n"));
+            Assert.False(ExternalSyncController.LooksLikeImdbCsv("Date,Name,Year,Letterboxd URI,Rating,Rewatch,Tags,Watched Date\n"));
+            Assert.False(ExternalSyncController.LooksLikeImdbCsv("Date,Name,Year,Letterboxd URI\n"));
+        }
+
         // ---- the export must say what it could not carry ----
 
         [Fact]

@@ -52,6 +52,7 @@ Designed to integrate cleanly with modern Jellyfin setups: desktop, mobile, TV/w
 **Letterboxd, repaired**
 
 - **Watchlist sync works again** - Letterboxd removed the watchlist RSS feed, which is why it had silently stopped. StarTrack now reads your watchlist page instead, every page of it.
+- **Import Top 4 works again, with FlareSolverr** - same cause as likes: the profile page is challenged. It also reads the year now, so "Heat" is the right Heat.
 - **Likes sync works again, with FlareSolverr** - Letterboxd puts a Cloudflare challenge in front of the likes page and the sign-in. Point StarTrack at a [FlareSolverr](#cloudflare-and-flaresolverr) and both get through; without one, it backs off politely and *tells you* in the panel instead of retrying every five minutes forever.
 - **Simkl pull finally converges** ([#19](https://github.com/ZL154/jellyfin-plugin-startrack/issues/19)) - ratings were matched only when every id and the title *all* agreed, so a film Jellyfin scraped from TMDb could never match Simkl's copy and was re-imported every run. Any shared id now matches.
 - **A failed settings load says so** - if the server is busy when you open the Letterboxd panel, it now tells you to reload rather than drawing every box unticked as if your settings were gone.
