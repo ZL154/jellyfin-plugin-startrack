@@ -57,6 +57,11 @@ Designed to integrate cleanly with modern Jellyfin setups: desktop, mobile, TV/w
 - **Simkl pull finally converges** ([#19](https://github.com/ZL154/jellyfin-plugin-startrack/issues/19)) - ratings were matched only when every id and the title *all* agreed, so a film Jellyfin scraped from TMDb could never match Simkl's copy and was re-imported every run. Any shared id now matches.
 - **A failed settings load says so** - if the server is busy when you open the Letterboxd panel, it now tells you to reload rather than drawing every box unticked as if your settings were gone.
 
+**Diary**
+
+- **One viewing, one row** - a film logged by playback and then rated (in StarTrack, on Letterboxd, or via a ZIP) used to appear twice, once unrated and once with the score. The rating now lands on the existing row. This was a timezone problem at heart - the server's day is UTC and yours is not - so it is fixed with a time window, not a calendar.
+- **Pre-rolls, idents and trailers are no longer logged as watches** - anything under two minutes that plays before a film is not a viewing.
+
 **Ratings**
 
 - **How ratings are shown** - an admin setting: stars only (`3.5`, the default), both (`3.5 (7/10)`), or out of ten (`7/10`). Applies everywhere an average is displayed, so a `3.5` sitting next to IMDb's `7` no longer reads as a disagreement. Display only - you still rate with five stars, nothing is converted.
