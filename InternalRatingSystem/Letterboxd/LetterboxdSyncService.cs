@@ -484,14 +484,19 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         /// Returns the body, or null when skipped, challenged-and-unsolvable, or
         /// failed for an ordinary reason.
         /// </summary>
-        private async Task<string?> FetchGatedAsync(string url, string what, string letterboxdUsername)
+        private async Task<string?> FetchGatedAsync(string url, string what, string letterboxdUsername, bool force = false)
         {
             var solverConfigured = FlareSolverrClient.IsConfigured;
 
-            // With no solver, a closed gate means "we already know the answer".
-            // With a solver, the gate only closes when the solver itself failed,
-            // so it still protects against hammering a dead solver.
-            if (LetterboxdFeedGate.IsClosed)
+            // Two different pauses, two different meanings:
+            //   - the six-hour gate: Cloudflare challenged and there is no solver.
+            //     Nothing will change in the next ten minutes; don't ask.
+            //   - the five-minute solver pause: the solver itself failed (timed
+            //     out, busy). Transient. Don't hammer it, but don't write the
+            //     day off either.
+            // Either yields to `force`: a person pressing a button is explicit
+            // intent and gets a real attempt, whatever the scheduler concluded.
+            if (!force && (LetterboxdFeedGate.IsClosed || (solverConfigured && LetterboxdFeedGate.SolverPaused)))
                 return null;
 
             try
@@ -535,27 +540,29 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                     if (solved != null && solved.Status is >= 200 and < 300)
                     {
                         LetterboxdClearance.Set(solved);
+                        LetterboxdFeedGate.NoteSolverSuccess();
                         if (LetterboxdFeedGate.ChallengeCount > 0) LetterboxdFeedGate.NoteSuccess();
                         _logger.LogInformation("[StarTrack] Cloudflare challenge on {Url} solved via FlareSolverr; clearance cached for later requests.", url);
                         return solved.Body;
                     }
-                    _logger.LogWarning("[StarTrack] FlareSolverr could not get {Url} (status {Status}); backing off as if unconfigured.",
-                        url, solved?.Status ?? 0);
+
+                    // The solver failed — a transient condition, not Cloudflare's
+                    // verdict. Five minutes, not six hours, and NOT the shared gate.
+                    var why = _solver.LastError ?? (solved != null ? "HTTP " + solved.Status : "no response");
+                    LetterboxdFeedGate.NoteSolverFailure(why);
+                    _logger.LogWarning("[StarTrack] FlareSolverr could not get {Url} ({Why}); pausing solver-backed feeds for {Min} minutes.",
+                        url, why, (int)LetterboxdFeedGate.SolverBackoffPeriod.TotalMinutes);
+                    return null;
                 }
 
-                // ---- 4: back off ----
+                // ---- 4: no solver — back off for real ----
                 if (LetterboxdFeedGate.NoteChallenge())
                 {
-                    if (solverConfigured)
-                        _logger.LogInformation(
-                            "[StarTrack] Letterboxd is challenging {Url} and FlareSolverr could not solve it; pausing watchlist/likes feeds for {Hours}h. Diary sync is unaffected.",
-                            url, (int)LetterboxdFeedGate.BackoffPeriod.TotalHours);
-                    else
-                        _logger.LogInformation(
-                            "[StarTrack] Letterboxd is challenging automated requests for watchlist and likes feeds " +
-                            "(Cloudflare JS challenge on {Url}). These cannot be read by a server; pausing them for {Hours}h and re-probing after. " +
-                            "Diary sync is unaffected. Configure a FlareSolverr URL in the StarTrack settings to get through.",
-                            url, (int)LetterboxdFeedGate.BackoffPeriod.TotalHours);
+                    _logger.LogInformation(
+                        "[StarTrack] Letterboxd is challenging automated requests for watchlist and likes feeds " +
+                        "(Cloudflare JS challenge on {Url}). These cannot be read by a server; pausing them for {Hours}h and re-probing after. " +
+                        "Diary sync is unaffected. Configure a FlareSolverr URL in the StarTrack settings to get through.",
+                        url, (int)LetterboxdFeedGate.BackoffPeriod.TotalHours);
                 }
                 return null;
             }
@@ -650,11 +657,11 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         /// on the first page that cannot be read so a mid-list challenge does
         /// not produce a half-empty result that looks complete.
         /// </summary>
-        private async Task<List<LetterboxdListItem>> FetchPosterListAsync(string username, string listPath, string what)
+        private async Task<List<LetterboxdListItem>> FetchPosterListAsync(string username, string listPath, string what, bool force = false)
         {
             var all = new List<LetterboxdListItem>();
             var basePath = $"/{Uri.EscapeDataString(username)}/{listPath}";
-            var first = await FetchGatedAsync(LetterboxdSession.BaseUrl + basePath, what, username).ConfigureAwait(false);
+            var first = await FetchGatedAsync(LetterboxdSession.BaseUrl + basePath, what, username, force).ConfigureAwait(false);
             if (first == null) return all;
 
             all.AddRange(ParsePosterList(first));
@@ -665,7 +672,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                     what, username, reported, MaxListPages);
             for (var page = 2; page <= last; page++)
             {
-                var html = await FetchGatedAsync($"{LetterboxdSession.BaseUrl}{basePath}page/{page}/", what, username).ConfigureAwait(false);
+                var html = await FetchGatedAsync($"{LetterboxdSession.BaseUrl}{basePath}page/{page}/", what, username, force).ConfigureAwait(false);
                 if (html == null) break;
                 var items = ParsePosterList(html);
                 if (items.Count == 0) break;
@@ -684,11 +691,11 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         /// markup, which also never captured the year — so "Heat" matched
         /// whichever Heat the library found first.
         /// </summary>
-        internal async Task<int> SyncLikesScrapeAsync(string userId, string letterboxdUsername, MovieLookup lookup)
+        internal async Task<int> SyncLikesScrapeAsync(string userId, string letterboxdUsername, MovieLookup lookup, bool force = false)
         {
             if (string.IsNullOrWhiteSpace(letterboxdUsername)) return 0;
 
-            var items = await FetchPosterListAsync(letterboxdUsername, "likes/films/", "Likes page").ConfigureAwait(false);
+            var items = await FetchPosterListAsync(letterboxdUsername, "likes/films/", "Likes page", force).ConfigureAwait(false);
             if (items.Count == 0) return 0;
 
             int added = 0, unmatched = 0;
@@ -714,11 +721,11 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         /// time of writing) is not challenged, so this reads that instead:
         /// every poster on every page, title + year + slug.
         /// </summary>
-        internal async Task<int> SyncWatchlistRssAsync(string userId, string letterboxdUsername, MovieLookup lookup)
+        internal async Task<int> SyncWatchlistRssAsync(string userId, string letterboxdUsername, MovieLookup lookup, bool force = false)
         {
             if (string.IsNullOrWhiteSpace(letterboxdUsername)) return 0;
 
-            var items = await FetchPosterListAsync(letterboxdUsername, "watchlist/", "Watchlist page").ConfigureAwait(false);
+            var items = await FetchPosterListAsync(letterboxdUsername, "watchlist/", "Watchlist page", force).ConfigureAwait(false);
             if (items.Count == 0) return 0;
 
             int added = 0, unmatched = 0;
@@ -745,11 +752,11 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         /// other list, so the shared parser reads them, year included; the old
         /// alt-text scrape had no year and matched whichever "Heat" came first.
         /// </summary>
-        internal async Task<int> ScrapeLetterboxdFavoritesAsync(string userId, string letterboxdUsername, MovieLookup lookup)
+        internal async Task<int> ScrapeLetterboxdFavoritesAsync(string userId, string letterboxdUsername, MovieLookup lookup, bool force = false)
         {
             if (string.IsNullOrWhiteSpace(letterboxdUsername)) return 0;
             var url = $"{LetterboxdSession.BaseUrl}/{Uri.EscapeDataString(letterboxdUsername)}/";
-            var html = await FetchGatedAsync(url, "Profile page", letterboxdUsername).ConfigureAwait(false);
+            var html = await FetchGatedAsync(url, "Profile page", letterboxdUsername, force).ConfigureAwait(false);
             if (html == null) return 0;
 
             // Only the favourites section — the profile also shows recent
@@ -793,7 +800,8 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         {
             var pages = new List<string>();
             var basePath = $"/{Uri.EscapeDataString(username)}/{listPath}";
-            var first = await FetchGatedAsync(LetterboxdSession.BaseUrl + basePath, what, username).ConfigureAwait(false);
+            // A full sync is a button press: always a real attempt, whatever the scheduler concluded.
+            var first = await FetchGatedAsync(LetterboxdSession.BaseUrl + basePath, what, username, force: true).ConfigureAwait(false);
             if (first == null) return pages;
             pages.Add(first);
             var last = Math.Min(LastPageNumber(first, basePath), MaxListPages);
@@ -801,7 +809,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             progress.PagesDone  += 1;
             for (var page = 2; page <= last && !ct.IsCancellationRequested; page++)
             {
-                var html = await FetchGatedAsync($"{LetterboxdSession.BaseUrl}{basePath}page/{page}/", what, username).ConfigureAwait(false);
+                var html = await FetchGatedAsync($"{LetterboxdSession.BaseUrl}{basePath}page/{page}/", what, username, force: true).ConfigureAwait(false);
                 if (html == null) break;
                 pages.Add(html);
                 progress.PagesDone++;
@@ -851,9 +859,11 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
 
                 if (ratedFilms.Count == 0 && diaryRows.Count == 0)
                 {
-                    result.Error = LetterboxdFeedGate.IsClosed
-                        ? "Letterboxd is challenging these pages and no FlareSolverr is configured (or it could not solve them). Ratings and diary could not be read."
-                        : "No ratings or diary entries could be read from the profile.";
+                    result.Error = !FlareSolverrClient.IsConfigured
+                        ? "Letterboxd puts a Cloudflare challenge in front of the ratings and diary pages, and no FlareSolverr URL is configured, so they could not be read. Add one in Dashboard → Plugins → StarTrack."
+                        : "FlareSolverr could not get past Cloudflare for the ratings and diary pages" +
+                          (LetterboxdFeedGate.LastSolverError != null ? " (" + LetterboxdFeedGate.LastSolverError + ")" : string.Empty) +
+                          ". It was retried; try again in a few minutes.";
                     return result;
                 }
 
@@ -879,11 +889,11 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
 
                 // ---- the parts the regular sync already handles ----
                 progress.Phase = "watchlist";
-                result.WatchlistAdded += await SyncWatchlistRssAsync(userId, username, lookup).ConfigureAwait(false);
+                result.WatchlistAdded += await SyncWatchlistRssAsync(userId, username, lookup, force: true).ConfigureAwait(false);
                 progress.Phase = "likes";
-                result.LikesAdded += await SyncLikesScrapeAsync(userId, username, lookup).ConfigureAwait(false);
+                result.LikesAdded += await SyncLikesScrapeAsync(userId, username, lookup, force: true).ConfigureAwait(false);
                 progress.Phase = "top 4";
-                try { await ScrapeLetterboxdFavoritesAsync(userId, username, lookup).ConfigureAwait(false); } catch (Exception ex) { _logger.LogWarning(ex, "[StarTrack] Full sync: Top 4 failed — continuing"); }
+                try { await ScrapeLetterboxdFavoritesAsync(userId, username, lookup, force: true).ConfigureAwait(false); } catch (Exception ex) { _logger.LogWarning(ex, "[StarTrack] Full sync: Top 4 failed — continuing"); }
 
                 progress.Phase = "retrying pending";
                 try { result.PendingResolved += await RetryPendingAsync(userId, userName, lookup).ConfigureAwait(false); } catch (Exception ex) { _logger.LogWarning(ex, "[StarTrack] Full sync: pending retry failed — continuing"); }

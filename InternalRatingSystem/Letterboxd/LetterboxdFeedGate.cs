@@ -41,6 +41,37 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         /// </summary>
         public static readonly TimeSpan BackoffPeriod = TimeSpan.FromHours(6);
 
+        /// <summary>
+        /// How long to pause after FlareSolverr itself failed (a timeout, a
+        /// busy browser). That is a transient condition, not Cloudflare's
+        /// verdict, and the first live day showed why it must be treated
+        /// differently: one 60-second solver timeout on a scheduled tick closed
+        /// the six-hour gate, and a user pressing "Sync everything" twenty
+        /// seconds later was refused without a single request being made.
+        /// </summary>
+        public static readonly TimeSpan SolverBackoffPeriod = TimeSpan.FromMinutes(5);
+
+        private static long _solverPausedUntilTicks;
+        private static string? _lastSolverError;
+
+        /// <summary>True while a recent solver failure says "don't hammer it".</summary>
+        public static bool SolverPaused => DateTime.UtcNow.Ticks < Interlocked.Read(ref _solverPausedUntilTicks);
+
+        /// <summary>The last solver error, for the UI to quote.</summary>
+        public static string? LastSolverError => _lastSolverError;
+
+        public static void NoteSolverFailure(string? error)
+        {
+            Interlocked.Exchange(ref _solverPausedUntilTicks, (DateTime.UtcNow + SolverBackoffPeriod).Ticks);
+            _lastSolverError = error;
+        }
+
+        public static void NoteSolverSuccess()
+        {
+            Interlocked.Exchange(ref _solverPausedUntilTicks, 0);
+            _lastSolverError = null;
+        }
+
         private static long _challengedUntilTicks;   // 0 = open
         private static long _firstChallengedTicks;   // when it first closed; kept across renewals for the UI
         private static long _challengeCount;
@@ -107,6 +138,6 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         }
 
         /// <summary>Test hook.</summary>
-        internal static void Reset() => NoteSuccess();
+        internal static void Reset() { NoteSuccess(); NoteSolverSuccess(); }
     }
 }

@@ -87,6 +87,31 @@ namespace Jellyfin.Plugin.InternalRating.Tests
             Assert.Equal(first, LetterboxdFeedGate.ClosedSince);
         }
 
+        // ---- a solver failure is not Cloudflare's verdict ----
+
+        [Fact]
+        public void ASolverFailurePausesBrieflyWithoutClosingTheSixHourGate()
+        {
+            // The first live day: one 60s solver timeout on a scheduled tick
+            // closed the six-hour gate, and a user pressing "Sync everything"
+            // twenty seconds later was refused without a single request.
+            LetterboxdFeedGate.NoteSolverFailure("Timeout after 60.0 seconds.");
+
+            Assert.True(LetterboxdFeedGate.SolverPaused);
+            Assert.False(LetterboxdFeedGate.IsClosed);                  // the gate itself is untouched
+            Assert.Equal("Timeout after 60.0 seconds.", LetterboxdFeedGate.LastSolverError);
+            Assert.True(LetterboxdFeedGate.SolverBackoffPeriod < System.TimeSpan.FromMinutes(10)); // minutes, not hours
+        }
+
+        [Fact]
+        public void ASolverSuccessClearsThePauseAndTheError()
+        {
+            LetterboxdFeedGate.NoteSolverFailure("busy");
+            LetterboxdFeedGate.NoteSolverSuccess();
+            Assert.False(LetterboxdFeedGate.SolverPaused);
+            Assert.Null(LetterboxdFeedGate.LastSolverError);
+        }
+
         [Fact]
         public void ASuccessReopensAndForgets()
         {

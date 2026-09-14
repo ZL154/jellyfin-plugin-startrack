@@ -142,16 +142,44 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             var baseUrl = ConfiguredUrl();
             if (baseUrl == null) return null;
 
+            // A challenge solve is not deterministic — the same page that times
+            // out at 60s solves in 13s a moment later, measured. One retry
+            // roughly halves the failure rate for the price of one more wait,
+            // and a failed solve is far more expensive than a slow one: it used
+            // to close the feeds for six hours.
+            for (var attempt = 1; attempt <= 2; attempt++)
+            {
+                var r = await SolveOnceAsync(baseUrl, url, ct).ConfigureAwait(false);
+                if (r != null || attempt == 2 || ct.IsCancellationRequested) return r;
+                _logger.LogInformation("[StarTrack] FlareSolverr did not solve {Url} on the first try; retrying once.", url);
+                try { await Task.Delay(TimeSpan.FromSeconds(3), ct).ConfigureAwait(false); } catch { return null; }
+            }
+            return null;
+        }
+
+        /// <summary>The last reason a solve failed, for messages that should say so.</summary>
+        public string? LastError { get; private set; }
+
+        private async Task<FlareSolverrResult?> SolveOnceAsync(string baseUrl, string url, CancellationToken ct)
+        {
             var payload = JsonSerializer.Serialize(new { cmd = "request.get", url, maxTimeout = SolveTimeoutMs });
             try
             {
                 using var content = new StringContent(payload, Encoding.UTF8, "application/json");
                 using var resp = await _http.PostAsync(baseUrl + "/v1", content, ct).ConfigureAwait(false);
                 var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-                return Parse(json, url, _logger);
+                var parsed = Parse(json, url, _logger);
+                if (parsed == null)
+                {
+                    try { using var doc = JsonDocument.Parse(json); LastError = doc.RootElement.TryGetProperty("message", out var m) ? m.GetString() : "unrecognised response"; }
+                    catch { LastError = "unrecognised response"; }
+                }
+                else LastError = null;
+                return parsed;
             }
             catch (Exception ex)
             {
+                LastError = ex.Message;
                 _logger.LogWarning("[StarTrack] FlareSolverr request for {Url} failed: {Msg}", url, ex.Message);
                 return null;
             }
