@@ -123,6 +123,23 @@ namespace Jellyfin.Plugin.InternalRating
         /// </summary>
         public string RatingDisplayMode { get; set; } = "stars";
 
+        /// <summary>
+        /// Optional base URL of a FlareSolverr instance, e.g.
+        /// <c>http://192.168.1.10:8191</c>. Server-wide, admin-only.
+        ///
+        /// WHY: Letterboxd fronts its likes page and its sign-in with a
+        /// Cloudflare JavaScript challenge that no server-side HTTP client can
+        /// pass. FlareSolverr runs a real headless browser, passes it, and
+        /// hands back the page and a <c>cf_clearance</c> cookie the plugin can
+        /// then reuse on the same host. It is the same tool Prowlarr, Jackett
+        /// and Sonarr use for the same wall.
+        ///
+        /// Empty (the default) means: never call it, back off when challenged,
+        /// and tell the user which feeds are unavailable — the pre-existing
+        /// behaviour, unchanged.
+        /// </summary>
+        public string FlareSolverrUrl { get; set; } = string.Empty;
+
         /// <summary>Size of the rating badges + floating pill: "normal" (default) or "large".</summary>
         public string RatingSize { get; set; } = "normal";
 

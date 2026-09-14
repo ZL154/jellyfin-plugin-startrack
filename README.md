@@ -174,12 +174,37 @@ The CSV route is offered first and is what most people should use. Automatic pus
 - **Push ratings, watched status and likes** - ratings and watched marks use Letterboxd's idempotent endpoints, so re-running is harmless and changing a rating updates it in place
 - **Optional diary logging** - writes dated diary entries for films you rate **from the moment you switch it on**. It deliberately does *not* backfill: your existing diary is left completely alone, because StarTrack has no way to tell an existing entry apart from a new one and would otherwise duplicate years of history
 - **Verify login** button tells you immediately whether the password and any Cloudflare cookies work, instead of failing silently an hour later
-- **Cloudflare escape hatch** - paste a browser cookie header including `cf_clearance` plus the matching User-Agent for installs that get challenged
 - **Drop in your Letterboxd export ZIP** to import everything in one pass: `ratings.csv`, `diary.csv`, `watchlist.csv` and `likes/films.csv`
-- **Browser-style User-Agent** so Letterboxd's anti-bot doesn't block sync
-- **Sync now** button pulls your latest ratings (RSS), watchlist (RSS), and likes (HTML scrape) - one click, three data types
+- **Sync now** button pulls your latest ratings (diary RSS), watchlist (the watchlist page - Letterboxd removed the RSS feed for it) and likes - one click, three data types
 - **Hourly auto-sync** scheduled task for every user with a Letterboxd username configured
 - **Import Top 4** button scrapes your Letterboxd profile's "favourite films" section
+
+#### Cloudflare, and FlareSolverr
+
+Letterboxd puts a Cloudflare JavaScript challenge in front of two things StarTrack
+needs: the **likes page** and the **sign-in** used for automatic push. No server
+can pass a JavaScript challenge on its own, and no header makes it go away.
+Diary import and the watchlist are not affected.
+
+Without help, StarTrack notices the challenge, stops asking for six hours instead
+of hammering Letterboxd every few minutes, and says so in the Letterboxd panel.
+
+With help, both work. **FlareSolverr** is a small self-hosted container that
+solves the challenge in a real headless browser - the same tool Prowlarr, Jackett
+and Sonarr use for the same wall, so if you run those you already have one.
+Put its URL in **Dashboard → Plugins → StarTrack → FlareSolverr URL**, and:
+
+- **likes sync** works, wherever FlareSolverr runs
+- **automatic push** works **only if FlareSolverr leaves for the internet from
+  the same IP as Jellyfin**. Cloudflare ties its clearance cookie to the IP, so a
+  FlareSolverr behind a VPN (common - people run it next to their download
+  stack) can fetch pages for you but cannot sign you in. The self-check tells
+  you which situation you are in.
+
+The older escape hatch - pasting a `cf_clearance` cookie and User-Agent from your
+browser - still exists and still takes priority if set, but it is bound to your
+IP, expires within the hour, and cannot work for 2FA accounts. FlareSolverr is
+that trick done automatically.
 - **Export CSV** - download your StarTrack ratings in Letterboxd-compatible format for backup or migration
 - **Diagnose** button - runs the library matcher and shows you exactly how many movies are indexed, how many duplicates exist, and how titles are normalised
 - **Clean dead ratings** button - removes ratings that point to library items whose underlying file no longer exists (post-HDD-failure cleanup)

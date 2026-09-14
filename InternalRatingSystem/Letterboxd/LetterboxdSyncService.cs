@@ -42,6 +42,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
 
         private readonly RatingRepository _ratingRepo;
         private readonly LetterboxdSettingsRepository _settingsRepo;
+        private readonly FlareSolverrClient _solver;
         private readonly UserInteractionsRepository _interactions;
         private readonly DiaryRepository _diaryRepo;
         private readonly ILibraryManager _libraryManager;
@@ -59,6 +60,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         {
             _ratingRepo     = ratingRepo;
             _settingsRepo   = settingsRepo;
+            _solver         = new FlareSolverrClient(logger);
             _interactions   = interactions;
             _diaryRepo      = diaryRepo;
             _libraryManager = libraryManager;
@@ -463,49 +465,98 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         }
 
         /// <summary>
-        /// GET a Letterboxd page that Cloudflare is known to challenge, through
-        /// <see cref="LetterboxdFeedGate"/>. Returns the body, or null when the
-        /// fetch was skipped (gate closed), challenged (gate now closed), or
-        /// failed for an ordinary reason. Logs the challenge ONCE, at
-        /// information level, when the gate closes — not once per user per tick
-        /// as a warning, which is what produced 1,600 identical lines in three
-        /// days and told nobody anything.
+        /// GET a Letterboxd page that Cloudflare may challenge.
+        ///
+        /// Order of attempts, cheapest first:
+        ///   1. If the server already holds a clearance (UA + cookies that a
+        ///      real browser earned), present it. Cloudflare binds cf_clearance
+        ///      to (IP, UA), and we are the same IP, so this usually just works
+        ///      and costs one plain request.
+        ///   2. Otherwise a plain request. Some pages are not challenged at all.
+        ///   3. On a challenge, if FlareSolverr is configured, have it solve the
+        ///      page in a real browser. Keep the clearance it earned for next
+        ///      time, and use the page body it returned now.
+        ///   4. With no solver (or a solver that failed), close the gate: stop
+        ///      asking for six hours and say so once — not per user per tick,
+        ///      which is what produced 1,600 identical log lines in three days.
+        ///
+        /// Returns the body, or null when skipped, challenged-and-unsolvable, or
+        /// failed for an ordinary reason.
         /// </summary>
         private async Task<string?> FetchGatedAsync(string url, string what, string letterboxdUsername)
         {
+            var solverConfigured = FlareSolverrClient.IsConfigured;
+
+            // With no solver, a closed gate means "we already know the answer".
+            // With a solver, the gate only closes when the solver itself failed,
+            // so it still protects against hammering a dead solver.
             if (LetterboxdFeedGate.IsClosed)
-                return null; // already know the answer; don't ask again yet
+                return null;
 
             try
             {
-                using var resp = await _http.GetAsync(url).ConfigureAwait(false);
-
-                if (LetterboxdFeedGate.IsChallenge(resp))
+                // ---- 1 & 2: plain request, with the clearance if we have one ----
+                var clearance = LetterboxdClearance.Current;
+                using (var req = new HttpRequestMessage(HttpMethod.Get, url))
                 {
-                    if (LetterboxdFeedGate.NoteChallenge())
+                    if (clearance != null)
                     {
+                        req.Headers.TryAddWithoutValidation("User-Agent", clearance.Value.UserAgent);
+                        req.Headers.TryAddWithoutValidation("Cookie", clearance.Value.CookieHeader);
+                    }
+
+                    using var resp = await _http.SendAsync(req).ConfigureAwait(false);
+
+                    if (!LetterboxdFeedGate.IsChallenge(resp))
+                    {
+                        if (!resp.IsSuccessStatusCode)
+                        {
+                            _logger.LogWarning("[StarTrack] {What} fetch failed for {User}: HTTP {Code}", what, letterboxdUsername, (int)resp.StatusCode);
+                            return null;
+                        }
+                        var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                        if (LetterboxdFeedGate.ChallengeCount > 0)
+                        {
+                            LetterboxdFeedGate.NoteSuccess();
+                            _logger.LogInformation("[StarTrack] Letterboxd watchlist/likes feeds are reachable again; resuming.");
+                        }
+                        return body;
+                    }
+
+                    // Challenged. If we were presenting a clearance, it has expired.
+                    if (clearance != null) LetterboxdClearance.Drop();
+                }
+
+                // ---- 3: solve it ----
+                if (solverConfigured)
+                {
+                    var solved = await _solver.GetAsync(url).ConfigureAwait(false);
+                    if (solved != null && solved.Status is >= 200 and < 300)
+                    {
+                        LetterboxdClearance.Set(solved);
+                        if (LetterboxdFeedGate.ChallengeCount > 0) LetterboxdFeedGate.NoteSuccess();
+                        _logger.LogInformation("[StarTrack] Cloudflare challenge on {Url} solved via FlareSolverr; clearance cached for later requests.", url);
+                        return solved.Body;
+                    }
+                    _logger.LogWarning("[StarTrack] FlareSolverr could not get {Url} (status {Status}); backing off as if unconfigured.",
+                        url, solved?.Status ?? 0);
+                }
+
+                // ---- 4: back off ----
+                if (LetterboxdFeedGate.NoteChallenge())
+                {
+                    if (solverConfigured)
+                        _logger.LogInformation(
+                            "[StarTrack] Letterboxd is challenging {Url} and FlareSolverr could not solve it; pausing watchlist/likes feeds for {Hours}h. Diary sync is unaffected.",
+                            url, (int)LetterboxdFeedGate.BackoffPeriod.TotalHours);
+                    else
                         _logger.LogInformation(
                             "[StarTrack] Letterboxd is challenging automated requests for watchlist and likes feeds " +
-                            "(Cloudflare JS challenge on {Url}). These two feeds cannot be read by a server; " +
-                            "pausing them for {Hours}h and re-probing after. Diary sync is unaffected.",
+                            "(Cloudflare JS challenge on {Url}). These cannot be read by a server; pausing them for {Hours}h and re-probing after. " +
+                            "Diary sync is unaffected. Configure a FlareSolverr URL in the StarTrack settings to get through.",
                             url, (int)LetterboxdFeedGate.BackoffPeriod.TotalHours);
-                    }
-                    return null;
                 }
-
-                if (!resp.IsSuccessStatusCode)
-                {
-                    _logger.LogWarning("[StarTrack] {What} fetch failed for {User}: HTTP {Code}", what, letterboxdUsername, (int)resp.StatusCode);
-                    return null;
-                }
-
-                var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                if (LetterboxdFeedGate.ChallengeCount > 0)
-                {
-                    LetterboxdFeedGate.NoteSuccess();
-                    _logger.LogInformation("[StarTrack] Letterboxd watchlist/likes feeds are reachable again; resuming.");
-                }
-                return body;
+                return null;
             }
             catch (Exception ex)
             {
@@ -514,88 +565,164 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             }
         }
 
+        // ------------------------------------------------------------------ //
+        // Letterboxd poster lists (watchlist, likes)
+        // ------------------------------------------------------------------ //
+
+        /// <summary>One film from a Letterboxd poster grid.</summary>
+        internal readonly record struct LetterboxdListItem(string Title, int? Year, string Slug);
+
+        // Letterboxd's 2025 poster markup. Every poster is a React island:
+        //   <div class="react-component" data-component-class="LazyPoster"
+        //        data-item-name="Spider-Man: Beyond the Spider-Verse (2027)"
+        //        data-item-slug="spider-man-beyond-the-spider-verse" ...>
+        // The name carries the year in parentheses; the slug is Letterboxd's
+        // stable film key. Attribute order is not guaranteed, so each is
+        // captured independently from the tag.
+        private static readonly System.Text.RegularExpressions.Regex PosterTag = new(
+            "<div\\b[^>]*\\bdata-item-slug=\"[^\"]+\"[^>]*>",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+        private static readonly System.Text.RegularExpressions.Regex AttrSlug = new(
+            "\\bdata-item-slug=\"([^\"]+)\"", System.Text.RegularExpressions.RegexOptions.Compiled);
+        private static readonly System.Text.RegularExpressions.Regex AttrName = new(
+            "\\bdata-item-name=\"([^\"]*)\"", System.Text.RegularExpressions.RegexOptions.Compiled);
+        private static readonly System.Text.RegularExpressions.Regex TrailingYear = new(
+            "^(.*?)\\s*\\((\\d{4})\\)\\s*$", System.Text.RegularExpressions.RegexOptions.Compiled);
+
         /// <summary>
-        /// Letterboxd has no public RSS feed for likes, so this scrapes the
-        /// /username/likes/films/ HTML page (first page only — usually 72
-        /// items per page). Same poster-list shape as the favourites scrape.
+        /// Parse every film poster on a Letterboxd list page (watchlist, likes,
+        /// any poster grid). Replaces two older readers: the watchlist RSS,
+        /// which Letterboxd has removed (it now 404s behind the challenge), and
+        /// an alt-text scrape of the likes page that predates the React
+        /// markup and captured no year. Duplicates are collapsed on slug.
+        /// </summary>
+        internal static List<LetterboxdListItem> ParsePosterList(string html)
+        {
+            var items = new List<LetterboxdListItem>();
+            if (string.IsNullOrEmpty(html)) return items;
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (System.Text.RegularExpressions.Match tag in PosterTag.Matches(html))
+            {
+                var slug = AttrSlug.Match(tag.Value).Groups[1].Value;
+                if (slug.Length == 0 || !seen.Add(slug)) continue;
+
+                var rawName = System.Net.WebUtility.HtmlDecode(AttrName.Match(tag.Value).Groups[1].Value).Trim();
+                if (rawName.Length == 0) continue;
+
+                string title = rawName; int? year = null;
+                var ym = TrailingYear.Match(rawName);
+                if (ym.Success)
+                {
+                    title = ym.Groups[1].Value.Trim();
+                    if (int.TryParse(ym.Groups[2].Value, out var y)) year = y;
+                }
+                items.Add(new LetterboxdListItem(title, year, slug));
+            }
+            return items;
+        }
+
+        /// <summary>
+        /// Highest page number linked from a list page's pagination, or 1.
+        /// Letterboxd links the last page directly, so no need to walk.
+        /// </summary>
+        internal static int LastPageNumber(string html, string listPath)
+        {
+            var rx = new System.Text.RegularExpressions.Regex(
+                System.Text.RegularExpressions.Regex.Escape(listPath) + "page/(\\d+)/",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            var last = 1;
+            foreach (System.Text.RegularExpressions.Match m in rx.Matches(html ?? string.Empty))
+                if (int.TryParse(m.Groups[1].Value, out var n) && n > last) last = n;
+            return last;
+        }
+
+        // Politeness cap. 28 posters a page, so this is ~700 films; anyone with
+        // more has a watchlist no one is syncing by hand either.
+        private const int MaxListPages = 25;
+
+        /// <summary>
+        /// Fetch a poster list and all its pages, through the gate. Stops early
+        /// on the first page that cannot be read so a mid-list challenge does
+        /// not produce a half-empty result that looks complete.
+        /// </summary>
+        private async Task<List<LetterboxdListItem>> FetchPosterListAsync(string username, string listPath, string what)
+        {
+            var all = new List<LetterboxdListItem>();
+            var basePath = $"/{Uri.EscapeDataString(username)}/{listPath}";
+            var first = await FetchGatedAsync(LetterboxdSession.BaseUrl + basePath, what, username).ConfigureAwait(false);
+            if (first == null) return all;
+
+            all.AddRange(ParsePosterList(first));
+            var last = Math.Min(LastPageNumber(first, basePath), MaxListPages);
+            for (var page = 2; page <= last; page++)
+            {
+                var html = await FetchGatedAsync($"{LetterboxdSession.BaseUrl}{basePath}page/{page}/", what, username).ConfigureAwait(false);
+                if (html == null) break;
+                var items = ParsePosterList(html);
+                if (items.Count == 0) break;
+                all.AddRange(items);
+            }
+            return all;
+        }
+
+        /// <summary>
+        /// Pulls the user's Letterboxd likes into StarTrack likes.
+        ///
+        /// Letterboxd has no feed for likes, so this reads the /likes/films/
+        /// page. That page is Cloudflare-challenged, so without FlareSolverr it
+        /// backs off (see FetchGatedAsync). The parser is the same one the
+        /// watchlist uses; it replaced an alt-text scrape from before the React
+        /// markup, which also never captured the year — so "Heat" matched
+        /// whichever Heat the library found first.
         /// </summary>
         internal async Task<int> SyncLikesScrapeAsync(string userId, string letterboxdUsername, MovieLookup lookup)
         {
             if (string.IsNullOrWhiteSpace(letterboxdUsername)) return 0;
-            var url = $"https://letterboxd.com/{Uri.EscapeDataString(letterboxdUsername)}/likes/films/";
-            var html = await FetchGatedAsync(url, "Likes page", letterboxdUsername).ConfigureAwait(false);
-            if (html == null) return 0;
 
-            // The likes page has a long list of <li> elements with film cards.
-            // Each card has alt="Film Name" inside an <img>. We extract every
-            // unique alt text under the main poster list.
-            var titles = new List<string>();
-            try
-            {
-                // Restrict to the films grid container (poster-list class)
-                var listIdx = html.IndexOf("class=\"poster-list", StringComparison.OrdinalIgnoreCase);
-                if (listIdx < 0) return 0;
-                var section = html.Substring(listIdx);
-                var endIdx = section.IndexOf("</ul>", StringComparison.OrdinalIgnoreCase);
-                if (endIdx > 0) section = section.Substring(0, endIdx);
+            var items = await FetchPosterListAsync(letterboxdUsername, "likes/films/", "Likes page").ConfigureAwait(false);
+            if (items.Count == 0) return 0;
 
-                var altRx = new System.Text.RegularExpressions.Regex("alt=\"([^\"]+)\"",
-                    System.Text.RegularExpressions.RegexOptions.Compiled);
-                foreach (System.Text.RegularExpressions.Match m in altRx.Matches(section))
-                {
-                    var t = m.Groups[1].Value.Trim();
-                    if (t.Length > 0 && !titles.Contains(t, StringComparer.OrdinalIgnoreCase))
-                        titles.Add(t);
-                }
-            }
-            catch (Exception ex)
+            int added = 0, unmatched = 0;
+            foreach (var item in items)
             {
-                _logger.LogWarning(ex, "[StarTrack] Likes HTML parse failed");
-                return 0;
-            }
-
-            int added = 0;
-            foreach (var title in titles)
-            {
-                var matched = lookup.Find(title, null, out _);
-                if (matched == null) continue;
+                var matched = lookup.Find(item.Title, item.Year, out _);
+                if (matched == null) { unmatched++; continue; }
                 if (await _interactions.AddLikeAsync(userId, matched.Id.ToString("N")).ConfigureAwait(false))
                     added++;
             }
-            _logger.LogInformation("[StarTrack] Letterboxd likes scrape for {User}: added {N} new likes", letterboxdUsername, added);
+            _logger.LogInformation("[StarTrack] Letterboxd likes sync for {User}: {Total} on Letterboxd, {Added} added, {Unmatched} not in library",
+                letterboxdUsername, items.Count, added, unmatched);
             return added;
         }
 
         /// <summary>
-        /// Fetches the user's Letterboxd watchlist RSS and adds any new
-        /// entries to the StarTrack watchlist. Called from SyncRssAsync
-        /// after the main rating sync so a single "Sync now" click pulls
-        /// everything.
+        /// Pulls the user's Letterboxd watchlist into StarTrack's watchlist.
+        ///
+        /// This used to read /{user}/watchlist/rss/. Letterboxd has removed
+        /// that feed — behind the Cloudflare challenge it is a genuine 404 for
+        /// every account — which is why watchlist sync "worked before and
+        /// stopped". The watchlist PAGE still exists, is public, and (at the
+        /// time of writing) is not challenged, so this reads that instead:
+        /// every poster on every page, title + year + slug.
         /// </summary>
         internal async Task<int> SyncWatchlistRssAsync(string userId, string letterboxdUsername, MovieLookup lookup)
         {
             if (string.IsNullOrWhiteSpace(letterboxdUsername)) return 0;
-            var url = $"https://letterboxd.com/{Uri.EscapeDataString(letterboxdUsername)}/watchlist/rss/";
-            var xml = await FetchGatedAsync(url, "Watchlist RSS", letterboxdUsername).ConfigureAwait(false);
-            if (xml == null) return 0;
 
-            List<LetterboxdRssEntry> entries;
-            try { entries = ParseRss(xml); }
-            catch (Exception ex)
-            {
-                _logger.LogWarning("[StarTrack] Watchlist RSS parse failed: {Msg}", ex.Message);
-                return 0;
-            }
+            var items = await FetchPosterListAsync(letterboxdUsername, "watchlist/", "Watchlist page").ConfigureAwait(false);
+            if (items.Count == 0) return 0;
 
-            int added = 0;
-            foreach (var entry in entries)
+            int added = 0, unmatched = 0;
+            foreach (var item in items)
             {
-                var matched = lookup.Find(entry.FilmTitle, entry.FilmYear, out _);
-                if (matched == null) continue;
+                var matched = lookup.Find(item.Title, item.Year, out _);
+                if (matched == null) { unmatched++; continue; }
                 if (await _interactions.AddToWatchlistAsync(userId, matched.Id.ToString("N")).ConfigureAwait(false))
                     added++;
             }
-            _logger.LogInformation("[StarTrack] Letterboxd watchlist RSS sync: added {N} new entries", added);
+            _logger.LogInformation("[StarTrack] Letterboxd watchlist sync for {User}: {Total} on Letterboxd, {Added} added, {Unmatched} not in library",
+                letterboxdUsername, items.Count, added, unmatched);
             return added;
         }
 

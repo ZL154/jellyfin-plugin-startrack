@@ -359,7 +359,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
         [Authorize(Policy = "RequiresElevation")]
         [Produces(MediaTypeNames.Application.Json)]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        public IActionResult GetSelfCheck()
+        public async Task<IActionResult> GetSelfCheck()
         {
             var asmVersion = GetType().Assembly.GetName().Version?.ToString() ?? "unknown";
             var baseUrl    = Plugin.Instance?.BaseUrl ?? string.Empty;
@@ -417,6 +417,22 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                     detail = $"Current token is {WidgetAsset.Version}. If a browser is running an older widget, the page was cached — reload once with Ctrl+Shift+R."
                 }
             };
+
+            // Only when configured: a wrong URL should be a red row, not a
+            // feature that silently never engages.
+            if (Jellyfin.Plugin.InternalRating.Letterboxd.FlareSolverrClient.IsConfigured)
+            {
+                var fs = new Jellyfin.Plugin.InternalRating.Letterboxd.FlareSolverrClient(_logger);
+                var (fsOk, fsDetail) = await fs.PingAsync(HttpContext.RequestAborted).ConfigureAwait(false);
+                checks.Add(new { id = "flaresolverr", label = "FlareSolverr reachable", ok = fsOk, detail = fsDetail });
+                if (fsOk)
+                {
+                    var (same, egress) = await fs.CompareEgressAsync(HttpContext.RequestAborted).ConfigureAwait(false);
+                    // Not a failure — likes still work — but the single most
+                    // common reason "push still doesn't work" after setting this up.
+                    checks.Add(new { id = "flaresolverrEgress", label = "FlareSolverr on the same network path", ok = same != false, detail = egress });
+                }
+            }
 
             return Ok(new
             {

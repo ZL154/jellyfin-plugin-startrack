@@ -8828,6 +8828,8 @@
         if (rdm) { var v = _adminPickKey(c, 'RatingDisplayMode'); rdm.value = (v === 'both' || v === 'ten') ? v : 'stars'; }
         _adminSetCheckbox(root.querySelector('#stMirrorToNativeRating'), _adminPickKey(c, 'MirrorToNativeRating'));
         _adminSetCheckbox(root.querySelector('#stRetainUnmatchedLetterboxdRows'), _adminPickKey(c, 'RetainUnmatchedLetterboxdRows'));
+        var fsUrl = root.querySelector('#stFlareSolverrUrl');
+        if (fsUrl) fsUrl.value = _adminPickKey(c, 'FlareSolverrUrl') || '';
         var rsz = root.querySelector('#stRatingSize');
         if (rsz) rsz.value = _adminPickKey(c, 'RatingSize') || 'normal';
         _adminSetCheckbox(root.querySelector('#stPostPlaybackPopup'),    _adminPickKey(c, 'PostPlaybackRatingPopup'));
@@ -8879,6 +8881,8 @@
         if (_rdm) c.RatingDisplayMode = (_rdm.value === 'both' || _rdm.value === 'ten') ? _rdm.value : 'stars';
         c.MirrorToNativeRating = !!(root.querySelector('#stMirrorToNativeRating') && root.querySelector('#stMirrorToNativeRating').checked);
         c.RetainUnmatchedLetterboxdRows = !!(root.querySelector('#stRetainUnmatchedLetterboxdRows') && root.querySelector('#stRetainUnmatchedLetterboxdRows').checked);
+        var _fs = root.querySelector('#stFlareSolverrUrl');
+        if (_fs) c.FlareSolverrUrl = (_fs.value || '').trim();
         var _rsz = root.querySelector('#stRatingSize');
         if (_rsz) c.RatingSize = (_rsz.value === 'large' || _rsz.value === 'largetv') ? _rsz.value : 'normal';
         c.PostPlaybackRatingPopup   = !!(root.querySelector('#stPostPlaybackPopup')    && root.querySelector('#stPostPlaybackPopup').checked);

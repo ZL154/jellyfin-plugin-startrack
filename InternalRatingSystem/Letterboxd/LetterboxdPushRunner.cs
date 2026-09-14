@@ -21,6 +21,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         private readonly LetterboxdSettingsRepository _settings;
         private readonly LetterboxdPushService _push;
         private readonly ILogger<LetterboxdPushRunner> _logger;
+        private readonly FlareSolverrClient _solver;
 
         public LetterboxdPushRunner(
             LetterboxdSettingsRepository settings,
@@ -30,6 +31,60 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             _settings = settings;
             _push     = push;
             _logger   = logger;
+            _solver   = new FlareSolverrClient(logger);
+        }
+
+        /// <summary>
+        /// A sign-in session, seeded with whatever Cloudflare clearance the
+        /// server can get its hands on.
+        ///
+        /// Letterboxd's sign-in is behind a Cloudflare JavaScript challenge. The
+        /// original workaround was for the user to paste raw browser cookies
+        /// (cf_clearance and friends) plus the matching User-Agent — which is
+        /// bound to their IP, expires within the hour, and cannot work at all
+        /// for 2FA accounts. It got documented as a feature; it is a debugging
+        /// trick. If they did paste cookies, they still win.
+        ///
+        /// Otherwise, with FlareSolverr configured, do the same thing without
+        /// the user: have a real browser load /sign-in/, take the cf_clearance
+        /// and User-Agent it earned, and seed the session with those. The
+        /// clearance is cached server-wide and reused until Letterboxd rejects
+        /// it, so most pushes never touch the solver.
+        /// </summary>
+        private async Task<LetterboxdSession> OpenSessionAsync(LetterboxdUserSettings settings, CancellationToken ct)
+        {
+            var manualCookies = LetterboxdSecretProtector.Unprotect(settings.RawCookiesEnc);
+            if (!string.IsNullOrWhiteSpace(manualCookies))
+            {
+                var manual = new LetterboxdSession(_logger, settings.UserAgent);
+                manual.SeedRawCookies(manualCookies);
+                return manual;
+            }
+
+            if (FlareSolverrClient.IsConfigured)
+            {
+                if (!LetterboxdClearance.Has)
+                {
+                    var solved = await _solver.GetAsync(LetterboxdSession.BaseUrl + "/sign-in/", ct).ConfigureAwait(false);
+                    if (solved != null && solved.HasClearance)
+                    {
+                        LetterboxdClearance.Set(solved);
+                        _logger.LogInformation("[StarTrack] Letterboxd sign-in clearance obtained via FlareSolverr.");
+                    }
+                    else
+                        _logger.LogWarning("[StarTrack] FlareSolverr could not obtain a Letterboxd sign-in clearance; trying without.");
+                }
+
+                var clearance = LetterboxdClearance.Current;
+                if (clearance != null)
+                {
+                    var solvedSession = new LetterboxdSession(_logger, clearance.Value.UserAgent);
+                    solvedSession.SeedRawCookies(clearance.Value.CookieHeader);
+                    return solvedSession;
+                }
+            }
+
+            return new LetterboxdSession(_logger, settings.UserAgent);
         }
 
         /// <summary>
@@ -69,12 +124,12 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 return result;
             }
 
-            using var session = new LetterboxdSession(_logger, settings.UserAgent);
-            session.SeedRawCookies(LetterboxdSecretProtector.Unprotect(settings.RawCookiesEnc));
+            using var session = await OpenSessionAsync(settings, ct).ConfigureAwait(false);
 
             var auth = await session.AuthenticateAsync(settings.Username, password, ct).ConfigureAwait(false);
             if (!auth.Ok)
             {
+                if (auth.Status == LetterboxdAuthStatus.Cloudflare) LetterboxdClearance.Drop();
                 result.Error = auth.Message ?? auth.Status.ToString();
                 await PersistAsync(userId, result).ConfigureAwait(false);
                 return result;
@@ -114,8 +169,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
             if (string.IsNullOrWhiteSpace(settings.Username) || string.IsNullOrEmpty(password))
                 return new Dictionary<string, string> { ["_error"] = "no linked account" };
 
-            using var session = new LetterboxdSession(_logger, settings.UserAgent);
-            session.SeedRawCookies(LetterboxdSecretProtector.Unprotect(settings.RawCookiesEnc));
+            using var session = await OpenSessionAsync(settings, ct).ConfigureAwait(false);
 
             var auth = await session.AuthenticateAsync(settings.Username, password, ct).ConfigureAwait(false);
             if (!auth.Ok) return new Dictionary<string, string> { ["_error"] = auth.Message ?? auth.Status.ToString() };
