@@ -103,6 +103,31 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             return Ok(result);
         }
 
+        /// <summary>
+        /// Ratings summaries for many items in one round trip.
+        ///
+        /// WHY: the poster-badge scanner used to ask for each card separately —
+        /// sixty requests for a home page, hundreds for a watchlist page — and
+        /// every one of them queued behind the same repository lock and the
+        /// same auth resolution. One request for a screenful is the difference
+        /// between a page that pops and one that trickles.
+        /// </summary>
+        // POST /Plugins/StarTrack/Ratings/Batch   body: ["id1","id2",...]
+        [HttpPost("Ratings/Batch")]
+        [ProducesResponseType(typeof(Dictionary<string, RatingsResponse>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetRatingsBatch([FromBody] List<string> itemIds)
+        {
+            var result = new Dictionary<string, RatingsResponse>(StringComparer.OrdinalIgnoreCase);
+            if (itemIds == null) return Ok(result);
+            foreach (var id in itemIds.Distinct(StringComparer.OrdinalIgnoreCase).Take(500))
+            {
+                if (!Guid.TryParse(id, out _)) continue;
+                var r = await _repository.GetRatingsAsync(id).ConfigureAwait(false);
+                if (r != null && r.TotalRatings > 0) result[id] = r;
+            }
+            return Ok(result);
+        }
+
         /// <summary>Submits or updates the current user's rating for an item.</summary>
         // POST /Plugins/StarTrack/Ratings/{itemId}   body: { "stars": 4 }
         [HttpPost("Ratings/{itemId}")]

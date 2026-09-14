@@ -176,14 +176,18 @@
     // Calling this after changing languages always picks up from the
     // canonical English baseline, so switching fr → de → en → ja always
     // works instead of only working once.
-    function scrubTranslations(root) {
+    function scrubTranslations(root, skipGrids) {
         if (!_STARTRACK_SWAPMAP || !root) return;
         var map = _STARTRACK_SWAPMAP;
         var enStrings = _STARTRACK_STRINGS_EN || {};
         var active = _STARTRACK_STRINGS || enStrings;
 
         // Text nodes
-        var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+        var filter = skipGrids ? { acceptNode: function (n) {
+            var p = n.parentElement;
+            return (p && p.closest && p.closest('.ir-ov-grid')) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+        } } : null;
+        var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, filter, false);
         var n, txt, t;
         while ((n = walker.nextNode())) {
             txt = n.nodeValue;
@@ -214,6 +218,7 @@
         // Attributes
         var attrs = ['placeholder', 'title', 'aria-label'];
         var nodes = root.querySelectorAll('[placeholder],[title],[aria-label]');
+        if (skipGrids) nodes = Array.prototype.filter.call(nodes, function (e) { return !e.closest('.ir-ov-grid'); });
         for (var i = 0; i < nodes.length; i++) {
             var el = nodes[i];
             for (var j = 0; j < attrs.length; j++) {
@@ -334,7 +339,11 @@
                 var el = document.getElementById('ir-widget');
                 if (el) scrubTranslations(el);
                 var ov = document.getElementById('ir-overlay');
-                if (ov) scrubTranslations(ov);
+                // A closed overlay has nothing new to translate; a thousand-card
+                // grid is film titles, which are never UI strings (and a film
+                // called "Recent" must not become "Récent"). Walk the chrome,
+                // not the posters — the grid is scrubbed once when rendered.
+                if (ov && ov.offsetParent !== null) scrubTranslations(ov, true);
             } catch (e) {}
         }, 1500);
     }
@@ -499,6 +508,19 @@
         }).catch(function (e) { console.error('[StarTrack] fetch error:', e); return null; });
     }
 
+    // Summaries for many ids at once; chunks of 200 so one giant page cannot
+    // produce one giant request. Resolves to a map keyed by id.
+    function apiGetBatch(ids) {
+        var chunks = []; for (var i = 0; i < ids.length; i += 200) chunks.push(ids.slice(i, i + 200));
+        return Promise.all(chunks.map(function (c) {
+            return apiFetch(_ST_BASE + '/Plugins/StarTrack/Ratings/Batch', { method: 'POST', body: JSON.stringify(c) })
+                .then(function (r) { return r ? r.json() : null; }).catch(function () { return null; });
+        })).then(function (parts) {
+            var out = {};
+            parts.forEach(function (m) { if (m) Object.keys(m).forEach(function (k) { out[k] = m[k]; }); });
+            return out;
+        });
+    }
     function apiGet(id)              { return apiFetch(_ST_BASE + '/Plugins/StarTrack/Ratings/' + id).then(function (r) { return r ? r.json() : null; }); }
     function apiPost(id, stars, rev) { return apiFetch(_ST_BASE + '/Plugins/StarTrack/Ratings/' + id, { method: 'POST', body: JSON.stringify({ stars: stars, review: rev || null }) }).then(function (r) { return r !== null; }); }
     function apiDel(id)              { return apiFetch(_ST_BASE + '/Plugins/StarTrack/Ratings/' + id, { method: 'DELETE' }).then(function (r) { return r !== null; }); }
@@ -747,7 +769,13 @@
             '.ir-ov-lb-user:focus,.ir-ov-szd-username:focus{border-color:rgba(244,196,48,.5)!important}',
             '.ir-ov-lb-user::placeholder,.ir-ov-szd-username::placeholder{color:rgba(255,255,255,.25)!important}',
             '.ir-ov-lb-check,.ir-ov-szd-check{display:flex!important;align-items:center!important;gap:6px!important;color:rgba(255,255,255,.85)!important;font-size:.8em!important;cursor:pointer!important;white-space:nowrap!important}',
-            '.ir-ov-lb-check input,.ir-ov-szd-check input{accent-color:#f4c430!important;width:15px!important;height:15px!important}',
+            '.ir-ov-lb-check input,.ir-ov-szd-check input,.ir-ov-lb input[type=checkbox],.ir-ov-szd input[type=checkbox]{accent-color:#f4c430!important;width:15px!important;height:15px!important;appearance:checkbox!important;-webkit-appearance:checkbox!important;-moz-appearance:checkbox!important;opacity:1!important;visibility:visible!important;display:inline-block!important;position:static!important;pointer-events:auto!important;clip:auto!important;overflow:visible!important;margin:0!important;padding:0!important;flex:0 0 auto!important;min-width:15px!important;min-height:15px!important;max-width:15px!important;max-height:15px!important;background:transparent!important;border:2px solid rgba(255,255,255,.4)!important;border-radius:3px!important;cursor:pointer!important}',
+            // Some setups (KefinTweaks, custom CSS) hide every native checkbox on the
+            // page expecting Jellyfin's own styled replacement beside it. Ours have no
+            // replacement, so the box simply vanished and the panel read as a row of
+            // bare labels. Force the native control back, exactly as the config page
+            // already had to.
+            '.ir-ov-lb-check input:checked,.ir-ov-szd-check input:checked{background:#f4c430!important;border-color:#f4c430!important}',
             '.ir-ov-lb-save,.ir-ov-lb-sync{background:#f4c430!important;color:#000!important;border:none!important;border-radius:6px!important;padding:7px 16px!important;font-size:.8em!important;font-weight:700!important;cursor:pointer!important;transition:transform .1s,background .15s!important}',
             '.ir-ov-lb-save:hover,.ir-ov-lb-sync:hover{background:#ffd84d!important;transform:scale(1.04)!important}',
             '.ir-ov-lb-sync{background:rgba(200,30,30,.9)!important;color:#fff!important}',
@@ -931,7 +959,8 @@
             '.ir-lb-user:focus{border-color:rgba(244,196,48,.55)!important}',
             '.ir-lb-user::placeholder{color:rgba(255,255,255,.28)!important}',
             '.ir-lb-check{display:flex!important;align-items:center!important;gap:8px!important;cursor:pointer!important;font-size:.82em!important;color:rgba(255,255,255,.8)!important}',
-            '.ir-lb-check input{accent-color:#f4c430!important;width:15px!important;height:15px!important}',
+            '.ir-lb-check input,.ir-lb-view input[type=checkbox]{accent-color:#f4c430!important;width:15px!important;height:15px!important;appearance:checkbox!important;-webkit-appearance:checkbox!important;-moz-appearance:checkbox!important;opacity:1!important;visibility:visible!important;display:inline-block!important;position:static!important;pointer-events:auto!important;clip:auto!important;overflow:visible!important;margin:0!important;padding:0!important;flex:0 0 auto!important;min-width:15px!important;min-height:15px!important;max-width:15px!important;max-height:15px!important;background:transparent!important;border:2px solid rgba(255,255,255,.4)!important;border-radius:3px!important;cursor:pointer!important}',
+            '.ir-lb-check input:checked{background:#f4c430!important;border-color:#f4c430!important}',
             '.ir-lb-btn-row{display:flex!important;gap:8px!important;margin-top:12px!important;flex-wrap:wrap!important}',
             '.ir-lb-save,.ir-lb-sync{background:#f4c430!important;color:#000!important;border:none!important;border-radius:6px!important;padding:6px 14px!important;font-size:.8em!important;font-weight:700!important;cursor:pointer!important;transition:transform .1s,background .15s!important}',
             '.ir-lb-save:hover,.ir-lb-sync:hover{background:#ffd84d!important;transform:scale(1.04)!important}',
@@ -8156,12 +8185,25 @@
             // Include both .card (classic Jellyfin) and .listItem variants.
             var cards = document.querySelectorAll('.card:not([data-ir-scanned]), .listItem:not([data-ir-scanned])');
             if (!cards.length) return;
+
+            // One request for the whole screenful, not one per card. A home
+            // page is ~60 cards; a big watchlist page is hundreds. Each
+            // per-card request queued behind the same lock server-side, so a
+            // long list did not just take longer — it took longer per item.
+            var pending = [];
             cards.forEach(function (card) {
                 card.setAttribute('data-ir-scanned', '1');
                 var id = _extractItemId(card);
-                if (!id) return;
+                if (id) pending.push({ card: card, id: id });
+            });
+            if (!pending.length) return;
 
-                apiGet(id).then(function (d) {
+            var ids = [];
+            pending.forEach(function (p) { if (ids.indexOf(p.id) === -1) ids.push(p.id); });
+            apiGetBatch(ids).then(function (byId) {
+                if (!byId) return;
+                pending.forEach(function (p) {
+                    var card = p.card, d = byId[p.id] || byId[p.id.toLowerCase()];
                     if (!d || !d.totalRatings) return;
                     // Prefer the image container so the badge overlays the poster
                     var host = card.querySelector('.cardImageContainer') ||
@@ -8180,8 +8222,8 @@
                     b.textContent = '\u2605 ' + _fmtAvg(d.averageRating);
                     if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
                     host.appendChild(b);
-                }).catch(function () {});
-            });
+                });
+            }).catch(function () {});
         } catch (e) {}
     }
 
