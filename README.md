@@ -29,7 +29,7 @@
 - [Data storage](#data-storage)
 - [Building from source](#building-from-source)
 - [Contributing](#contributing)
-- [Changelog](#changelog) - release notes from 1.7.0 back to 1.4
+- [Changelog](#changelog) - release notes from 1.8.0 back to 1.4
 - [Support the project](#-support-the-project)
 - [License](#license)
 
@@ -78,20 +78,22 @@ A fix release for 1.8.0, almost all of it reported by users of it.
 - **Per-user breakdown** - expandable list of every user's score and review on the detail panel
 - **Star tier colours** - five visual tiers (5★ glowing gold → 1★ muted red) so the rating grid is scannable at a glance
 - **Optional native mirror** - write StarTrack's 0.5–5★ value into Jellyfin's 0–10 per-user rating field, clear it when the StarTrack rating is removed, and backfill older ratings from the admin page
-- **How ratings are shown** - an admin choice of stars only (`3.5`, the default), both (`3.5 (7/10)`) or out of ten (`7/10`), applied everywhere an average is displayed. Display only: you still rate with five stars and nothing is converted
+- **How ratings are shown** - an admin choice of stars only (`3.5`, the default), both (`3.5 (7/10)`) or out of ten (`7/10`). It applies to every rating StarTrack prints, community averages *and* your own: the panel, the floating pill, poster badges, the recent list, My Ratings cards, the diary and the taste comparison. Display only - you still rate with five stars, nothing is converted, and a rating always lands on a real position of the scale (so `/10` shows `7`, never `7.0`)
 
 ### 📺 Media-page, TV & reverse-proxy compatibility
+- **Three ways into My Ratings**, because Jellyfin's chrome keeps changing: the sidebar entry on the classic layout, a **★ My Ratings** link in the top bar on Jellyfin 12.1 (whose Material-UI app bar has no nav drawer), and a **★ My Ratings** button in the rating panel itself, which works on every layout
 - **Duplicate-resistant media badge** - reconciles Jellyfin SPA navigation, cached DOM clones and delayed native-rating nodes so only the current page owns a StarTrack badge
 - **TV/webOS controls** - the media badge, Rate pill, post-playback prompt and whole-star targets support D-pad focus plus OK/Enter activation
 - **Unrated TV target** - a dimmed `☆ Rate` badge remains available on TV so remote users always have a focusable way to rate
 - **Flexible sizing** - Normal, Large and Large (TV only) admin defaults with a per-device override in **My Ratings → ⚙ Preferences**
 - **BaseURL-aware routing** - widget assets, StarTrack endpoints and native Jellyfin item/poster/avatar requests work below reverse-proxy paths such as `/jelly`
+- **It tells you when your browser is running an old copy of it** - if your browser has Jellyfin's page cached, a plugin update changes nothing for you, silently, for as long as that cache lives. StarTrack compares the version it was loaded with against the version the server would serve and shows one dismissible line with a Reload button. It never reloads on its own, and says nothing unless it is certain
 
 ### 🎞 Letterboxd-parity views
 | | |
 |---|---|
 | **★ Films** | Full poster grid of everything you've rated, with a pinned Top 4 row |
-| **☆ Watchlist** | Bookmark films to watch later - toggleable to show **everyone's combined watchlist** with per-user filtering |
+| **☆ Watchlist** | Bookmark films to watch later, and remove them from the same screen - toggleable to show **everyone's combined watchlist** with per-user filtering |
 | **♡ Liked** | One-tap heart toggle, separate from your star rating |
 | **📖 Diary** | Chronological journal of every watch with **rewatch detection**, grouped by month, with visual star bars |
 | **✍ Reviews feed** | Server-wide vertical feed of every rating that has a review, with poster, reviewer, star bar, date and review text |
@@ -112,6 +114,7 @@ A fix release for 1.8.0, almost all of it reported by users of it.
 - Empty slots show a clear "+ pin a film" placeholder so the feature is discoverable
 - Hover any pinned slot to reveal an **× remove** button
 - Hover any film card to reveal **⭐ pin to Top 4** and **+ add to a list** buttons
+- On your own watchlist, hovering also reveals **✕ remove from watchlist**, so taking something off the list no longer means opening the film
 
 ### 🔄 Letterboxd integration
 
@@ -162,6 +165,11 @@ Put its URL in **Dashboard → Plugins → StarTrack → FlareSolverr URL**, and
   matches none of those, so a borrowed clearance is often refused however it was
   obtained. Measured against live Letterboxd: sign-in sometimes goes straight
   through with no cookie at all, and sometimes fails with a freshly solved one.
+
+**Verify login** tries all of this for you in order - as configured, then without
+any cookies you pasted, then on a freshly solved challenge - and only retries a
+Cloudflare block, never a rejected password. If it still fails, that is Cloudflare
+refusing the server, not something you did.
 
 **So if you want to send ratings back, use "Download CSV for letterboxd.com/import".**
 No password, no cookies, nothing to expire, and it is the only route that works
@@ -229,8 +237,8 @@ Season ratings stay between StarTrack and Serializd. Trakt, Simkl, Yamtrack and 
 - **Per-user attribution** on community averages so you know who rated what
 
 ### 🛠 Admin & infrastructure
-- **Runs on Jellyfin 10.11 and 12** from one codebase, as two builds; the plugin repository picks the right one - see [Which build do I need?](#which-build-do-i-need)
-- **"Is StarTrack working?"** - a self-check on the plugin page: eight checks, server and browser side, with a paste-ready summary for bug reports. It also flags a stale cached widget and a FlareSolverr behind a VPN
+- **Runs on Jellyfin 10.11, 12.0 and 12.1** from one codebase, as two builds; the plugin repository picks the right one - see [Which build do I need?](#which-build-do-i-need)
+- **"Is StarTrack working?"** - a self-check on the plugin page: eight checks, server and browser side, with a paste-ready summary for bug reports. It names *which* route the script reaches the browser by (written into `index.html`, or added to each page as it is served - the normal one for Docker, where `index.html` is read-only), and flags a stale cached widget and a FlareSolverr behind a VPN
 - **Presentation controls** - badge position and size, compact media badge, poster overlays, native/Media Bar replacement and post-playback prompts
 - **Native Jellyfin integration** - opt-in live mirroring plus an elevation-gated, idempotent backfill for existing StarTrack ratings
 - **Review policy** - choose a maximum review length between 1 and 10,000 characters
@@ -344,7 +352,7 @@ means it appears anywhere you use Jellyfin *in a browser*:
 
 | Works | Does not work |
 |---|---|
-| Jellyfin Web in any desktop browser | **Roku app** |
+| Jellyfin Web in any desktop browser (10.11, 12.0, 12.1) | **Roku app** |
 | Jellyfin Web on phones/tablets | **Native Android / iOS apps** |
 | LG webOS and Samsung Tizen TV browsers | **Android TV / Fire TV apps** |
 | Jellyfin Media Player (desktop) | Kodi and other external clients |
@@ -454,7 +462,7 @@ A floating pill appears at the bottom-right of every Movie / Series / Season / E
 Admins can use a compact rating-only badge, move poster badges to any corner and choose Normal, Large or Large (TV only) sizing. Users can override the size for their current device from **My Ratings → ⚙ Preferences**. On TV, unrated media keeps a dimmed `☆ Rate` badge so the remote always has a focus target.
 
 ### My Ratings overlay
-Click **My Ratings** in the Jellyfin sidebar to open the full overlay. The view selector at the top has seven tabs:
+Open it from **My Ratings** in the Jellyfin sidebar, from the **★ My Ratings** link in the top bar (Jellyfin 12.1), or from the **★ My Ratings** button in any rating panel. `Esc` or the browser's Back button closes it. The view selector at the top has seven tabs:
 
 - **★ Films** - your full rating grid + pinned Top 4 row
 - **☆ Watchlist** - your watchlist, with a toggle to view everyone's combined watchlist filtered by user
@@ -464,7 +472,7 @@ Click **My Ratings** in the Jellyfin sidebar to open the full overlay. The view 
 - **✨ For you** - personalised recommendations
 - **📃 Lists** - your and others' collaborative lists
 
-Each view supports search, sort, star filter (where applicable) and a type filter: **All / Movies / TV Shows / Seasons / Episodes / Anime**.
+Each view supports search, sort, star filter (where applicable) and a type filter: **All / Movies / TV Shows / Seasons / Episodes / Anime**. Hovering a card reveals its actions - pin to Top 4, add to a list, and on your own watchlist, remove from it.
 
 ### Letterboxd sync
 1. In StarTrack, click the **⚙ Letterboxd** button in the topbar (or **My Ratings → ⚙ Preferences → Connected accounts**)
