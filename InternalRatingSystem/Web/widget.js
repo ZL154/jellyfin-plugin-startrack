@@ -948,6 +948,9 @@
             // [#24] Numbered steps for the Cloudflare cookie walkthrough. Uses
             // the same muted hint colour as the surrounding text so the list
             // reads as instructions rather than as a second UI.
+            '.ir-lb-cf-details{margin:6px 0 4px!important}',
+            '.ir-lb-cf-details>summary{cursor:pointer!important;font-size:.72em!important;color:rgba(255,255,255,.5)!important;padding:3px 0!important;list-style:revert!important}',
+            '.ir-lb-cf-details>summary:hover{color:rgba(255,255,255,.75)!important}',
             '.ir-lb-steps{margin:6px 0 10px!important;padding-left:20px!important;font-size:.72em!important;color:rgba(255,255,255,.55)!important;line-height:1.65!important}',
             '.ir-lb-steps li{margin-bottom:4px!important}',
             '.ir-lb-steps code{background:rgba(255,255,255,.09)!important;border-radius:3px!important;padding:1px 4px!important;font-size:.95em!important;color:#f4c430!important}',
@@ -1770,6 +1773,18 @@
               : 'Letterboxd is currently blocking automated reads of the watchlist and likes feeds (Cloudflare challenge). Diary sync still works. StarTrack will re-check every 6 hours; nothing to do on your side.');
     }
 
+    // [#24] Which of the two Cloudflare lines applies is server state, and the
+    // help block is built before that arrives \u2014 so both are rendered and this
+    // shows the right one once the account state lands.
+    function _lbApplySolverState(root, a) {
+        if (!root) return;
+        var on  = !!(a && a.solverConfigured);
+        var yes = root.querySelector('.ir-lb-cf-solver');
+        var no  = root.querySelector('.ir-lb-cf-nosolver');
+        if (yes) yes.hidden = !on;
+        if (no)  no.hidden  = on;
+    }
+
     // The 1-10 form of a star value. Whole numbers print as "7", not "7.0" \u2014
     // it is an integer scale. A community AVERAGE can land between positions,
     // so 3.75 becomes "7.5"; that is honest, since the average is not a rating
@@ -1933,8 +1948,24 @@
         var h = function (t) {
             return '<div class="' + hintClass + '" data-tr="' + t.replace(/"/g, '&quot;') + '">' + t + '</div>';
         };
+        // [#24, khutede] Lead with the routes that work. The cookie paste is a
+        // stopgap that fails for most people - Cloudflare pins the clearance to
+        // the browser's IP and User-Agent and expires it within the hour - and
+        // leading with it had a user paste it correctly, twice, and conclude
+        // the plugin was broken. None of this is needed to IMPORT: that takes a
+        // username. It is only sign-in, for pushing back, that is challenged.
         return '' +
-            h('Cloudflare sometimes challenges the sign-in. Pasting the cookies from a browser that has already passed the challenge gets you through it.') +
+            h('Only signing in is challenged, and only automatic push needs it. Importing from Letterboxd needs your username and nothing else.') +
+            h('Sending your ratings back does not need a login either: "Download CSV for letterboxd.com/import" above works with no password, no cookies and no expiry, and it is the only route that works for accounts with two-factor authentication. If sign-in keeps failing, use it - it is the supported route, not a workaround.') +
+            '<div class="ir-lb-cf-solver" hidden>' +
+                h('\u2713 This server has FlareSolverr configured, which is what makes likes, Top 4 and "Sync everything" work. Try Verify login with the cookie boxes left EMPTY first - a stale cookie is worse than none.') +
+            '</div>' +
+            '<div class="ir-lb-cf-nosolver">' +
+                h('Ask your admin to set a FlareSolverr URL (Dashboard \u2192 Plugins \u2192 StarTrack). It is what makes likes, Top 4 and "Sync everything" work, because those pages are fetched by its browser rather than by your server.') +
+            '</div>' +
+            h('Be warned that sign-in is the one thing no cookie reliably fixes: Cloudflare ties a clearance to the browser that earned it - its IP, its User-Agent and its TLS fingerprint - so a cookie that works in your browser can still be refused from a server, and the same goes for one FlareSolverr earned.') +
+            h('No FlareSolverr? "Download CSV for letterboxd.com/import" above sends your ratings back with no password, no cookies and no expiry - and it is the only route that works for accounts with two-factor authentication.') +
+            '<details class="ir-lb-cf-details"><summary data-tr="Paste browser cookies instead (stopgap)">Paste browser cookies instead (stopgap)</summary>' +
             '<ol class="ir-lb-steps">' +
                 '<li data-tr="Open letterboxd.com and sign in, using a browser on the same network as this Jellyfin server.">Open letterboxd.com and sign in, using a browser on the same network as this Jellyfin server.</li>' +
                 '<li data-tr="Press F12, open the Network tab, then reload the page.">Press F12, open the Network tab, then reload the page.</li>' +
@@ -1945,8 +1976,10 @@
             '</ol>' +
             '<input type="text" class="' + prefix + '-cookies" placeholder="cf_clearance=...; letterboxd.signed.in=..." />' +
             '<input type="text" class="' + prefix + '-ua" placeholder="Mozilla/5.0 ..." />' +
+            h('The Cookie value must come from Request Headers, not the Cookies tab - the Cookies tab shows them one per row and pasting that back does not reconstruct the header.') +
             h('Same network matters: Cloudflare ties cf_clearance to the browser AND the public IP it was issued to, and the request is made by your server, not your browser. Cookies copied over mobile data or a VPN will be refused however carefully they are pasted.') +
-            h('They also expire within the hour, so this is a stopgap rather than a setup step. If you would rather not repeat it: "Download CSV for letterboxd.com/import" above needs no password and no cookies, and never expires.');
+            h('They also expire within the hour, so this is a stopgap rather than a setup step. If Verify login still fails with a correct paste, that is Cloudflare refusing the server rather than anything you did - use the CSV route instead.') +
+            '</details>';
     }
 
     function buildStarInputHtml() {
@@ -2624,6 +2657,7 @@
                 else if (a.lastPushedAt) ovPushStatus(
                     tr('lb.last_pushed', null, 'Last pushed') + ' ' + timeAgo(a.lastPushedAt) +
                     (a.lastPushedCount ? ' \u2014 ' + a.lastPushedCount : ''), '');
+                _lbApplySolverState(ovLbStatus && ovLbStatus.closest ? ovLbStatus.closest('.ir-ov-lb, .ir-ov-panel, .ir-ov') : null, a);
                 var ovNote = _lbFeedsChallengedNote(a);
                 if (ovNote && ovLbStatus) { ovLbStatus.textContent = '⚠ ' + ovNote; ovLbStatus.className = 'ir-ov-lb-status'; }
             });
@@ -7102,6 +7136,7 @@
                 else if (a.lastPushedAt) showPushStatus(
                     tr('lb.last_pushed', null, 'Last pushed') + ' ' + timeAgo(a.lastPushedAt) +
                     (a.lastPushedCount ? ' \u2014 ' + a.lastPushedCount : ''), '');
+                _lbApplySolverState(lbStatus && lbStatus.closest ? lbStatus.closest('.ir-lb, .ir-panel, #ir-widget') : null, a);
                 var lbNote = _lbFeedsChallengedNote(a);
                 if (lbNote && lbStatus) { lbStatus.textContent = '⚠ ' + lbNote; lbStatus.className = 'ir-lb-status'; }
             });

@@ -137,6 +137,26 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         }
 
         /// <summary>
+        /// What to actually do about a Cloudflare block, in the order that
+        /// works.
+        ///
+        /// [#24, khutede] The old text said "paste raw browser cookies
+        /// including cf_clearance" and nothing else. That route is the least
+        /// likely of the three to work — Cloudflare pins the clearance to the
+        /// User-Agent AND the public IP that earned it, expires it in about
+        /// half an hour, and inspects the TLS handshake as well, which is why a
+        /// cookie that works in the browser it came from is routinely refused
+        /// from a server. Sending someone back to it twice reads as "the plugin
+        /// is broken". Say what the fix is instead.
+        /// </summary>
+        private static string CloudflareAdvice(string what) =>
+            what + " Two things to know. " +
+            "First, this only blocks SIGNING IN, which only automatic push needs \u2014 importing from Letterboxd needs your username and nothing else, and \"Download CSV for letterboxd.com/import\" sends your ratings back with no password, no cookies and no expiry. That is the route that always works. " +
+            "Second, nothing you paste is guaranteed to get a server through this one: Cloudflare ties a cf_clearance to the browser that earned it \u2014 its IP, its User-Agent and its TLS fingerprint \u2014 so a cookie that works in your browser is often refused from a server, and the same is true of one a FlareSolverr earned. " +
+            "A FlareSolverr is still worth configuring (Dashboard \u2192 Plugins \u2192 StarTrack): it is what makes likes, Top 4 and \"Sync everything\" work, because those pages are fetched by its browser rather than by us. " +
+            "If sign-in keeps failing, use the CSV \u2014 it is not a workaround, it is the supported route.";
+
+        /// <summary>
         /// Signs in and retains the session cookies.
         /// Never throws for expected failure modes — returns a status instead.
         /// </summary>
@@ -152,8 +172,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 var csrf = await BootstrapCsrfAsync(ct).ConfigureAwait(false);
                 if (csrf == null)
                     return new LetterboxdAuthResult(LetterboxdAuthStatus.Cloudflare,
-                        "Could not reach the Letterboxd sign-in page (Cloudflare or a markup change). " +
-                        "Paste raw browser cookies including cf_clearance, with the matching User-Agent.");
+                        CloudflareAdvice("Cloudflare is challenging the Letterboxd sign-in page, so signing in from a server was refused."));
 
                 using var req = new HttpRequestMessage(HttpMethod.Post, "/user/login.do")
                 {
@@ -173,8 +192,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
 
                 if (res.StatusCode == HttpStatusCode.Forbidden)
                     return new LetterboxdAuthResult(LetterboxdAuthStatus.Cloudflare,
-                        "Letterboxd returned 403 on sign-in — almost always Cloudflare. " +
-                        "Paste raw browser cookies including cf_clearance.");
+                        CloudflareAdvice("Letterboxd returned 403 on sign-in — that is Cloudflare, not your password."));
 
                 // The login endpoint answers with a small JSON blob.
                 if (body.Contains("\"result\":\"success\"", StringComparison.OrdinalIgnoreCase) ||

@@ -51,12 +51,14 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         /// clearance is cached server-wide and reused until Letterboxd rejects
         /// it, so most pushes never touch the solver.
         /// </summary>
-        private async Task<LetterboxdSession> OpenSessionAsync(LetterboxdUserSettings settings, CancellationToken ct)
+        private Task<LetterboxdSession> OpenSessionAsync(LetterboxdUserSettings settings, CancellationToken ct)
+            => OpenSessionAsync(LetterboxdSecretProtector.Unprotect(settings.RawCookiesEnc), settings.UserAgent, ct);
+
+        private async Task<LetterboxdSession> OpenSessionAsync(string? manualCookies, string? userAgent, CancellationToken ct)
         {
-            var manualCookies = LetterboxdSecretProtector.Unprotect(settings.RawCookiesEnc);
             if (!string.IsNullOrWhiteSpace(manualCookies))
             {
-                var manual = new LetterboxdSession(_logger, settings.UserAgent);
+                var manual = new LetterboxdSession(_logger, userAgent);
                 manual.SeedRawCookies(manualCookies);
                 return manual;
             }
@@ -84,7 +86,7 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
                 }
             }
 
-            return new LetterboxdSession(_logger, settings.UserAgent);
+            return new LetterboxdSession(_logger, userAgent);
         }
 
         /// <summary>
@@ -151,9 +153,42 @@ namespace Jellyfin.Plugin.InternalRating.Letterboxd
         public async Task<LetterboxdAuthResult> VerifyAsync(
             string username, string password, string? rawCookies, string? userAgent, CancellationToken ct = default)
         {
-            using var session = new LetterboxdSession(_logger, userAgent);
-            session.SeedRawCookies(rawCookies);
-            return await session.AuthenticateAsync(username, password, ct).ConfigureAwait(false);
+            // [#24, khutede] Two bugs met here.
+            //
+            // One: this built a bare session from the pasted cookies alone. It
+            // never touched FlareSolverr, while a real push did — so a server
+            // that was configured correctly still failed "Verify login" with
+            // "paste raw browser cookies including cf_clearance", sending the
+            // user back to the one route that cannot be made to work reliably.
+            //
+            // Two: pasted cookies were used and never questioned. A stale or
+            // mis-copied cf_clearance is WORSE than none — Cloudflare treats a
+            // bad clearance as a signal in itself — so a user who pasted
+            // cookies once could never sign in again, however healthy the
+            // server's own connection was, and the failure told them to paste
+            // more cookies.
+            //
+            // So: try it their way, then try it without their cookies, then try
+            // it on a freshly solved challenge. Whichever works, works.
+            var attempts = new List<(string? Cookies, bool FreshSolve)> { (rawCookies, false) };
+            if (!string.IsNullOrWhiteSpace(rawCookies)) attempts.Add((null, false));
+            if (FlareSolverrClient.IsConfigured)       attempts.Add((null, true));
+
+            LetterboxdAuthResult? last = null;
+            foreach (var (cookies, freshSolve) in attempts)
+            {
+                if (freshSolve) LetterboxdClearance.Drop();
+
+                using var session = await OpenSessionAsync(cookies, userAgent, ct).ConfigureAwait(false);
+                last = await session.AuthenticateAsync(username, password, ct).ConfigureAwait(false);
+
+                // Only a Cloudflare block is worth another attempt: a wrong
+                // password is wrong however the connection was opened, and
+                // hammering sign-in with it is how accounts get locked.
+                if (last.Status != LetterboxdAuthStatus.Cloudflare) return last;
+            }
+
+            return last ?? new LetterboxdAuthResult(LetterboxdAuthStatus.Cloudflare, "Letterboxd sign-in could not be reached.");
         }
 
         /// <summary>

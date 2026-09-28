@@ -601,6 +601,7 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 LastPushedAt      = s.LastPushedAt,
                 LastPushedCount   = s.LastPushedCount,
                 LastPushError     = s.LastPushError,
+                SolverConfigured     = FlareSolverrClient.IsConfigured,
                 FeedsChallenged      = LetterboxdFeedGate.IsClosed,
                 FeedsChallengedSince = LetterboxdFeedGate.ClosedSince,
                 FeedsRetryAt         = LetterboxdFeedGate.RetryAt
@@ -783,6 +784,15 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             /// likes feeds. Server-wide, not per user — the challenge is against
             /// the server's IP. Diary sync is unaffected. See LetterboxdFeedGate.
             /// </summary>
+            /// <summary>
+            /// True when an admin has configured a FlareSolverr URL, so the
+            /// server can pass the challenge itself. [#24] Without this the
+            /// panel could only offer the cookie fallback, and a user whose
+            /// server was already set up correctly had no way to know that and
+            /// went on pasting cookies that Cloudflare was never going to take.
+            /// </summary>
+            [JsonPropertyName("solverConfigured")]     public bool      SolverConfigured     { get; set; }
+
             [JsonPropertyName("feedsChallenged")]      public bool      FeedsChallenged      { get; set; }
             [JsonPropertyName("feedsChallengedSince")] public DateTime? FeedsChallengedSince { get; set; }
             [JsonPropertyName("feedsRetryAt")]         public DateTime? FeedsRetryAt         { get; set; }

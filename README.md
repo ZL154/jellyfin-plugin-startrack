@@ -165,17 +165,26 @@ solves the challenge in a real headless browser - the same tool Prowlarr, Jacket
 and Sonarr use for the same wall, so if you run those you already have one.
 Put its URL in **Dashboard → Plugins → StarTrack → FlareSolverr URL**, and:
 
-- **likes sync, Top 4 import and Sync everything** work, wherever FlareSolverr runs
-- **automatic push** works **only if FlareSolverr leaves for the internet from
-  the same IP as Jellyfin**. Cloudflare ties its clearance cookie to the IP, so a
-  FlareSolverr behind a VPN (common - people run it next to their download
-  stack) can fetch pages for you but cannot sign you in. The self-check tells
-  you which situation you are in.
+- **Reading works.** Likes sync, Top 4 import and **Sync everything** go through
+  FlareSolverr wherever it runs, because those pages are fetched *by its browser*.
+- **Signing in is different, and worth being plain about.** For sign-in there is
+  no page to hand over - StarTrack has to post your credentials itself, using the
+  clearance cookie FlareSolverr earned. Cloudflare ties a clearance to the browser
+  that earned it: its IP, its User-Agent *and* its TLS handshake. Our HTTP client
+  matches none of those, so a borrowed clearance is often refused however it was
+  obtained. Measured against live Letterboxd: sign-in sometimes goes straight
+  through with no cookie at all, and sometimes fails with a freshly solved one.
 
-The older escape hatch - pasting a `cf_clearance` cookie and User-Agent from your
-browser - still exists and still takes priority if set, but it is bound to your
-IP, expires within the hour, and cannot work for 2FA accounts. FlareSolverr is
-that trick done automatically.
+**So if you want to send ratings back, use "Download CSV for letterboxd.com/import".**
+No password, no cookies, nothing to expire, and it is the only route that works
+for accounts with two-factor authentication. Automatic push remains available and
+works when Cloudflare lets it, but it is the fragile half by nature, not by
+oversight.
+
+Pasting a `cf_clearance` cookie and User-Agent from your browser still works as a
+stopgap and still takes priority if set - but a **stale** paste is worse than
+none, because Cloudflare reads a bad clearance as a signal in itself. If sign-in
+has stopped working, clear those two boxes before you try anything else.
 - **Export CSV** - download your StarTrack ratings in Letterboxd-compatible format for backup or migration
 - **Diagnose** button - runs the library matcher and shows you exactly how many movies are indexed, how many duplicates exist, and how titles are normalised
 - **Clean dead ratings** button - removes ratings that point to library items whose underlying file no longer exists (post-HDD-failure cleanup)
