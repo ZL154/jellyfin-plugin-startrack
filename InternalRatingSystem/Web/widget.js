@@ -947,6 +947,9 @@
             // the "View all →" button or the main rating controls.
             '.ir-hdr-link{color:#f4c430!important;background:none!important;border:none!important;cursor:pointer!important;padding:0 8px!important;font-size:1.25em!important;line-height:1!important;display:inline-flex!important;align-items:center!important;opacity:.9!important}',
             '.ir-hdr-link:hover{opacity:1!important;transform:scale(1.1)!important}',
+            // As a toolbar nav link it inherits the theme's button styling from
+            // the sibling it was cloned from; only the star gets our colour.
+            '.ir-hdr-navlink{color:#f4c430!important;transform:none!important;opacity:1!important;font-size:inherit!important;padding:6px 8px!important;white-space:nowrap!important;text-decoration:none!important}',
             '.ir-myr-open-btn{width:100%!important;margin-top:8px!important;background:rgba(244,196,48,.10)!important;border:1px solid rgba(244,196,48,.30)!important;color:#f4c430!important;border-radius:8px!important;padding:8px!important;font-size:.82em!important;font-weight:600!important;cursor:pointer!important;transition:background .15s,border-color .15s!important}',
             '.ir-myr-open-btn:hover{background:rgba(244,196,48,.18)!important;border-color:rgba(244,196,48,.55)!important}',
             '.ir-lb-open-btn{display:block!important;width:100%!important;margin-top:10px!important;background:none!important;border:1px dashed rgba(244,196,48,.28)!important;color:rgba(244,196,48,.75)!important;border-radius:6px!important;padding:6px 10px!important;font-size:.76em!important;font-weight:600!important;cursor:pointer!important;text-align:center!important;letter-spacing:.02em!important;transition:all .15s!important}',
@@ -1826,6 +1829,15 @@
             case 'both': return v.toFixed(1) + ' (' + _tenOf(v) + '/10)';
             default:     return v.toFixed(1);
         }
+    }
+
+    // The panel's "you gave it this" caption. In /10 mode the star glyph is
+    // dropped and a separate phrasing used: "5/10 \u2605 selected" reads as five
+    // stars, which is the confusion the mode exists to avoid.
+    function _selectedCaption(v) {
+        return _STARTRACK_CONFIG.ratingDisplayMode === 'ten'
+            ? tr('ui.panel.score_selected', { n: _fmtScore(v) }, _fmtScore(v) + ' selected')
+            : tr('ui.panel.stars_selected', { n: _fmtScore(v) }, _fmtScore(v) + ' \u2605 selected');
     }
 
     // A score with the star glyph after it, the way the compact readouts write
@@ -6691,9 +6703,35 @@
     // pages where StarTrack hides (video player, dashboard).
     function injectHeaderButton() {
         if (document.getElementById('ir-hdr-link')) return;
+
+        // Jellyfin 12.1 replaced the old chrome with a Material-UI app bar: the
+        // drawer is gone from the layout and .skinHeader/.headerRight are still
+        // in the DOM but display:none, so a link injected there is invisible.
+        // The nav lives in the toolbar's first MuiStack, next to Favourites and
+        // Movies — that is the "top bar nav link" #27 asked for. Match the
+        // siblings by CLONING one of their class lists: MUI's class names are
+        // generated per build, so copying beats guessing at them.
+        var stack = document.querySelector('.MuiToolbar-root .MuiStack-root');
+        if (stack && stack.offsetParent !== null) {
+            var sibling = stack.querySelector('a.MuiButton-root, a.MuiButtonBase-root');
+            var a = document.createElement('a');
+            a.id = 'ir-hdr-link';
+            a.href = 'javascript:void(0)';
+            a.className = (sibling ? sibling.className + ' ' : '') + 'ir-hdr-navlink';
+            a.setAttribute('aria-label', 'My Ratings');
+            a.title = 'My Ratings';
+            a.textContent = '★ My Ratings';
+            a.addEventListener('click', function (e) {
+                e.preventDefault(); e.stopPropagation(); openMyRatings();
+            });
+            stack.appendChild(a);
+            return;
+        }
+
+        // Older layouts: the icon row at the right of the classic header.
+        // offsetParent is null for display:none — if the header is not on
+        // screen there is nothing to attach to and nothing to do.
         var host = document.querySelector('.headerRight') || document.querySelector('.skinHeader');
-        // offsetParent is null for display:none — on layouts that hide the
-        // header entirely there is nothing to attach to and nothing to do.
         if (!host || host.offsetParent === null) return;
 
         var b = document.createElement('button');
@@ -6817,7 +6855,7 @@
         setStarDisplay(myVal);
 
         var yc = el.querySelector('.ir-yc'), rb = el.querySelector('.ir-rb'), submit = el.querySelector('.ir-submit'), rev = el.querySelector('.ir-rev');
-        yc.textContent     = myVal ? tr('ui.panel.stars_selected', { n: _fmtScore(myVal) }, _fmtScore(myVal) + ' \u2605 selected') : '';
+        yc.textContent     = myVal ? _selectedCaption(myVal) : '';
         rb.style.display   = myVal ? '' : 'none';
         submit.textContent = myVal ? '\u2605 Update Rating' : '\u2605 Save Rating';
         submit.classList.toggle('ir-ready', myVal > 0);
@@ -7126,7 +7164,7 @@
                 e.stopPropagation();
                 _pendingStars = v;
                 setStarDisplay(v);
-                yc.textContent = tr('ui.panel.stars_selected', { n: _fmtScore(v) }, _fmtScore(v) + ' \u2605 selected');
+                yc.textContent = _selectedCaption(v);
                 submit.classList.add('ir-ready');
             });
         });
@@ -7144,7 +7182,7 @@
                     e.preventDefault(); e.stopPropagation();
                     _pendingStars = full;
                     setStarDisplay(full);
-                    yc.textContent = tr('ui.panel.stars_selected', { n: _fmtScore(full) }, _fmtScore(full) + ' \u2605 selected');
+                    yc.textContent = _selectedCaption(full);
                     submit.classList.add('ir-ready');
                 }
             });

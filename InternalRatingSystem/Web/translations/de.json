@@ -750,5 +750,6 @@
   "cfg.lb_fullsync": "⟳ Alles synchronisieren",
   "cfg.lb_fullsync_tip": "Den gesamten Letterboxd-Verlauf dieser Person importieren: jede Bewertung, auch von Filmen ohne Tagebucheintrag, und jeden Tagebucheintrag. Kann gefahrlos wiederholt werden.",
   "card.remove_from_watchlist_title": "Von der Merkliste entfernen",
-  "btn.open_my_ratings_title": "Meine Bewertungen öffnen"
+  "btn.open_my_ratings_title": "Meine Bewertungen öffnen",
+  "ui.panel.score_selected": "{n} ausgewählt"
 }

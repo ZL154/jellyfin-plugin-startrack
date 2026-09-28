@@ -750,5 +750,6 @@
   "cfg.lb_fullsync": "⟳ すべて同期",
   "cfg.lb_fullsync_tip": "このユーザーの Letterboxd 履歴全体をインポートします。評価はすべて（日記に記録していない映画も含む）、日記の項目もすべて。再実行しても安全です。",
   "card.remove_from_watchlist_title": "ウォッチリストから削除",
-  "btn.open_my_ratings_title": "マイ評価を開く"
+  "btn.open_my_ratings_title": "マイ評価を開く",
+  "ui.panel.score_selected": "{n} を選択"
 }

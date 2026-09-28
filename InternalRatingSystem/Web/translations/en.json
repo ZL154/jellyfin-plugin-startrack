@@ -750,5 +750,6 @@
   "cfg.lb_fullsync": "⟳ Sync everything",
   "cfg.lb_fullsync_tip": "Import this user’s entire Letterboxd history: every rating, including films rated but never logged, and every diary entry. Safe to run again.",
   "card.remove_from_watchlist_title": "Remove from watchlist",
-  "btn.open_my_ratings_title": "Open My Ratings"
+  "btn.open_my_ratings_title": "Open My Ratings",
+  "ui.panel.score_selected": "{n} selected"
 }
