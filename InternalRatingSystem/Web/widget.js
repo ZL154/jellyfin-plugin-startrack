@@ -320,9 +320,75 @@
                     for (var k in cfg) _STARTRACK_CONFIG[k] = cfg[k];
                     applyRatingSize();
                     hookSizeResize();
+                    try { checkForStaleWidget(cfg.widgetToken); } catch (e) {}
                 }
             })
             .catch(function () {});
+    }
+
+    // [#20, robwoodok] A browser that has Jellyfin's index.html in its cache
+    // keeps requesting the OLD widget URL, so a plugin update changes nothing
+    // for it — silently, for as long as the cache lives. The user sees an
+    // outdated StarTrack and no reason why. It has cost a user a month of
+    // blaming Firefox, and us two debugging sessions.
+    //
+    // The server can't fix that: it never gets asked. The page can, because it
+    // knows both numbers — the token it was loaded with, and the token the
+    // server says is current. If they differ, the code running here is stale.
+    //
+    // Deliberately: TELL, never reload. An automatic reload risks looping
+    // behind a caching proxy that will keep serving the same stale page, and
+    // pulling the page out from under someone mid-rating is worse than the bug
+    // being fixed. Also fails silent — a false "you are out of date" is worse
+    // than staying quiet.
+    function _myWidgetToken() {
+        try {
+            var tag = document.querySelector('script[src*="/Plugins/StarTrack/Widget"]');
+            if (!tag) return null;
+            var m = (tag.getAttribute('src') || '').match(/[?&]v=([A-Za-z0-9]+)/);
+            return m ? m[1] : null;
+        } catch (e) { return null; }
+    }
+
+    function checkForStaleWidget(serverToken) {
+        if (!serverToken) return;                   // older server, or no answer
+        var mine = _myWidgetToken();
+        if (!mine || mine === serverToken) return;  // unknown or current: say nothing
+
+        // One nudge per server version per tab. Dismiss it and it stays gone
+        // until the server ships something newer still.
+        var key = 'startrack_stale_seen';
+        try { if (sessionStorage.getItem(key) === serverToken) return; } catch (e) {}
+
+        // Never two of them. A page can end up running widget.js more than
+        // once — a leftover duplicate script tag is the whole subject of #13
+        // and #22 — and a stack of identical bars would look like a fault in
+        // its own right.
+        if (document.getElementById('ir-stale-bar')) return;
+
+        var bar = document.createElement('div');
+        bar.id = 'ir-stale-bar';
+        bar.innerHTML =
+            '<span class="ir-stale-msg" data-tr="StarTrack has been updated. Reload the page to get the current version.">' +
+                'StarTrack has been updated. Reload the page to get the current version.</span>' +
+            '<button class="ir-stale-reload" data-tr="Reload">Reload</button>' +
+            '<button class="ir-stale-x" title="Dismiss" aria-label="Dismiss">\u2715</button>';
+        bar.querySelector('.ir-stale-reload').addEventListener('click', function () {
+            // location.reload() alone can be served from cache again; a changed
+            // URL cannot be.
+            try {
+                var u = new URL(window.location.href);
+                u.searchParams.set('st', Date.now().toString(36));
+                window.location.replace(u.toString());
+            } catch (e) { window.location.reload(); }
+        });
+        var dismiss = function () {
+            try { sessionStorage.setItem(key, serverToken); } catch (e) {}
+            if (bar.parentNode) bar.parentNode.removeChild(bar);
+        };
+        bar.querySelector('.ir-stale-x').addEventListener('click', dismiss);
+        document.body.appendChild(bar);
+        try { scrubTranslations(bar); } catch (e) {}
     }
 
     function startI18nWatchdog() {
@@ -945,6 +1011,11 @@
             // of both the item view and the recent view, so every panel state
             // has an obvious entry point into Letterboxd sync without fighting
             // the "View all →" button or the main rating controls.
+            '#ir-stale-bar{position:fixed!important;left:50%!important;bottom:18px!important;transform:translateX(-50%)!important;z-index:2147483645!important;display:flex!important;align-items:center!important;gap:10px!important;background:#1b1b1b!important;border:1px solid rgba(244,196,48,.45)!important;border-radius:10px!important;padding:10px 12px!important;box-shadow:0 8px 28px rgba(0,0,0,.75)!important;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif!important;font-size:.82em!important;color:#fff!important;max-width:92vw!important}',
+            '#ir-stale-bar .ir-stale-msg{flex:1!important;line-height:1.4!important}',
+            '#ir-stale-bar .ir-stale-reload{background:#f4c430!important;color:#161616!important;border:none!important;border-radius:6px!important;padding:6px 12px!important;font-weight:700!important;cursor:pointer!important;white-space:nowrap!important}',
+            '#ir-stale-bar .ir-stale-x{background:none!important;border:none!important;color:rgba(255,255,255,.5)!important;cursor:pointer!important;font-size:1em!important;padding:2px 4px!important}',
+            '#ir-stale-bar .ir-stale-x:hover{color:#fff!important}',
             '.ir-hdr-link{color:#f4c430!important;background:none!important;border:none!important;cursor:pointer!important;padding:0 8px!important;font-size:1.25em!important;line-height:1!important;display:inline-flex!important;align-items:center!important;opacity:.9!important}',
             '.ir-hdr-link:hover{opacity:1!important;transform:scale(1.1)!important}',
             // As a toolbar nav link it inherits the theme's button styling from

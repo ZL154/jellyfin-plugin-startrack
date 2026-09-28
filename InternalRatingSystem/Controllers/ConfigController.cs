@@ -57,7 +57,13 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 ratingDisplayMode             = (cfg.RatingDisplayMode == "both" || cfg.RatingDisplayMode == "ten" ? cfg.RatingDisplayMode : "stars"),
                 ratingSize                    = (cfg.RatingSize == "large" || cfg.RatingSize == "largetv" ? cfg.RatingSize : "normal"),
                 hiddenOverlayViews            = hiddenViews,
-                supportedLanguages            = SupportedLanguages
+                supportedLanguages            = SupportedLanguages,
+                // The token of the widget THIS server would serve. The script
+                // running in the browser carries its own in ?v=. When a cached
+                // index.html keeps an old tag alive the two disagree, and the
+                // page is quietly running last month's code — see the nudge in
+                // widget.js. This response is no-store, so it is always current.
+                widgetToken                   = WidgetAsset.Version
             });
         }
 

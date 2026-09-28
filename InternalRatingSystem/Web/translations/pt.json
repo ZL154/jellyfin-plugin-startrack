@@ -751,5 +751,7 @@
   "cfg.lb_fullsync_tip": "Importar todo o histórico Letterboxd deste utilizador: todas as classificações, incluindo filmes classificados mas nunca registados, e todas as entradas de diário. Pode ser repetido em segurança.",
   "card.remove_from_watchlist_title": "Remover da lista para assistir",
   "btn.open_my_ratings_title": "Abrir As minhas avaliações",
-  "ui.panel.score_selected": "{n} selecionado"
+  "ui.panel.score_selected": "{n} selecionado",
+  "ui.stale.msg": "O StarTrack foi atualizado. Recarregue a página para obter a versão atual.",
+  "ui.stale.reload": "Recarregar"
 }

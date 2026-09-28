@@ -751,5 +751,7 @@
   "cfg.lb_fullsync_tip": "このユーザーの Letterboxd 履歴全体をインポートします。評価はすべて（日記に記録していない映画も含む）、日記の項目もすべて。再実行しても安全です。",
   "card.remove_from_watchlist_title": "ウォッチリストから削除",
   "btn.open_my_ratings_title": "マイ評価を開く",
-  "ui.panel.score_selected": "{n} を選択"
+  "ui.panel.score_selected": "{n} を選択",
+  "ui.stale.msg": "StarTrack が更新されました。ページを再読み込みして最新版を取得してください。",
+  "ui.stale.reload": "再読み込み"
 }

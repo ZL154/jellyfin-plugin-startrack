@@ -751,5 +751,7 @@
   "cfg.lb_fullsync_tip": "导入该用户的完整 Letterboxd 历史：所有评分（包括评过分但从未记录的影片）和所有日记条目。可安全重复运行。",
   "card.remove_from_watchlist_title": "从想看列表中移除",
   "btn.open_my_ratings_title": "打开我的评分",
-  "ui.panel.score_selected": "已选 {n}"
+  "ui.panel.score_selected": "已选 {n}",
+  "ui.stale.msg": "StarTrack 已更新。请重新加载页面以获取当前版本。",
+  "ui.stale.reload": "重新加载"
 }

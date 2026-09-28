@@ -420,13 +420,24 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 new
                 {
                     id     = "injection",
-                    label  = "Injected into the web UI",
-                    ok     = injected || !found,
+                    // [#20, robwoodok] This used to be labelled "Injected into
+                    // the web UI" and could say "not injected" about a server
+                    // that was injecting perfectly well, just by the other
+                    // route — which read as a fault and sent a user hunting a
+                    // bug that did not exist. Say WHICH route is in use.
+                    label  = "How the script reaches the browser",
+                    // All three of these are working states, so none of them is
+                    // red. The old code turned "index.html is read-only" — the
+                    // normal situation on a containerised server, including the
+                    // one this was written on — into a red row, and a user hunted
+                    // a bug that did not exist. Real injection failures show up
+                    // in the browser-side checks, which is where they belong.
+                    ok     = true,
                     detail = injected
-                        ? $"index.html patched at {WebInjectionService.DiagPatchedPath}."
+                        ? $"Written into index.html on disk ({WebInjectionService.DiagPatchedPath})."
                         : found
-                            ? "index.html was found but could not be written. The HTTP middleware normally covers this on its own — if the widget loads in a browser, nothing is wrong."
-                            : "No index.html on disk to patch. Normal for containerised installs; the HTTP middleware injects instead."
+                            ? "Added to each page as it is served. StarTrack could not write to index.html (it is read-only, which is usual in Docker), so the server injects the tag into the response instead. This works — nothing to fix."
+                            : "Added to each page as it is served. There is no index.html on disk to patch, which is usual for containerised installs, so the server injects the tag into the response instead. This works — nothing to fix."
                 },
                 new
                 {

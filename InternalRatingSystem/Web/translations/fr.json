@@ -751,5 +751,7 @@
   "cfg.lb_fullsync_tip": "Importer tout l’historique Letterboxd de cet utilisateur : chaque note, y compris les films notés mais jamais consignés, et chaque entrée de journal. Peut être relancé sans risque.",
   "card.remove_from_watchlist_title": "Retirer de la liste de visionnage",
   "btn.open_my_ratings_title": "Ouvrir Mes notes",
-  "ui.panel.score_selected": "{n} sélectionné"
+  "ui.panel.score_selected": "{n} sélectionné",
+  "ui.stale.msg": "StarTrack a été mis à jour. Rechargez la page pour obtenir la version actuelle.",
+  "ui.stale.reload": "Recharger"
 }

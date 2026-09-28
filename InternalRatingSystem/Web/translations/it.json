@@ -751,5 +751,7 @@
   "cfg.lb_fullsync_tip": "Importa l’intera cronologia Letterboxd di questo utente: ogni valutazione, compresi i film valutati ma mai registrati, e ogni voce di diario. Può essere rieseguito senza rischi.",
   "card.remove_from_watchlist_title": "Rimuovi dalla watchlist",
   "btn.open_my_ratings_title": "Apri le mie valutazioni",
-  "ui.panel.score_selected": "{n} selezionato"
+  "ui.panel.score_selected": "{n} selezionato",
+  "ui.stale.msg": "StarTrack è stato aggiornato. Ricarica la pagina per ottenere la versione attuale.",
+  "ui.stale.reload": "Ricarica"
 }
