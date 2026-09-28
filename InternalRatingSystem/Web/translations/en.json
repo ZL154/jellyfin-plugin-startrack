@@ -748,5 +748,7 @@
   "lb.full_phase_top_4": "Top 4",
   "lb.full_phase_retrying_pending": "retrying films not yet in the library",
   "cfg.lb_fullsync": "⟳ Sync everything",
-  "cfg.lb_fullsync_tip": "Import this user’s entire Letterboxd history: every rating, including films rated but never logged, and every diary entry. Safe to run again."
+  "cfg.lb_fullsync_tip": "Import this user’s entire Letterboxd history: every rating, including films rated but never logged, and every diary entry. Safe to run again.",
+  "card.remove_from_watchlist_title": "Remove from watchlist",
+  "btn.open_my_ratings_title": "Open My Ratings"
 }

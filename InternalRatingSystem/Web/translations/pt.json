@@ -748,5 +748,7 @@
   "lb.full_phase_top_4": "Top 4",
   "lb.full_phase_retrying_pending": "a repetir filmes ainda não na biblioteca",
   "cfg.lb_fullsync": "⟳ Sincronizar tudo",
-  "cfg.lb_fullsync_tip": "Importar todo o histórico Letterboxd deste utilizador: todas as classificações, incluindo filmes classificados mas nunca registados, e todas as entradas de diário. Pode ser repetido em segurança."
+  "cfg.lb_fullsync_tip": "Importar todo o histórico Letterboxd deste utilizador: todas as classificações, incluindo filmes classificados mas nunca registados, e todas as entradas de diário. Pode ser repetido em segurança.",
+  "card.remove_from_watchlist_title": "Remover da lista para assistir",
+  "btn.open_my_ratings_title": "Abrir As minhas avaliações"
 }

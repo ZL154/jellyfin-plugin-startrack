@@ -748,5 +748,7 @@
   "lb.full_phase_top_4": "Top 4",
   "lb.full_phase_retrying_pending": "Filme, die noch nicht in der Bibliothek sind, werden erneut versucht",
   "cfg.lb_fullsync": "⟳ Alles synchronisieren",
-  "cfg.lb_fullsync_tip": "Den gesamten Letterboxd-Verlauf dieser Person importieren: jede Bewertung, auch von Filmen ohne Tagebucheintrag, und jeden Tagebucheintrag. Kann gefahrlos wiederholt werden."
+  "cfg.lb_fullsync_tip": "Den gesamten Letterboxd-Verlauf dieser Person importieren: jede Bewertung, auch von Filmen ohne Tagebucheintrag, und jeden Tagebucheintrag. Kann gefahrlos wiederholt werden.",
+  "card.remove_from_watchlist_title": "Von der Merkliste entfernen",
+  "btn.open_my_ratings_title": "Meine Bewertungen öffnen"
 }

@@ -413,7 +413,7 @@
         return h > 0 ? h + 'h ' + rem + 'm' : rem + 'm';
     }
 
-    function starsText(v) { return v ? v.toFixed(1) + ' ★' : ''; }
+    function starsText(v) { return v ? _fmtScoreStar(v) : ''; }
 
     // ── URL helpers ───────────────────────────────────────────────────────
 
@@ -589,9 +589,16 @@
             '.ir-yl{color:rgba(255,255,255,.65)!important;font-size:.85em!important;margin-bottom:6px!important;display:block!important}',
             '.ir-si{display:flex!important;gap:2px!important;margin-bottom:4px!important}',
             '.ir-sw{position:relative!important;display:inline-block!important;font-size:1.8em!important;width:1.1em!important;line-height:1!important;cursor:pointer!important;color:rgba(255,255,255,.2)!important;transition:transform .1s!important}',
-            '.ir-sw::before{content:"★"!important}',
+            // [#27, NSMY] The half fill looked "more like 2/3 than 1/2".
+            // The box is 1.1em but the glyph is about 1em wide and was laid out
+            // from the LEFT edge, so the glyph's own centre sat at ~45% of the
+            // box while the fill was clipped at 50% of the box — past the
+            // middle of the star, by the width of the slack. Centre both
+            // glyphs in the box and the glyph centre IS the 50% mark, whatever
+            // the font does with the advance width.
+            '.ir-sw::before{content:"★"!important;display:block!important;width:100%!important;text-align:center!important}',
             '.ir-sw.ir-full{color:#f4c430!important}',
-            '.ir-sw.ir-half::after{content:"★"!important;position:absolute!important;left:0!important;top:0!important;width:100%!important;height:100%!important;color:#f4c430!important;display:block!important;clip-path:inset(0 50% 0 0)!important}',
+            '.ir-sw.ir-half::after{content:"★"!important;position:absolute!important;left:0!important;top:0!important;width:100%!important;height:100%!important;color:#f4c430!important;display:block!important;text-align:center!important;clip-path:inset(0 50% 0 0)!important}',
             '.ir-sw:hover{transform:scale(1.2)!important}',
             '.ir-sl{position:absolute!important;left:0!important;top:0!important;width:50%!important;height:100%!important;z-index:1!important}',
             '.ir-sr{position:absolute!important;left:50%!important;top:0!important;width:50%!important;height:100%!important;z-index:1!important}',
@@ -929,6 +936,7 @@
             '.ir-ov-card-act-fav:hover{border-color:#f4c430!important;color:#f4c430!important;background:rgba(60,40,0,.9)!important}',
             '.ir-ov-card-act-list:hover{border-color:#60a5fa!important;color:#60a5fa!important;background:rgba(0,30,60,.9)!important}',
             '.ir-ov-card-act-x:hover{border-color:#ff5068!important;color:#ff5068!important;background:rgba(60,0,0,.9)!important}',
+            '.ir-ov-card-act-unwl:hover{border-color:#ff5068!important;color:#ff5068!important;background:rgba(60,0,0,.9)!important}',
             '.ir-ov-card-name{font-weight:700!important;font-size:.8em!important;color:#fff!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;line-height:1.3!important;text-shadow:0 1px 8px rgba(0,0,0,1),0 0 20px rgba(0,0,0,.9)!important}',
             '.ir-ov-card-meta{font-size:.68em!important;color:rgba(255,255,255,.7)!important;margin-top:3px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;text-shadow:0 1px 4px rgba(0,0,0,1)!important}',
             '.ir-ov-card-rev{font-size:.67em!important;color:rgba(255,255,255,.38)!important;margin-top:3px!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;font-style:italic!important}',
@@ -937,6 +945,10 @@
             // of both the item view and the recent view, so every panel state
             // has an obvious entry point into Letterboxd sync without fighting
             // the "View all →" button or the main rating controls.
+            '.ir-hdr-link{color:#f4c430!important;background:none!important;border:none!important;cursor:pointer!important;padding:0 8px!important;font-size:1.25em!important;line-height:1!important;display:inline-flex!important;align-items:center!important;opacity:.9!important}',
+            '.ir-hdr-link:hover{opacity:1!important;transform:scale(1.1)!important}',
+            '.ir-myr-open-btn{width:100%!important;margin-top:8px!important;background:rgba(244,196,48,.10)!important;border:1px solid rgba(244,196,48,.30)!important;color:#f4c430!important;border-radius:8px!important;padding:8px!important;font-size:.82em!important;font-weight:600!important;cursor:pointer!important;transition:background .15s,border-color .15s!important}',
+            '.ir-myr-open-btn:hover{background:rgba(244,196,48,.18)!important;border-color:rgba(244,196,48,.55)!important}',
             '.ir-lb-open-btn{display:block!important;width:100%!important;margin-top:10px!important;background:none!important;border:1px dashed rgba(244,196,48,.28)!important;color:rgba(244,196,48,.75)!important;border-radius:6px!important;padding:6px 10px!important;font-size:.76em!important;font-weight:600!important;cursor:pointer!important;text-align:center!important;letter-spacing:.02em!important;transition:all .15s!important}',
             '.ir-lb-open-btn:hover{background:rgba(244,196,48,.08)!important;border-color:#f4c430!important;color:#fff!important}',
             '.ir-lb-view{color:#fff!important}',
@@ -1794,6 +1806,36 @@
         return ten % 1 === 0 ? ten.toFixed(0) : ten.toFixed(1);
     }
 
+    // [#27, NSMY] "if using the 7-10 only rating in the dashboard settings,
+    // its not respected & cohesive in all aspects of the plugin".
+    //
+    // Correct, and the reason is that the setting was only ever applied to
+    // COMMUNITY AVERAGES. Every place that prints a rating SOMEONE GAVE — your
+    // own score in the panel, the recent list, the cards in My Ratings, the
+    // diary, the per-user breakdown — formatted it by hand as `v.toFixed(1)`,
+    // so a server set to /10 still said 4.0 in all of them. A score is a score:
+    // it goes through the same formatter as an average.
+    //
+    // _fmtScore is that formatter for a single rating. It differs from an
+    // average in one way only: a rating always lands on a real position of the
+    // scale, so /10 mode prints 7, never 7.5.
+    function _fmtScore(v) {
+        if (!(v > 0)) return '';
+        switch (_STARTRACK_CONFIG.ratingDisplayMode) {
+            case 'ten':  return _tenOf(v) + '/10';
+            case 'both': return v.toFixed(1) + ' (' + _tenOf(v) + '/10)';
+            default:     return v.toFixed(1);
+        }
+    }
+
+    // A score with the star glyph after it, the way the compact readouts write
+    // it. In /10 mode the star is dropped: "7/10 \u2605" reads as seven stars.
+    function _fmtScoreStar(v, sep) {
+        if (!(v > 0)) return '';
+        var txt = _fmtScore(v);
+        return _STARTRACK_CONFIG.ratingDisplayMode === 'ten' ? txt : txt + (sep || ' ') + '\u2605';
+    }
+
     // How an average is written, per the admin's RatingDisplayMode.
     // Used by all three places that show one: the media-page badge, the poster
     // badges and the floating pill \u2014 so a server can't end up saying 7/10 in one
@@ -2058,6 +2100,11 @@
                     '</div>' +
                     '<button class="ir-tb">Show all ratings \u25be</button>' +
                     '<div class="ir-list" style="display:none"></div>' +
+                    // [#28, NSMY] Only the "recent" view could reach My Ratings, via
+                    // "View all". From the rating view - where you actually are most of
+                    // the time - the only way in was the sidebar link, which the newer
+                    // Jellyfin layouts do not always show. So: a door on this side too.
+                    '<button class="ir-myr-open-btn" title="Open My Ratings">★ <span data-tr="My Ratings">My Ratings</span></button>' +
                     '<button class="ir-lb-open-btn" title="Connect your Letterboxd account">\u2699 Letterboxd sync</button>' +
                     '<button class="ir-lang-btn" title="Change language" style="background:none;border:none;color:rgba(255,255,255,.45);cursor:pointer;padding:4px 8px;font-size:.8em;margin-left:6px">\ud83c\udf10 <span class="ir-lang-label">EN</span></button>' +
                     // [v1.6.2] (#8, locksoft) Rating size now lives in My Ratings -> Preferences
@@ -2516,12 +2563,7 @@
                 '</div>' +
             '</div>';
 
-        _overlay.querySelector('.ir-ov-close').addEventListener('click', function () {
-            _overlay.classList.remove('ir-ov-open');
-            document.documentElement.classList.remove('ir-ov-locked');
-            document.body.classList.remove('ir-ov-locked');
-            document.documentElement.style.overflow = '';
-        });
+        _overlay.querySelector('.ir-ov-close').addEventListener('click', function () { closeOverlay(); });
         var prefsBtn = _overlay.querySelector('.ir-ov-prefs');
         if (prefsBtn) prefsBtn.addEventListener('click', openUserPreferences);
         _overlay.querySelector('.ir-ov-sort').addEventListener('change', function (e) {
@@ -3592,10 +3634,7 @@
             });
         });
         document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape' && _overlay && _overlay.classList.contains('ir-ov-open')) {
-                _overlay.classList.remove('ir-ov-open');
-                document.documentElement.style.overflow = '';
-            }
+            if (e.key === 'Escape' && _overlay && _overlay.classList.contains('ir-ov-open')) closeOverlay();
         });
 
         document.body.appendChild(_overlay);
@@ -3661,7 +3700,8 @@
         var badge = '';
         if (opts.showStars && typeof item.stars === 'number' && item.stars > 0) {
             var tier = starTierClass(item.stars);
-            badge = '<div class="ir-ov-card-stars-badge ' + tier + '">\u2605 ' + item.stars.toFixed(1) + '</div>';
+            badge = '<div class="ir-ov-card-stars-badge ' + tier + '">' +
+                    (_STARTRACK_CONFIG.ratingDisplayMode === 'ten' ? '' : '\u2605 ') + _fmtScore(item.stars) + '</div>';
         } else if (opts.badge) {
             badge = '<div class="ir-ov-card-stars-badge">' + esc(opts.badge) + '</div>';
         }
@@ -3675,7 +3715,15 @@
                 '<button class="ir-ov-card-act ir-ov-card-act-x" title="Remove from Top 4">\u2715</button>' +
                 '</div>';
         } else if (opts.cardActions !== false) {
+            // [#28, NSMY] Taking a film OFF your watchlist meant opening it and
+            // using the panel — the one list where "I am done with this" is the
+            // obvious thing to want. It sits with the other card actions, and
+            // only on your own watchlist: it would be meaningless on the
+            // combined everyone-scope view, where the entry is not yours.
             actionsHtml = '<div class="ir-ov-card-actions">' +
+                (opts.showUnwatchlist
+                    ? '<button class="ir-ov-card-act ir-ov-card-act-unwl" title="Remove from watchlist">\u2715</button>'
+                    : '') +
                 '<button class="ir-ov-card-act ir-ov-card-act-fav" title="Pin to Top 4 favorites">\u2605</button>' +
                 '<button class="ir-ov-card-act ir-ov-card-act-list" title="Add to a list">\u002b</button>' +
                 '</div>';
@@ -3721,6 +3769,28 @@
             e.stopPropagation();
             addToListPrompt(item.itemId);
         });
+        var unwlBtn = card.querySelector('.ir-ov-card-act-unwl');
+        if (unwlBtn) unwlBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            unwlBtn.disabled = true;
+            // Drop the card immediately — the list is the only thing on screen
+            // and waiting on a round-trip to redraw it reads as a dead button.
+            card.style.transition = 'opacity .15s, transform .15s';
+            card.style.opacity = '0';
+            card.style.transform = 'scale(.94)';
+            apiWatchlistRemove(item.itemId).then(function (ok) {
+                if (ok === false) {          // put it back rather than lie
+                    card.style.opacity = ''; card.style.transform = ''; unwlBtn.disabled = false;
+                    return;
+                }
+                card.remove();
+                if (_overlayData && _overlayData.items) {
+                    _overlayData.items = _overlayData.items.filter(function (x) { return x.itemId !== item.itemId; });
+                }
+            }).catch(function () {
+                card.style.opacity = ''; card.style.transform = ''; unwlBtn.disabled = false;
+            });
+        });
 
         card.addEventListener('click', function () { navigateToItem(item.itemId); });
         return card;
@@ -3736,10 +3806,7 @@
     //      Emby.Page.show), otherwise fall back to a hash assignment
     //   4. Pull focus away from anything that could be a menu trigger
     function navigateToItem(itemId) {
-        if (_overlay) {
-            _overlay.classList.remove('ir-ov-open');
-            document.documentElement.style.overflow = '';
-        }
+        closeOverlay(true);
         try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch (e) {}
 
         setTimeout(function () {
@@ -4034,7 +4101,7 @@
 
             var metaParts = [];
             if (dateStr) metaParts.push(dateStr);
-            if (hasRating) metaParts.push(starBar + ' <span class="ir-ov-diary-stars-num">' + item.stars.toFixed(1) + '</span>');
+            if (hasRating) metaParts.push(starBar + ' <span class="ir-ov-diary-stars-num">' + _fmtScore(item.stars) + '</span>');
             else           metaParts.push(starBar + ' <span style="color:rgba(255,255,255,.35)">unrated</span>');
 
             row.innerHTML =
@@ -4195,6 +4262,7 @@
         };
         if (_overlayView === 'watchlist') {
             opts.badge = (_watchlistScope === 'everyone') ? '\ud83d\udc65 Wanted' : '\u2606 Watchlist';
+            opts.showUnwatchlist = (_watchlistScope !== 'everyone');
             // For everyone-scope, the card builder will use item.wantedBy
             // to render the per-item user list as a sub-line.
             opts.showWantedBy = (_watchlistScope === 'everyone');
@@ -4845,7 +4913,7 @@
             gridWrap.querySelectorAll('.ir-act-row[data-iid]').forEach(function (row) {
                 row.addEventListener('click', function (ev) {
                     if (ev.target.closest('button,a')) return;
-                    try { if (_overlay) _overlay.classList.remove('ir-ov-open'); } catch (e) {}
+                    try { closeOverlay(true); } catch (e) {}
                     location.hash = '#!/details?id=' + encodeURIComponent(row.getAttribute('data-iid'));
                 });
             });
@@ -4994,9 +5062,9 @@
                             '<span class="ir-mem-cmp-row-meta">' +
                                 '<span class="ir-mem-cmp-row-title">' + esc(titleOf(r.itemId)) + '</span>' +
                                 '<span class="ir-mem-cmp-row-stars">' +
-                                    '<span class="ir-mem-cmp-row-side">' + esc(d.aName) + ' <b>' + r.aStars.toFixed(1) + '★</b></span>' +
+                                    '<span class="ir-mem-cmp-row-side">' + esc(d.aName) + ' <b>' + _fmtScoreStar(r.aStars, '') + '</b></span>' +
                                     '<span class="ir-mem-cmp-row-vs">vs</span>' +
-                                    '<span class="ir-mem-cmp-row-side">' + esc(d.bName) + ' <b>' + r.bStars.toFixed(1) + '★</b></span>' +
+                                    '<span class="ir-mem-cmp-row-side">' + esc(d.bName) + ' <b>' + _fmtScoreStar(r.bStars, '') + '</b></span>' +
                                 '</span>' +
                             '</span>' +
                             '<span class="ir-mem-cmp-row-delta" style="color:' + (r.delta > 0 ? '#60a5fa' : '#c084fc') + '">' + (r.delta > 0 ? '+' : '') + r.delta.toFixed(1) + '★</span>' +
@@ -5034,7 +5102,7 @@
             // Click compare row → film details
             gridWrap.querySelectorAll('.ir-mem-cmp-row[data-iid]').forEach(function (row) {
                 row.addEventListener('click', function () {
-                    try { if (_overlay) _overlay.classList.remove('ir-ov-open'); } catch (e) {}
+                    try { closeOverlay(true); } catch (e) {}
                     location.hash = '#!/details?id=' + encodeURIComponent(row.getAttribute('data-iid'));
                 });
             });
@@ -5207,7 +5275,7 @@
         function navigate(iid) {
             if (!iid) return;
             // Close StarTrack overlay so item details renders cleanly.
-            try { if (_overlay) _overlay.classList.remove('ir-ov-open'); } catch (e) {}
+            try { closeOverlay(true); } catch (e) {}
             // Also collapse the Jellyfin nav drawer if it's open. The web
             // client doesn't expose a direct "close drawer" API, so trigger
             // it via a click on the open backdrop or by stripping the open
@@ -5795,7 +5863,7 @@
                             ? '<div class="ir-mem-yearcard-top" data-iid="' + esc(y.topFilmId) + '">' +
                                 '<span class="ir-mem-yearcard-toplabel">' + esc(tr('stats.best_of', { year: (y.year|0) }, 'Best of {year}')) + ' ·</span> ' +
                                 '<span class="ir-mem-yearcard-toptitle">' + esc(y.topFilmTitle || '—') + '</span>' +
-                                '<span class="ir-mem-yearcard-topstars">' + (y.topFilmStars > 0 ? y.topFilmStars.toFixed(1) + '★' : '') + '</span>' +
+                                '<span class="ir-mem-yearcard-topstars">' + (y.topFilmStars > 0 ? _fmtScoreStar(y.topFilmStars, '') : '') + '</span>' +
                             '</div>'
                             : '') +
                     '</div>';
@@ -6255,7 +6323,7 @@
                     (yStat.mostWatchedDay ? '<div class="ir-mem-overview-tile"><span class="ir-mem-overview-v">' + esc(yStat.mostWatchedDay) + '</span><span class="ir-mem-overview-l">' + esc(tr('stats.most_watched_day_n', { n: (yStat.mostWatchedDayCount|0) }, 'most-watched day · {n} films')) + '</span></div>' : '') +
                     (yStat.peakDate    ? '<div class="ir-mem-overview-tile"><span class="ir-mem-overview-v">' + (yStat.peakDateCount|0) + '</span><span class="ir-mem-overview-l">' + esc(tr('stats.peak_day_d', { date: fmtShortDate(yStat.peakDate) }, 'peak day · {date}')) + '</span></div>' : '') +
                     (topDirector ? '<div class="ir-mem-overview-tile"><span class="ir-mem-overview-v">' + esc(topDirector.name) + '</span><span class="ir-mem-overview-l">' + esc(tr('stats.top_director_n', { n: (topDirector.count|0) }, 'top director · {n} films')) + '</span></div>' : '') +
-                    (yStat.topFilmTitle ? '<div class="ir-mem-overview-tile ir-mem-overview-clickable" data-iid="' + esc(yStat.topFilmId) + '"><span class="ir-mem-overview-v">' + (yStat.topFilmStars > 0 ? yStat.topFilmStars.toFixed(1) + '★' : '—') + '</span><span class="ir-mem-overview-l">' + esc(tr('stats.best_film', { title: yStat.topFilmTitle }, 'best · {title}')) + '</span></div>' : '') +
+                    (yStat.topFilmTitle ? '<div class="ir-mem-overview-tile ir-mem-overview-clickable" data-iid="' + esc(yStat.topFilmId) + '"><span class="ir-mem-overview-v">' + (yStat.topFilmStars > 0 ? _fmtScoreStar(yStat.topFilmStars, '') : '—') + '</span><span class="ir-mem-overview-l">' + esc(tr('stats.best_film', { title: yStat.topFilmTitle }, 'best · {title}')) + '</span></div>' : '') +
                 '</div>';
         }
 
@@ -6532,14 +6600,118 @@
         document.documentElement.classList.add('ir-ov-locked');
         document.body.classList.add('ir-ov-locked');
         document.documentElement.style.overflow = 'hidden';
+
+        // [#27, NSMY] With the overlay open, Back used to navigate the Jellyfin
+        // page behind it while the overlay stayed on screen — you appeared to
+        // go nowhere. Push one history entry when it opens, so Back pops that
+        // entry and closes the overlay instead. Jellyfin's router owns the
+        // hash, so the entry deliberately keeps the same URL: this adds a step
+        // to the stack without pretending to be a route.
+        try {
+            if (!_ovHistoryDepth) {
+                history.pushState({ stOverlay: true }, '', location.href);
+                _ovHistoryDepth = 1;
+            }
+        } catch (e) {}
         applyOverlayViewVisibility();
         loadOverlayView();
     }
+
+    // [#27, NSMY] Closing the overlay used to be open-coded in six places and
+    // only ONE of them undid everything. The close button removed the two
+    // ir-ov-locked classes and the inline overflow; Escape and navigateToItem
+    // cleared only the inline style; the three card/row click handlers cleared
+    // nothing at all. Since the lock is `overflow:hidden!important` on html AND
+    // body, clicking a film inside My Ratings left the whole Jellyfin web UI
+    // unscrollable until a reload — and going back did not help, because the
+    // class was still there. Navigating from the pill's recent list did not do
+    // it, which is what made it look arbitrary.
+    //
+    // So: one function, every caller, and it always undoes all three things.
+    // `navigating` = the caller is about to change the hash itself. Then the
+    // entry opening the overlay pushed must be LEFT alone: the caller's own
+    // navigation pushes on top of it, so Back from the film lands on the
+    // pre-overlay page exactly as it should. Rewinding here instead would race
+    // that navigation and could take the user somewhere neither of us meant.
+    function closeOverlay(navigating) {
+        var wasOpen = !!(_overlay && _overlay.classList.contains('ir-ov-open'));
+        if (_overlay) _overlay.classList.remove('ir-ov-open');
+        if (wasOpen && _ovHistoryDepth && !navigating) {
+            // Closed in place (X, Escape): hand back the entry it took, so one
+            // Back press still means "the page before StarTrack".
+            _ovHistoryDepth = 0;
+            try { if (history.state && history.state.stOverlay) history.back(); } catch (e) {}
+        } else if (wasOpen) {
+            _ovHistoryDepth = 0;
+        }
+        document.documentElement.classList.remove('ir-ov-locked');
+        document.body.classList.remove('ir-ov-locked');
+        document.documentElement.style.overflow = '';
+        document.body.style.overflow = '';
+    }
+
+    // Belt and braces: whatever happens, a page navigation must not leave the
+    // page locked. Any route out of the overlay that this file does not know
+    // about still ends with a scrollable UI.
+    window.addEventListener('hashchange', function () {
+        if (!_overlay || !_overlay.classList.contains('ir-ov-open')) {
+            document.documentElement.classList.remove('ir-ov-locked');
+            document.body.classList.remove('ir-ov-locked');
+            document.documentElement.style.overflow = '';
+            document.body.style.overflow = '';
+        }
+    });
+
+    // How many history entries the overlay has pushed (0 or 1).
+    var _ovHistoryDepth = 0;
+
+    window.addEventListener('popstate', function () {
+        if (_ovHistoryDepth && _overlay && _overlay.classList.contains('ir-ov-open')) {
+            _ovHistoryDepth = 0;
+            closeOverlay();
+        } else {
+            _ovHistoryDepth = 0;
+        }
+    });
 
     // Called by sync/import handlers after data changes to refresh the grid
     function loadMyRatings() { loadOverlayView(); }
 
     // ── Sidebar injection ─────────────────────────────────────────────────
+
+    // [#27, NSMY] "still works off old homepage style (side menu), no top bar
+    // nav link for the new Jellyfin Display mode."
+    //
+    // The sidebar link goes into the nav DRAWER, which the newer Jellyfin
+    // layouts do not always put on screen — so on those there was no way into
+    // My Ratings at all. The header is the one piece of chrome those layouts do
+    // keep, so put a star there as well. Deliberately conditional: it is only
+    // added when the header row is actually visible, so nothing changes for the
+    // layouts where the drawer already works, and it removes itself on the
+    // pages where StarTrack hides (video player, dashboard).
+    function injectHeaderButton() {
+        if (document.getElementById('ir-hdr-link')) return;
+        var host = document.querySelector('.headerRight') || document.querySelector('.skinHeader');
+        // offsetParent is null for display:none — on layouts that hide the
+        // header entirely there is nothing to attach to and nothing to do.
+        if (!host || host.offsetParent === null) return;
+
+        var b = document.createElement('button');
+        b.id = 'ir-hdr-link';
+        b.className = 'paper-icon-button-light ir-hdr-link';
+        b.title = 'My Ratings';
+        b.setAttribute('aria-label', 'My Ratings');
+        b.innerHTML = '<span class="ir-hdr-star">★</span>';
+        b.addEventListener('click', function (e) {
+            e.preventDefault(); e.stopPropagation(); openMyRatings();
+        });
+        host.insertBefore(b, host.firstChild);
+    }
+
+    function removeHeaderButton() {
+        var b = document.getElementById('ir-hdr-link');
+        if (b && b.parentNode) b.parentNode.removeChild(b);
+    }
 
     function injectSidebar() {
         if (document.getElementById('ir-nav-link')) return;
@@ -6645,7 +6817,7 @@
         setStarDisplay(myVal);
 
         var yc = el.querySelector('.ir-yc'), rb = el.querySelector('.ir-rb'), submit = el.querySelector('.ir-submit'), rev = el.querySelector('.ir-rev');
-        yc.textContent     = myVal ? tr('ui.panel.stars_selected', { n: myVal.toFixed(1) }, myVal.toFixed(1) + ' \u2605 selected') : '';
+        yc.textContent     = myVal ? tr('ui.panel.stars_selected', { n: _fmtScore(myVal) }, _fmtScore(myVal) + ' \u2605 selected') : '';
         rb.style.display   = myVal ? '' : 'none';
         submit.textContent = myVal ? '\u2605 Update Rating' : '\u2605 Save Rating';
         submit.classList.toggle('ir-ready', myVal > 0);
@@ -6702,7 +6874,7 @@
                         '<div class="ir-rec-meta">' + byLine + (m.year ? m.year + ' \u00b7 ' : '') + timeAgo(r.ratedAt) + '</div>' +
                         (r.review ? '<div class="ir-rec-rev">' + esc(r.review) + '</div>' : '') +
                     '</div>' +
-                    '<span class="ir-rec-stars">' + r.stars.toFixed(1) + ' \u2605</span>' +
+                    '<span class="ir-rec-stars">' + _fmtScoreStar(r.stars) + '</span>' +
                 '</div>';
             }).join('');
             container.querySelectorAll('.ir-rec-item').forEach(function (row) {
@@ -6954,7 +7126,7 @@
                 e.stopPropagation();
                 _pendingStars = v;
                 setStarDisplay(v);
-                yc.textContent = tr('ui.panel.stars_selected', { n: v.toFixed(1) }, v.toFixed(1) + ' \u2605 selected');
+                yc.textContent = tr('ui.panel.stars_selected', { n: _fmtScore(v) }, _fmtScore(v) + ' \u2605 selected');
                 submit.classList.add('ir-ready');
             });
         });
@@ -6972,7 +7144,7 @@
                     e.preventDefault(); e.stopPropagation();
                     _pendingStars = full;
                     setStarDisplay(full);
-                    yc.textContent = tr('ui.panel.stars_selected', { n: full.toFixed(1) }, full.toFixed(1) + ' \u2605 selected');
+                    yc.textContent = tr('ui.panel.stars_selected', { n: _fmtScore(full) }, _fmtScore(full) + ' \u2605 selected');
                     submit.classList.add('ir-ready');
                 }
             });
@@ -7048,6 +7220,9 @@
         // "View all →" button in recent panel
         var recOpenBtn = el.querySelector('.ir-rec-open-btn');
         if (recOpenBtn) recOpenBtn.addEventListener('click', function (e) { e.stopPropagation(); openMyRatings(); });
+        el.querySelectorAll('.ir-myr-open-btn').forEach(function (b) {
+            b.addEventListener('click', function (e) { e.stopPropagation(); openMyRatings(); });
+        });
 
         // ── Letterboxd sync view ────────────────────────────────────────
         var lbView    = el.querySelector('.ir-lb-view');
@@ -8039,13 +8214,15 @@
             if (navLink && navLink.parentNode) navLink.parentNode.removeChild(navLink);
             var navSection = document.getElementById('ir-nav-section');
             if (navSection && navSection.parentNode) navSection.parentNode.removeChild(navSection);
+            removeHeaderButton();
             return;
         }
 
         injectSidebar();
+        injectHeaderButton();
 
         // Never show rating pill while watching video
-        if (isVideoPlayerPage()) { hide(); _lastHash = FILTERED_SENTINEL; _lastId = ''; return; }
+        if (isVideoPlayerPage()) { removeHeaderButton(); hide(); _lastHash = FILTERED_SENTINEL; _lastId = ''; return; }
 
         // Never show on admin dashboard or user preferences pages
         if (isAdminOrDashboardPage()) { hide(); _lastHash = FILTERED_SENTINEL; _lastId = ''; return; }

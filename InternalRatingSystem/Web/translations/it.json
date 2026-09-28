@@ -748,5 +748,7 @@
   "lb.full_phase_top_4": "Top 4",
   "lb.full_phase_retrying_pending": "nuovo tentativo per i film non ancora in libreria",
   "cfg.lb_fullsync": "⟳ Sincronizza tutto",
-  "cfg.lb_fullsync_tip": "Importa l’intera cronologia Letterboxd di questo utente: ogni valutazione, compresi i film valutati ma mai registrati, e ogni voce di diario. Può essere rieseguito senza rischi."
+  "cfg.lb_fullsync_tip": "Importa l’intera cronologia Letterboxd di questo utente: ogni valutazione, compresi i film valutati ma mai registrati, e ogni voce di diario. Può essere rieseguito senza rischi.",
+  "card.remove_from_watchlist_title": "Rimuovi dalla watchlist",
+  "btn.open_my_ratings_title": "Apri le mie valutazioni"
 }

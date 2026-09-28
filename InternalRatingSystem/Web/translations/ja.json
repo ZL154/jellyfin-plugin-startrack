@@ -748,5 +748,7 @@
   "lb.full_phase_top_4": "トップ 4",
   "lb.full_phase_retrying_pending": "ライブラリ未登録の映画を再試行中",
   "cfg.lb_fullsync": "⟳ すべて同期",
-  "cfg.lb_fullsync_tip": "このユーザーの Letterboxd 履歴全体をインポートします。評価はすべて（日記に記録していない映画も含む）、日記の項目もすべて。再実行しても安全です。"
+  "cfg.lb_fullsync_tip": "このユーザーの Letterboxd 履歴全体をインポートします。評価はすべて（日記に記録していない映画も含む）、日記の項目もすべて。再実行しても安全です。",
+  "card.remove_from_watchlist_title": "ウォッチリストから削除",
+  "btn.open_my_ratings_title": "マイ評価を開く"
 }
