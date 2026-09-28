@@ -7,7 +7,7 @@
 ![Jellyfin](https://img.shields.io/badge/Jellyfin-10.11%20%7C%2012-CC0000?style=for-the-badge&labelColor=0d0d0d&logo=jellyfin&logoColor=white)
 ![.NET](https://img.shields.io/badge/.NET-9%20%7C%2010-CC0000?style=for-the-badge&labelColor=0d0d0d&logo=dotnet&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-CC0000?style=for-the-badge&labelColor=0d0d0d)
-![Version](https://img.shields.io/badge/Version-1.8.0-CC0000?style=for-the-badge&labelColor=0d0d0d)
+![Version](https://img.shields.io/badge/Version-1.8.1-CC0000?style=for-the-badge&labelColor=0d0d0d)
 
 **Letterboxd-style ratings, watchlist, lists & social layer for Jellyfin**
 
@@ -45,41 +45,29 @@ Designed to integrate cleanly with modern Jellyfin setups: desktop, mobile, TV/w
 
 ## Features
 
-### 🆕 New in 1.8.0
+### 🆕 New in 1.8.1
 
-**Jellyfin 12.** StarTrack now runs on Jellyfin 12 and on 10.11, from one codebase, as two builds - see [Which build do I need?](#which-build-do-i-need). Installing from the repository picks the right one for you.
+A fix release for 1.8.0, almost all of it reported by users of it.
 
-**Letterboxd, repaired**
+**Jellyfin 12.1**
 
-- **⟳ Sync everything** - one button that imports your *entire* Letterboxd history: every rating (including films you rated but never logged - "watched, not sure when"), every diary entry with its date, then watchlist, likes and Top 4. The RSS feed only ever carried your last ~50 diary entries, which is why a member with 800 ratings on Letterboxd could have 369 here. This is the export ZIP, live, and it needs no file. Films you rated but never logged are placed in the order you rated them on Letterboxd, so *My Ratings* still reads newest-first instead of dumping them all on today. Safe to run again: unchanged ratings are left alone, dates included. Admins can run it for any linked user from the plugin page. If a page cannot be read, the result says so instead of passing off part of your profile as all of it. Needs [FlareSolverr](#cloudflare-and-flaresolverr), because the diary and ratings pages are challenged.
-- **Watchlist sync works again** - Letterboxd removed the watchlist RSS feed, which is why it had silently stopped. StarTrack now reads your watchlist page instead, every page of it.
-- **Import Top 4 works again, with FlareSolverr** - same cause as likes: the profile page is challenged. It also reads the year now, so "Heat" is the right Heat.
-- **Likes sync works again, with FlareSolverr** - Letterboxd puts a Cloudflare challenge in front of the likes page and the sign-in. Point StarTrack at a [FlareSolverr](#cloudflare-and-flaresolverr) and both get through; without one, it backs off politely and *tells you* in the panel instead of retrying every five minutes forever.
-- **Simkl pull finally converges** ([#19](https://github.com/ZL154/jellyfin-plugin-startrack/issues/19)) - ratings were matched only when every id and the title *all* agreed, so a film Jellyfin scraped from TMDb could never match Simkl's copy and was re-imported every run. Any shared id now matches.
-- **Likes keep their date** - a like imported from Letterboxd is dated by the viewing it belongs to (or by the export's own date), not by the moment of import, so the liked page keeps its order.
-- **Two copies of a film in the library** - an import now rates the copy you already rated instead of the other one.
-- **A failed settings load says so** - if the server is busy when you open the Letterboxd panel, it now tells you to reload rather than drawing every box unticked as if your settings were gone.
+- **StarTrack appears in the new top bar.** 12.1 moved navigation into a Material-UI app bar and the old nav drawer is not in that layout, so the *My Ratings* link had nowhere to go. It now sits in the toolbar beside your libraries ([#27](https://github.com/ZL154/jellyfin-plugin-startrack/issues/27)).
 
-**Diary**
+**Fixes**
 
-- **One viewing, one row** - a film logged by playback and then rated (in StarTrack, on Letterboxd, or via a ZIP) used to appear twice, once unrated and once with the score. The rating now lands on the existing row. This was a timezone problem at heart - the server's day is UTC and yours is not - so it is fixed with a time window, not a calendar.
-- **Pre-rolls, idents and trailers are no longer logged as watches** - anything under two minutes that plays before a film is not a viewing.
+- **Opening a film from My Ratings no longer freezes page scrolling.** Six code paths closed the overlay and only one of them released the scroll lock, so clicking a film could leave the whole Jellyfin web UI unscrollable until you reloaded ([#27](https://github.com/ZL154/jellyfin-plugin-startrack/issues/27)).
+- **Back closes My Ratings** instead of navigating the page behind it while the overlay stays on screen ([#27](https://github.com/ZL154/jellyfin-plugin-startrack/issues/27)).
+- **Half stars are half.** The filled half of a half-star was cut past the middle of the glyph ([#27](https://github.com/ZL154/jellyfin-plugin-startrack/issues/27)).
+- **"Out of ten" now applies to your own ratings too**, not only community averages — the panel, the recent list, My Ratings cards, the diary and the comparison view all honour it ([#27](https://github.com/ZL154/jellyfin-plugin-startrack/issues/27)).
+- **Letterboxd "Verify login" works the way a push does.** It never used FlareSolverr, so a correctly configured server still failed it; and a stale pasted cookie was used forever and never questioned, which is worse than no cookie at all. It now retries without your cookies and on a freshly solved challenge, and says what actually fixes a Cloudflare block instead of asking you to paste more cookies ([#24](https://github.com/ZL154/jellyfin-plugin-startrack/issues/24)).
+- **The self-check stopped calling healthy servers broken.** "Injected into the web UI" reported a failure for a read-only `index.html` — the normal state in Docker — when the server was injecting perfectly well by its other route ([#20](https://github.com/ZL154/jellyfin-plugin-startrack/discussions/20)).
+- **A duplicate copy of a film in your library** no longer gets a second rating when an import runs; the copy you already rated is the one that is updated.
 
-**Ratings**
+**New**
 
-- **How ratings are shown** - an admin setting: stars only (`3.5`, the default), both (`3.5 (7/10)`), or out of ten (`7/10`). Applies everywhere an average is displayed, so a `3.5` sitting next to IMDb's `7` no longer reads as a disagreement. Display only - you still rate with five stars, nothing is converted.
-- **IMDb import** - drop your imdb.com ratings export straight into *Import file*; the format is detected, ratings map exactly.
-- **The IMDb/Yamtrack export tells you what it left out** - episodes and items without an IMDb id cannot be written to that format; it now says how many, instead of handing back a quietly shorter file.
-
-**Diagnostics**
-
-- **"Is StarTrack working?"** - a self-check on the plugin page that answers the single most common support question in one click: eight checks, server and browser side, with a paste-ready summary for bug reports. It also flags a stale cached widget and a FlareSolverr behind a VPN.
-
-**Contributed**
-
-- **Letterboxd ratings for films you don't have yet** are kept and applied when the film arrives ([#25](https://github.com/ZL154/jellyfin-plugin-startrack/issues/25), thanks @Tailes14).
-
-Fully translated into all eight languages.
+- **StarTrack tells you when your browser is running an old copy of it.** If your browser has Jellyfin's page cached, a plugin update changes nothing for you — silently, for as long as the cache lives. One dismissible line now says so, with a Reload button. It never reloads on its own ([#20](https://github.com/ZL154/jellyfin-plugin-startrack/discussions/20)).
+- **A ★ My Ratings button in the rating panel**, so you can reach your profile without the sidebar ([#28](https://github.com/ZL154/jellyfin-plugin-startrack/issues/28)).
+- **Remove from watchlist straight from the watchlist**, instead of opening the film to do it ([#28](https://github.com/ZL154/jellyfin-plugin-startrack/issues/28)).
 
 ### ⭐ Ratings & reviews
 - **Half-star ratings** (0.5 – 5★) per item, per user
@@ -406,8 +394,8 @@ StarTrack ships **two**, built from the same source:
 
 | Your Jellyfin | Version to install | Ends in | .NET |
 |---|---|---|---|
-| **10.11.x** | `1.8.0.0` | `.0` | 9 |
-| **12.x**    | `1.8.0.1` | `.1` | 10 |
+| **10.11.x** | `1.8.1.0` | `.0` | 9 |
+| **12.x**    | `1.8.1.1` | `.1` | 10 |
 
 **Installing from the repository? Ignore all of this** — the catalogue only
 offers your server the build it can run. This matters only for manual installs.
@@ -703,6 +691,42 @@ Issues and pull requests are welcome.
 ## Changelog
 
 What is new in the current release stays at the top of [Features](#features); everything it describes is also folded into the feature sections above, so those read as a description of StarTrack today. Older release notes live here.
+
+### New in 1.8.0
+
+**Jellyfin 12.** StarTrack now runs on Jellyfin 12 and on 10.11, from one codebase, as two builds - see [Which build do I need?](#which-build-do-i-need). Installing from the repository picks the right one for you.
+
+**Letterboxd, repaired**
+
+- **⟳ Sync everything** - one button that imports your *entire* Letterboxd history: every rating (including films you rated but never logged - "watched, not sure when"), every diary entry with its date, then watchlist, likes and Top 4. The RSS feed only ever carried your last ~50 diary entries, which is why a member with 800 ratings on Letterboxd could have 369 here. This is the export ZIP, live, and it needs no file. Films you rated but never logged are placed in the order you rated them on Letterboxd, so *My Ratings* still reads newest-first instead of dumping them all on today. Safe to run again: unchanged ratings are left alone, dates included. Admins can run it for any linked user from the plugin page. If a page cannot be read, the result says so instead of passing off part of your profile as all of it. Needs [FlareSolverr](#cloudflare-and-flaresolverr), because the diary and ratings pages are challenged.
+- **Watchlist sync works again** - Letterboxd removed the watchlist RSS feed, which is why it had silently stopped. StarTrack now reads your watchlist page instead, every page of it.
+- **Import Top 4 works again, with FlareSolverr** - same cause as likes: the profile page is challenged. It also reads the year now, so "Heat" is the right Heat.
+- **Likes sync works again, with FlareSolverr** - Letterboxd puts a Cloudflare challenge in front of the likes page and the sign-in. Point StarTrack at a [FlareSolverr](#cloudflare-and-flaresolverr) and both get through; without one, it backs off politely and *tells you* in the panel instead of retrying every five minutes forever.
+- **Simkl pull finally converges** ([#19](https://github.com/ZL154/jellyfin-plugin-startrack/issues/19)) - ratings were matched only when every id and the title *all* agreed, so a film Jellyfin scraped from TMDb could never match Simkl's copy and was re-imported every run. Any shared id now matches.
+- **Likes keep their date** - a like imported from Letterboxd is dated by the viewing it belongs to (or by the export's own date), not by the moment of import, so the liked page keeps its order.
+- **Two copies of a film in the library** - an import now rates the copy you already rated instead of the other one.
+- **A failed settings load says so** - if the server is busy when you open the Letterboxd panel, it now tells you to reload rather than drawing every box unticked as if your settings were gone.
+
+**Diary**
+
+- **One viewing, one row** - a film logged by playback and then rated (in StarTrack, on Letterboxd, or via a ZIP) used to appear twice, once unrated and once with the score. The rating now lands on the existing row. This was a timezone problem at heart - the server's day is UTC and yours is not - so it is fixed with a time window, not a calendar.
+- **Pre-rolls, idents and trailers are no longer logged as watches** - anything under two minutes that plays before a film is not a viewing.
+
+**Ratings**
+
+- **How ratings are shown** - an admin setting: stars only (`3.5`, the default), both (`3.5 (7/10)`), or out of ten (`7/10`). Applies everywhere an average is displayed, so a `3.5` sitting next to IMDb's `7` no longer reads as a disagreement. Display only - you still rate with five stars, nothing is converted.
+- **IMDb import** - drop your imdb.com ratings export straight into *Import file*; the format is detected, ratings map exactly.
+- **The IMDb/Yamtrack export tells you what it left out** - episodes and items without an IMDb id cannot be written to that format; it now says how many, instead of handing back a quietly shorter file.
+
+**Diagnostics**
+
+- **"Is StarTrack working?"** - a self-check on the plugin page that answers the single most common support question in one click: eight checks, server and browser side, with a paste-ready summary for bug reports. It also flags a stale cached widget and a FlareSolverr behind a VPN.
+
+**Contributed**
+
+- **Letterboxd ratings for films you don't have yet** are kept and applied when the film arrives ([#25](https://github.com/ZL154/jellyfin-plugin-startrack/issues/25), thanks @Tailes14).
+
+Fully translated into all eight languages.
 
 ### New in 1.7.0
 

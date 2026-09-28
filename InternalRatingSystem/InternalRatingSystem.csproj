@@ -32,7 +32,7 @@
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
 
     <!-- Shared across both builds; only the fourth segment differs below. -->
-    <StarTrackBaseVersion>1.8.0</StarTrackBaseVersion>
+    <StarTrackBaseVersion>1.8.1</StarTrackBaseVersion>
   </PropertyGroup>
 
   <!--
