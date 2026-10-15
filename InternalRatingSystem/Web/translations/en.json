@@ -753,5 +753,9 @@
   "btn.open_my_ratings_title": "Open My Ratings",
   "ui.panel.score_selected": "{n} selected",
   "ui.stale.msg": "StarTrack has been updated. Reload the page to get the current version.",
-  "ui.stale.reload": "Reload"
+  "ui.stale.reload": "Reload",
+  "ui.panel.remove": "Remove",
+  "ui.panel.remove_confirm": "Click again to remove",
+  "card.remove_from_liked_title": "Remove from liked",
+  "card.remove_from_list_title": "Remove from this list"
 }

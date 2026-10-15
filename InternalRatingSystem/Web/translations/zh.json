@@ -753,5 +753,9 @@
   "btn.open_my_ratings_title": "打开我的评分",
   "ui.panel.score_selected": "已选 {n}",
   "ui.stale.msg": "StarTrack 已更新。请重新加载页面以获取当前版本。",
-  "ui.stale.reload": "重新加载"
+  "ui.stale.reload": "重新加载",
+  "ui.panel.remove": "移除",
+  "ui.panel.remove_confirm": "再次点击以移除",
+  "card.remove_from_liked_title": "从喜欢中移除",
+  "card.remove_from_list_title": "从此列表中移除"
 }

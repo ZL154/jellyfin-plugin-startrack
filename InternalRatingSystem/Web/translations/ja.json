@@ -753,5 +753,9 @@
   "btn.open_my_ratings_title": "マイ評価を開く",
   "ui.panel.score_selected": "{n} を選択",
   "ui.stale.msg": "StarTrack が更新されました。ページを再読み込みして最新版を取得してください。",
-  "ui.stale.reload": "再読み込み"
+  "ui.stale.reload": "再読み込み",
+  "ui.panel.remove": "削除",
+  "ui.panel.remove_confirm": "もう一度クリックして削除",
+  "card.remove_from_liked_title": "お気に入りから削除",
+  "card.remove_from_list_title": "このリストから削除"
 }

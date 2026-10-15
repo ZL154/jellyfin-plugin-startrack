@@ -696,6 +696,7 @@
             '.ir-log-hint{font-size:.72em!important;color:rgba(255,255,255,.45)!important;margin-bottom:6px!important}',
             '.ir-rb{background:none!important;border:1px solid rgba(255,70,70,.35)!important;color:rgba(255,100,100,.75)!important;border-radius:4px!important;padding:3px 8px!important;font-size:.76em!important;cursor:pointer!important;margin-left:auto!important;transition:all .2s!important}',
             '.ir-rb:hover{background:rgba(255,40,40,.15)!important;color:#ff7070!important}',
+            '.ir-rb.ir-rb-armed{background:rgba(255,40,40,.22)!important;border-color:#ff5050!important;color:#ff9090!important}',
             // Ratings list
             '.ir-tb{width:100%!important;background:none!important;border:1px solid rgba(255,255,255,.12)!important;color:rgba(255,255,255,.55)!important;border-radius:6px!important;padding:5px 10px!important;font-size:.8em!important;cursor:pointer!important;text-align:left!important;transition:all .2s!important}',
             '.ir-tb:hover{background:rgba(255,255,255,.07)!important;color:#fff!important}',
@@ -928,10 +929,10 @@
             '.ir-ov-list-stats{display:flex!important;gap:12px!important;font-size:.72em!important;color:rgba(255,255,255,.5)!important}',
             '.ir-ov-list-collab{color:#60a5fa!important}',
             '.ir-ov-list-detail{padding:18px 0!important;width:100%!important;max-width:100%!important;overflow-x:hidden!important;word-wrap:break-word!important}',
-            '.ir-ov-list-back{background:transparent!important;border:1px solid rgba(255,255,255,.2)!important;color:rgba(255,255,255,.8)!important;border-radius:6px!important;padding:6px 14px!important;font-size:.78em!important;font-weight:600!important;cursor:pointer!important;margin-bottom:18px!important;display:inline-flex!important;align-items:center!important;gap:6px!important}',
+            '.ir-ov-list-back{background:transparent!important;border:1px solid rgba(255,255,255,.2)!important;color:rgba(255,255,255,.8)!important;border-radius:6px!important;padding:6px 14px!important;font-size:.78em!important;font-weight:600!important;line-height:1.2!important;cursor:pointer!important;display:inline-flex!important;align-items:center!important;gap:6px!important}',
             '.ir-ov-list-back:hover{background:rgba(255,255,255,.08)!important;color:#fff!important}',
             '.ir-ov-list-detail-actions{display:flex!important;gap:10px!important;align-items:center!important;margin-bottom:18px!important;flex-wrap:wrap!important}',
-            '.ir-ov-list-delete{background:rgba(200,30,30,.12)!important;border:1px solid rgba(200,30,30,.4)!important;color:rgba(255,140,140,.9)!important;border-radius:6px!important;padding:6px 14px!important;font-size:.78em!important;font-weight:600!important;cursor:pointer!important;transition:all .15s!important}',
+            '.ir-ov-list-delete{background:rgba(200,30,30,.12)!important;border:1px solid rgba(200,30,30,.4)!important;color:rgba(255,140,140,.9)!important;border-radius:6px!important;padding:6px 14px!important;font-size:.78em!important;font-weight:600!important;line-height:1.2!important;cursor:pointer!important;margin-left:auto!important;display:inline-flex!important;align-items:center!important;gap:6px!important;transition:all .15s!important}',
             '.ir-ov-list-delete:hover{background:rgba(200,30,30,.25)!important;border-color:#cc2020!important;color:#ff8080!important}',
             '.ir-ov-list-title{font-size:1.5em!important;font-weight:900!important;color:#fff!important;margin-bottom:4px!important;word-wrap:break-word!important;overflow-wrap:break-word!important}',
             '.ir-ov-list-byline{color:rgba(255,255,255,.45)!important;font-size:.85em!important;margin-bottom:14px!important;word-wrap:break-word!important}',
@@ -967,11 +968,15 @@
             '.ir-ov-tab:hover{border-color:rgba(200,30,30,.5)!important;color:rgba(255,255,255,.8)!important;background:#1e1010!important}',
             '.ir-ov-tab.ir-ov-tab-active{background:#cc2020!important;border-color:#cc2020!important;color:#fff!important;box-shadow:0 0 16px rgba(200,30,30,.4)!important}',
             // Scroll area
-            '.ir-ov-inner{display:flex!important;flex-direction:column!important;flex:1!important;overflow:hidden!important;padding:32px 36px!important}',
+            '.ir-ov-inner{display:flex!important;flex-direction:column!important;flex:1!important;overflow:hidden!important;padding:22px 24px!important}',
             '.ir-ov-body{flex:1!important;overflow-y:auto!important;scrollbar-width:thin!important;scrollbar-color:rgba(200,30,30,.3) transparent!important}',
             '.ir-ov-loading{text-align:center!important;color:rgba(255,255,255,.3)!important;padding:80px 0!important;font-size:.9em!important;letter-spacing:.06em!important;text-transform:uppercase!important}',
             '.ir-ov-empty{text-align:center!important;color:rgba(255,255,255,.25)!important;padding:80px 0!important;font-size:.9em!important;letter-spacing:.04em!important}',
-            '.ir-ov-grid{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(165px,1fr))!important;gap:20px!important;padding-bottom:48px!important}',
+            // The 10px/12px here is headroom for .ir-ov-card:hover (lifts 6px,
+            // scales 1.03) inside .ir-ov-body, which clips on both axes. It is
+            // taken back off .ir-ov-inner's padding so the grid lands in the
+            // same place it always did. [#29]
+            '.ir-ov-grid{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(165px,1fr))!important;gap:20px!important;padding:10px 12px 48px!important}',
             // Card — full-poster with gradient + info overlay
             '.ir-ov-card{position:relative!important;border-radius:10px!important;overflow:hidden!important;cursor:pointer!important;transition:transform .2s cubic-bezier(.34,1.56,.64,1),box-shadow .2s!important;box-shadow:0 4px 16px rgba(0,0,0,.6)!important;aspect-ratio:2/3!important;background:#141414!important;border:1px solid rgba(255,255,255,.06)!important}',
             '.ir-ov-card:hover{transform:translateY(-6px) scale(1.03)!important;box-shadow:0 16px 40px rgba(0,0,0,.8),0 0 0 1px rgba(200,30,30,.4)!important}',
@@ -1002,7 +1007,7 @@
             '.ir-ov-card-act-fav:hover{border-color:#f4c430!important;color:#f4c430!important;background:rgba(60,40,0,.9)!important}',
             '.ir-ov-card-act-list:hover{border-color:#60a5fa!important;color:#60a5fa!important;background:rgba(0,30,60,.9)!important}',
             '.ir-ov-card-act-x:hover{border-color:#ff5068!important;color:#ff5068!important;background:rgba(60,0,0,.9)!important}',
-            '.ir-ov-card-act-unwl:hover{border-color:#ff5068!important;color:#ff5068!important;background:rgba(60,0,0,.9)!important}',
+            '.ir-ov-card-act-unwl:hover,.ir-ov-card-act-unlike:hover,.ir-ov-card-act-unlist:hover{border-color:#ff5068!important;color:#ff5068!important;background:rgba(60,0,0,.9)!important}',
             '.ir-ov-card-name{font-weight:700!important;font-size:.8em!important;color:#fff!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;line-height:1.3!important;text-shadow:0 1px 8px rgba(0,0,0,1),0 0 20px rgba(0,0,0,.9)!important}',
             '.ir-ov-card-meta{font-size:.68em!important;color:rgba(255,255,255,.7)!important;margin-top:3px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;text-shadow:0 1px 4px rgba(0,0,0,1)!important}',
             '.ir-ov-card-rev{font-size:.67em!important;color:rgba(255,255,255,.38)!important;margin-top:3px!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;font-style:italic!important}',
@@ -1021,6 +1026,8 @@
             // As a toolbar nav link it inherits the theme's button styling from
             // the sibling it was cloned from; only the star gets our colour.
             '.ir-hdr-navlink{color:#f4c430!important;transform:none!important;opacity:1!important;font-size:inherit!important;padding:6px 8px!important;white-space:nowrap!important;text-decoration:none!important}',
+            '.ir-lang-btn{display:block!important;width:100%!important;margin:8px 0 0!important;background:none!important;border:none!important;color:rgba(255,255,255,.45)!important;cursor:pointer!important;padding:6px 8px!important;font-size:.8em!important;text-align:center!important;border-radius:6px!important;transition:background .15s,color .15s!important}',
+            '.ir-lang-btn:hover{background:rgba(255,255,255,.06)!important;color:rgba(255,255,255,.8)!important}',
             '.ir-myr-open-btn{width:100%!important;margin-top:8px!important;background:rgba(244,196,48,.10)!important;border:1px solid rgba(244,196,48,.30)!important;color:#f4c430!important;border-radius:8px!important;padding:8px!important;font-size:.82em!important;font-weight:600!important;cursor:pointer!important;transition:background .15s,border-color .15s!important}',
             '.ir-myr-open-btn:hover{background:rgba(244,196,48,.18)!important;border-color:rgba(244,196,48,.55)!important}',
             '.ir-lb-open-btn{display:block!important;width:100%!important;margin-top:10px!important;background:none!important;border:1px dashed rgba(244,196,48,.28)!important;color:rgba(244,196,48,.75)!important;border-radius:6px!important;padding:6px 10px!important;font-size:.76em!important;font-weight:600!important;cursor:pointer!important;text-align:center!important;letter-spacing:.02em!important;transition:all .15s!important}',
@@ -1137,11 +1144,11 @@
                 '.ir-ov-tabs{padding:10px 0!important;gap:6px!important;overflow-x:auto!important;flex-wrap:nowrap!important;scrollbar-width:none!important}' +
                 '.ir-ov-tabs::-webkit-scrollbar{display:none!important}' +
                 '.ir-ov-tab{font-size:.68em!important;padding:7px 14px!important;flex:0 0 auto!important}' +
-                '.ir-ov-inner{padding:18px 16px!important}' +
+                '.ir-ov-inner{padding:8px 4px!important}' +
                 '.ir-ov-favs{padding:14px 0 12px!important;gap:14px!important}' +
                 '.ir-ov-favs-grid{grid-template-columns:repeat(2,1fr)!important;gap:10px!important}' +
                 '.ir-ov-favs-title{font-size:.7em!important}' +
-                '.ir-ov-grid{grid-template-columns:repeat(2,1fr)!important;gap:10px!important}' +
+                '.ir-ov-grid{grid-template-columns:repeat(2,1fr)!important;gap:10px!important;padding:10px 12px 48px!important}' +
                 '.ir-ov-card-name{font-size:.72em!important}' +
                 '.ir-ov-card-meta{font-size:.62em!important}' +
                 '.ir-ov-card-stars-badge{font-size:.66em!important;padding:2px 7px!important}' +
@@ -2145,6 +2152,7 @@
                             '<button class="ir-act ir-act-like" title="Like">\u2661</button>' +
                             '<button class="ir-act ir-act-watch" title="Add to watchlist">\u2606</button>' +
                             '<button class="ir-act ir-act-fav" title="Pin to Top 4 favorites">\u2605</button>' +
+                            '<button class="ir-act ir-act-list" title="Add to a list">\u002b</button>' +
                         '</div>' +
                     '</div>' +
                     '<div class="ir-yr">' +
@@ -2159,7 +2167,7 @@
                     '<div class="ir-submit-row">' +
                         '<button class="ir-submit">\u2605 Save Rating</button>' +
                         '<span class="ir-flash"></span>' +
-                        '<button class="ir-rb" style="display:none">\u2715 Remove</button>' +
+                        '<button class="ir-rb" style="display:none">\u2715 <span class="ir-rb-label">Remove</span></button>' +
                     '</div>' +
                     // [v1.6.5] "Log a watch" — the verb StarTrack was missing.
                     // Rating something never created a diary entry, and the only
@@ -2189,7 +2197,7 @@
                     // Jellyfin layouts do not always show. So: a door on this side too.
                     '<button class="ir-myr-open-btn" title="Open My Ratings">★ <span data-tr="My Ratings">My Ratings</span></button>' +
                     '<button class="ir-lb-open-btn" title="Connect your Letterboxd account">\u2699 Letterboxd sync</button>' +
-                    '<button class="ir-lang-btn" title="Change language" style="background:none;border:none;color:rgba(255,255,255,.45);cursor:pointer;padding:4px 8px;font-size:.8em;margin-left:6px">\ud83c\udf10 <span class="ir-lang-label">EN</span></button>' +
+                    '<button class="ir-lang-btn" title="Change language">\ud83c\udf10 <span class="ir-lang-label">EN</span></button>' +
                     // [v1.6.2] (#8, locksoft) Rating size now lives in My Ratings -> Preferences
                     // (a single clear control matching the settings page), not a tiny footer icon.
                 '</div>' +
@@ -2201,7 +2209,7 @@
                     '</div>' +
                     '<div class="ir-rec-list"></div>' +
                     '<button class="ir-lb-open-btn" title="Connect your Letterboxd account">\u2699 Letterboxd sync</button>' +
-                    '<button class="ir-lang-btn" title="Change language" style="background:none;border:none;color:rgba(255,255,255,.45);cursor:pointer;padding:4px 8px;font-size:.8em;margin-left:6px">\ud83c\udf10 <span class="ir-lang-label">EN</span></button>' +
+                    '<button class="ir-lang-btn" title="Change language">\ud83c\udf10 <span class="ir-lang-label">EN</span></button>' +
                 '</div>' +
                 // Letterboxd sync view (hidden by default, opens from gear icon)
                 '<div class="ir-lb-view" style="display:none">' +
@@ -3807,6 +3815,12 @@
                 (opts.showUnwatchlist
                     ? '<button class="ir-ov-card-act ir-ov-card-act-unwl" title="Remove from watchlist">\u2715</button>'
                     : '') +
+                (opts.showUnlike
+                    ? '<button class="ir-ov-card-act ir-ov-card-act-unlike" title="Remove from liked">\u2715</button>'
+                    : '') +
+                (opts.showRemoveFromList
+                    ? '<button class="ir-ov-card-act ir-ov-card-act-unlist" title="Remove from this list">\u2715</button>'
+                    : '') +
                 '<button class="ir-ov-card-act ir-ov-card-act-fav" title="Pin to Top 4 favorites">\u2605</button>' +
                 '<button class="ir-ov-card-act ir-ov-card-act-list" title="Add to a list">\u002b</button>' +
                 '</div>';
@@ -3852,6 +3866,35 @@
             e.stopPropagation();
             addToListPrompt(item.itemId);
         });
+        // [#29] Liked and list membership drop the card the same way the
+        // watchlist does: optimistically, and put it back if the server says no.
+        function wireCardRemoval(btn, call) {
+            if (!btn) return;
+            btn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                btn.disabled = true;
+                card.style.transition = 'opacity .15s, transform .15s';
+                card.style.opacity = '0';
+                card.style.transform = 'scale(.94)';
+                call().then(function (ok) {
+                    if (ok === false) {
+                        card.style.opacity = ''; card.style.transform = ''; btn.disabled = false;
+                        return;
+                    }
+                    card.remove();
+                    if (_overlayData && _overlayData.items) {
+                        _overlayData.items = _overlayData.items.filter(function (x) { return x.itemId !== item.itemId; });
+                    }
+                }).catch(function () {
+                    card.style.opacity = ''; card.style.transform = ''; btn.disabled = false;
+                });
+            });
+        }
+        wireCardRemoval(card.querySelector('.ir-ov-card-act-unlike'),
+                        function () { return apiLikeRemove(item.itemId); });
+        wireCardRemoval(card.querySelector('.ir-ov-card-act-unlist'),
+                        function () { return apiRemoveFromList(opts.listId, item.itemId); });
+
         var unwlBtn = card.querySelector('.ir-ov-card-act-unwl');
         if (unwlBtn) unwlBtn.addEventListener('click', function (e) {
             e.stopPropagation();
@@ -4350,7 +4393,7 @@
             // to render the per-item user list as a sub-line.
             opts.showWantedBy = (_watchlistScope === 'everyone');
         }
-        if (_overlayView === 'liked')     opts.badge = '\u2665 Liked';
+        if (_overlayView === 'liked')   { opts.badge = '\u2665 Liked'; opts.showUnlike = true; }
         if (_overlayView === 'recs')      opts.badge = '\u2728 For you';
 
         sorted.forEach(function (item) { grid.appendChild(buildOverlayCard(item, opts)); });
@@ -4551,7 +4594,10 @@
                             communityRating: m.communityRating || 0,
                             imageTag: m.imageTag || null,
                             type: m.type || 'Unknown'
-                        }, { badge: tr('overlay.by', null, 'by') + ' ' + li.addedByName }));
+                        }, { badge: tr('overlay.by', null, 'by') + ' ' + li.addedByName,
+                             // Only the people who can edit the list get the X.
+                             showRemoveFromList: (isOwner || list.collaborative),
+                             listId: list.id }));
                     });
                     gridWrap.appendChild(grid);
                 });
@@ -7109,11 +7155,19 @@
         if (pill) pill.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pill.click(); } });
         var tb = el.querySelector('.ir-tb'), listEl = el.querySelector('.ir-list');
         var rb = el.querySelector('.ir-rb'), submit = el.querySelector('.ir-submit');
+        // Disarming has to reach outside this closure: switching film while
+        // Remove is armed would otherwise let one click delete the NEW film's
+        // rating. See the _curId change in the pill updater.
         var flash = el.querySelector('.ir-flash'), yc = el.querySelector('.ir-yc');
         var rev = el.querySelector('.ir-rev'), revHint = el.querySelector('.ir-rev-hint');
         var actLike  = el.querySelector('.ir-act-like');
         var actWatch = el.querySelector('.ir-act-watch');
         var actFav   = el.querySelector('.ir-act-fav');
+        var actList  = el.querySelector('.ir-act-list');
+        if (actList) actList.addEventListener('click', function (e) {
+            e.stopPropagation();
+            if (_curId) addToListPrompt(_curId);
+        });
         var open = false, listOpen = false;
 
         // ---- log a watch (v1.6.5) ----
@@ -7272,8 +7326,31 @@
             });
         });
 
+        var rbArmed = null;                       // timer while it is asking
+        var rbLabel = rb.querySelector('.ir-rb-label');
+        function rbDisarm() {
+            if (rbArmed) { clearTimeout(rbArmed); rbArmed = null; }
+            rb.classList.remove('ir-rb-armed');
+            // Write the LABEL, not the button: the glyph lives outside it, and
+            // the scrubber only translates a text node whose whole trimmed
+            // value is a known English string.
+            if (rbLabel) rbLabel.textContent = tr('ui.panel.remove', null, 'Remove');
+        }
+        _rbDisarmHook = rbDisarm;
         rb.addEventListener('click', function () {
             var id = _curId; if (!id) return;
+
+            // First click arms, second confirms. [#29] It used to delete the
+            // rating AND its review outright, so a stray click lost work with
+            // nothing to undo it.
+            if (!rbArmed) {
+                rb.classList.add('ir-rb-armed');
+                if (rbLabel) rbLabel.textContent = tr('ui.panel.remove_confirm', null, 'Click again to remove');
+                rbArmed = setTimeout(rbDisarm, 4000);
+                return;
+            }
+
+            rbDisarm();
             apiDel(id).then(function (ok) {
                 if (!ok) return;
                 _pendingStars = 0; setStarDisplay(0);
@@ -8164,6 +8241,10 @@
 
     // ── Show / hide ───────────────────────────────────────────────────────
 
+    // Set by the panel wiring; called whenever the panel changes film so a
+    // half-confirmed Remove never carries over to the next one. [#29]
+    var _rbDisarmHook = null;
+
     var _curId = null;
 
     function showItem(itemId) {
@@ -8189,6 +8270,7 @@
 
         if (_curId !== itemId) {
             _curId = itemId; _pendingStars = 0;
+            try { if (_rbDisarmHook) _rbDisarmHook(); } catch (e) {}
             var panel = el.querySelector('.ir-panel'); if (panel) panel.classList.remove('ir-open');
             var tbEl = el.querySelector('.ir-tb'); if (tbEl) tbEl.textContent = 'Show all ratings \u25be';
             var listEl = el.querySelector('.ir-list'); if (listEl) listEl.style.display = 'none';

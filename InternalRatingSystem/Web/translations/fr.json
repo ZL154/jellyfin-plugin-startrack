@@ -753,5 +753,9 @@
   "btn.open_my_ratings_title": "Ouvrir Mes notes",
   "ui.panel.score_selected": "{n} sélectionné",
   "ui.stale.msg": "StarTrack a été mis à jour. Rechargez la page pour obtenir la version actuelle.",
-  "ui.stale.reload": "Recharger"
+  "ui.stale.reload": "Recharger",
+  "ui.panel.remove": "Supprimer",
+  "ui.panel.remove_confirm": "Cliquez encore pour supprimer",
+  "card.remove_from_liked_title": "Retirer des favoris",
+  "card.remove_from_list_title": "Retirer de cette liste"
 }
