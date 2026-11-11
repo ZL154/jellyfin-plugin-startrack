@@ -8886,15 +8886,35 @@
     // in the DOM or the URL hash points at videoosd/nowplaying, regardless of
     // paused state. The previous version only fired during active playback,
     // which made paused/credits scenarios look like "stopped" prematurely.
+    // [#34, autolusi] On Jellyfin 12 the web client keeps #videoOsdPage in the
+    // DOM for the whole session, hidden (display:none, class "hide"), instead
+    // of creating it when playback starts. Testing for the element's EXISTENCE
+    // therefore answered "player active" on every page from the moment the
+    // client loaded, so the active -> inactive edge this watches for never
+    // arrived and the post-playback prompt could never fire. Every marker now
+    // has to be on screen as well as present.
+    function _onScreen(el) {
+        if (!el) return false;
+        // offsetParent is null for display:none and for a detached node. It is
+        // also null for position:fixed, so fall back to the box.
+        if (el.offsetParent !== null) return true;
+        var r = el.getBoundingClientRect();
+        return r.width > 0 && r.height > 0;
+    }
+
     function isPlayerLikelyActive() {
         var hash = window.location.hash || '';
         if (/videoosd|nowplaying|\/video\b/i.test(hash)) return true;
-        if (document.getElementById('videoOsdPage')) return true;
-        if (document.querySelector('.videoOsdPage, .videoOsd, .htmlVideoPlayerContainer, .videoPlayerContainer, .skinHeader-withBackground.videoOsd')) return true;
-        var vid = document.querySelector('video');
-        // Treat any <video> with a real source as the player being live —
-        // includes paused playback, end-of-credits hold, and seek scrubs.
-        if (vid && (vid.currentSrc || vid.src)) return true;
+        if (_onScreen(document.getElementById('videoOsdPage'))) return true;
+        var osd = document.querySelectorAll('.videoOsdPage, .videoOsd, .htmlVideoPlayerContainer, .videoPlayerContainer, .skinHeader-withBackground.videoOsd');
+        for (var i = 0; i < osd.length; i++) if (_onScreen(osd[i])) return true;
+        // A <video> with a real source still counts as live — paused playback,
+        // the end-of-credits hold and seek scrubs all qualify — but only while
+        // it is actually on screen, for the same reason as above.
+        var vids = document.querySelectorAll('video');
+        for (var j = 0; j < vids.length; j++) {
+            if ((vids[j].currentSrc || vids[j].src) && _onScreen(vids[j])) return true;
+        }
         return false;
     }
 
