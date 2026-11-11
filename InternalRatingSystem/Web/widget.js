@@ -969,7 +969,7 @@
             '.ir-ov-tab:hover{border-color:rgba(200,30,30,.5)!important;color:rgba(255,255,255,.8)!important;background:#1e1010!important}',
             '.ir-ov-tab.ir-ov-tab-active{background:#cc2020!important;border-color:#cc2020!important;color:#fff!important;box-shadow:0 0 16px rgba(200,30,30,.4)!important}',
             // Scroll area
-            '.ir-ov-inner{display:flex!important;flex-direction:column!important;flex:1!important;overflow:hidden!important;padding:22px 24px!important}',
+            '.ir-ov-inner{display:flex!important;flex-direction:column!important;flex:1!important;overflow:hidden!important;padding:16px 24px!important}',
             '.ir-ov-body{flex:1!important;overflow-y:auto!important;scrollbar-width:thin!important;scrollbar-color:rgba(200,30,30,.3) transparent!important}',
             '.ir-ov-loading{text-align:center!important;color:rgba(255,255,255,.3)!important;padding:80px 0!important;font-size:.9em!important;letter-spacing:.06em!important;text-transform:uppercase!important}',
             '.ir-ov-empty{text-align:center!important;color:rgba(255,255,255,.25)!important;padding:80px 0!important;font-size:.9em!important;letter-spacing:.04em!important}',
@@ -977,7 +977,7 @@
             // scales 1.03) inside .ir-ov-body, which clips on both axes. It is
             // taken back off .ir-ov-inner's padding so the grid lands in the
             // same place it always did. [#29]
-            '.ir-ov-grid{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(165px,1fr))!important;gap:20px!important;padding:10px 12px 48px!important}',
+            '.ir-ov-grid{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(165px,1fr))!important;gap:20px!important;padding:16px 12px 48px!important}',
             // Card — full-poster with gradient + info overlay
             '.ir-ov-card{position:relative!important;border-radius:10px!important;overflow:hidden!important;cursor:pointer!important;transition:transform .2s cubic-bezier(.34,1.56,.64,1),box-shadow .2s!important;box-shadow:0 4px 16px rgba(0,0,0,.6)!important;aspect-ratio:2/3!important;background:#141414!important;border:1px solid rgba(255,255,255,.06)!important}',
             '.ir-ov-card:hover{transform:translateY(-6px) scale(1.03)!important;box-shadow:0 16px 40px rgba(0,0,0,.8),0 0 0 1px rgba(200,30,30,.4)!important}',
@@ -1145,11 +1145,11 @@
                 '.ir-ov-tabs{padding:10px 0!important;gap:6px!important;overflow-x:auto!important;flex-wrap:nowrap!important;scrollbar-width:none!important}' +
                 '.ir-ov-tabs::-webkit-scrollbar{display:none!important}' +
                 '.ir-ov-tab{font-size:.68em!important;padding:7px 14px!important;flex:0 0 auto!important}' +
-                '.ir-ov-inner{padding:8px 4px!important}' +
+                '.ir-ov-inner{padding:4px 4px!important}' +
                 '.ir-ov-favs{padding:14px 0 12px!important;gap:14px!important}' +
                 '.ir-ov-favs-grid{grid-template-columns:repeat(2,1fr)!important;gap:10px!important}' +
                 '.ir-ov-favs-title{font-size:.7em!important}' +
-                '.ir-ov-grid{grid-template-columns:repeat(2,1fr)!important;gap:10px!important;padding:10px 12px 48px!important}' +
+                '.ir-ov-grid{grid-template-columns:repeat(2,1fr)!important;gap:10px!important;padding:14px 12px 48px!important}' +
                 '.ir-ov-card-name{font-size:.72em!important}' +
                 '.ir-ov-card-meta{font-size:.62em!important}' +
                 '.ir-ov-card-stars-badge{font-size:.66em!important;padding:2px 7px!important}' +
