@@ -84,7 +84,7 @@
         hideRecentButton:              false,
         hideLetterboxdButton:          false,
         hideExternalSyncButton:        false,
-        rateButtonOnlyInMediaItem:     false,
+        rateButtonVisibility:          'everywhere',
         replaceMediaDetailsRating:     true,
         replaceMediaBarRating:         true,
         replaceMediaBarEnhancedRating: false,
@@ -617,6 +617,7 @@
             // Widget
             '#ir-widget{position:fixed!important;bottom:24px!important;right:24px!important;z-index:2147483647!important;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;font-size:14px!important;line-height:1!important;box-sizing:border-box!important;display:none!important}',
             '#ir-widget.ir-on{display:block!important}',
+            '#ir-widget.ir-nopill .ir-pill{display:none!important}',
             '#ir-widget *{box-sizing:border-box!important;font-family:inherit!important}',
             '.ir-pill{display:flex!important;align-items:center!important;gap:6px!important;cursor:pointer!important;padding:8px 16px!important;border-radius:24px!important;background:rgba(10,10,10,.93)!important;border:1px solid rgba(255,255,255,.22)!important;backdrop-filter:blur(10px)!important;box-shadow:0 4px 24px rgba(0,0,0,.65)!important;transition:background .2s,transform .15s!important;user-select:none!important;white-space:nowrap!important;color:#fff!important}',
             '.ir-pill:hover{background:rgba(30,30,30,.98)!important;transform:scale(1.05)!important}',
@@ -7108,7 +7109,12 @@
             if (k === 'Escape' || k === 'Backspace' || k === 'GoBack' || k === 'XF86Back') {
                 e.preventDefault(); e.stopPropagation();
                 closeFn();
-                if (pill) try { pill.focus(); } catch (err) {}
+                // Under "never" the pill is display:none and cannot take focus;
+                // the page badge is what opened the panel, so Back lands there.
+                try {
+                    if (pill && pill.offsetParent !== null) pill.focus();
+                    else { var b = document.getElementById('ir-page-badge'); if (b) b.focus(); }
+                } catch (err) {}
                 return;
             }
 
@@ -8433,10 +8439,9 @@
         if (!id) {
             // Per-user preference takes priority over admin defaults.
             if (_userPrefs().hideRatePill) { hide(); return; }
-            // Admin can hide the Recent floating button, and can also require
-            // the Rate button to only appear inside media items (i.e. hide it
-            // everywhere that no item id is in the URL).
-            if (_STARTRACK_CONFIG.hideRecentButton || _STARTRACK_CONFIG.rateButtonOnlyInMediaItem) {
+            // Outside detail pages the pill is the Recent button; the admin can
+            // hide that, or confine the pill to detail pages, or hide it outright.
+            if (_STARTRACK_CONFIG.hideRecentButton || _STARTRACK_CONFIG.rateButtonVisibility !== 'everywhere') {
                 hide();
                 return;
             }
@@ -8590,6 +8595,12 @@
     function applyConfigVisibility() {
         var el = document.getElementById('ir-widget');
         if (el) {
+            // "Never" hides only the pill. The widget stays mounted so the badge
+            // on a rated item, which clicks the pill for it, still opens the
+            // panel. Done here rather than in showItem: the first checkNav runs
+            // before /public-config has answered, and later ticks skip an
+            // unchanged route.
+            el.classList.toggle('ir-nopill', _STARTRACK_CONFIG.rateButtonVisibility === 'never');
             el.querySelectorAll('.ir-lb-open-btn').forEach(function (b) {
                 _setHidden(b, !!_STARTRACK_CONFIG.hideLetterboxdButton);
             });
@@ -9320,7 +9331,12 @@
         if (simklId) simklId.value = _adminPickKey(c, 'SimklClientId') || '';
         var simklSecret = root.querySelector('#stSimklClientSecret');
         if (simklSecret) simklSecret.value = _adminPickKey(c, 'SimklClientSecret') || '';
-        _adminSetCheckbox(root.querySelector('#stRateOnlyInMedia'),         _adminPickKey(c, 'RateButtonOnlyInMediaItem'));
+        var rbv = root.querySelector('#stRateButtonVisibility');
+        if (rbv) {
+            var rv = _adminPickKey(c, 'RateButtonVisibility');
+            if (rv !== 'everywhere' && rv !== 'detail' && rv !== 'never') rv = _adminPickKey(c, 'RateButtonOnlyInMediaItem') ? 'detail' : 'everywhere';
+            rbv.value = rv;
+        }
         _adminSetCheckbox(root.querySelector('#stReplaceMediaDetails'),     _adminPickKey(c, 'ReplaceMediaDetailsRating'));
         _adminSetCheckbox(root.querySelector('#stReplaceMediaBar'),         _adminPickKey(c, 'ReplaceMediaBarRating'));
         _adminSetCheckbox(root.querySelector('#stReplaceMediaBarEnhanced'), _adminPickKey(c, 'ReplaceMediaBarEnhancedRating'));
@@ -9373,7 +9389,11 @@
         if (_simklId) c.SimklClientId = _simklId.value || '';
         var _simklSecret = root.querySelector('#stSimklClientSecret');
         if (_simklSecret) c.SimklClientSecret = _simklSecret.value || '';
-        c.RateButtonOnlyInMediaItem     = !!(root.querySelector('#stRateOnlyInMedia')         && root.querySelector('#stRateOnlyInMedia').checked);
+        var _rbv = root.querySelector('#stRateButtonVisibility');
+        if (_rbv) {
+            c.RateButtonVisibility = (_rbv.value === 'detail' || _rbv.value === 'never') ? _rbv.value : 'everywhere';
+            c.RateButtonOnlyInMediaItem = c.RateButtonVisibility !== 'everywhere';
+        }
         c.ReplaceMediaDetailsRating     = !!(root.querySelector('#stReplaceMediaDetails')     && root.querySelector('#stReplaceMediaDetails').checked);
         c.ReplaceMediaBarRating         = !!(root.querySelector('#stReplaceMediaBar')         && root.querySelector('#stReplaceMediaBar').checked);
         c.ReplaceMediaBarEnhancedRating = !!(root.querySelector('#stReplaceMediaBarEnhanced') && root.querySelector('#stReplaceMediaBarEnhanced').checked);

@@ -23,7 +23,18 @@ namespace Jellyfin.Plugin.InternalRating
         /// <summary>Hide the External Sync button (⇄ External Sync) in the My Ratings overlay system-wide.</summary>
         public bool HideExternalSyncButton { get; set; } = false;
 
-        /// <summary>When true, the 'Rate' floating button only appears on media detail pages.</summary>
+        /// <summary>Where the floating 'Rate' pill appears:
+        ///
+        ///   "everywhere" (default) - every screen; it reads Recent outside detail pages
+        ///   "detail"               - movie / series / season / episode detail pages only
+        ///   "never"                - nowhere; the page badge on rated items is unchanged
+        ///
+        /// Empty (a configuration saved before this setting existed) or unrecognised
+        /// falls back to RateButtonOnlyInMediaItem.</summary>
+        public string RateButtonVisibility { get; set; } = "";
+
+        /// <summary>Superseded by RateButtonVisibility. Still read so a configuration
+        /// saved before that setting existed keeps its "detail pages only" choice.</summary>
         public bool RateButtonOnlyInMediaItem { get; set; } = false;
 
         // ---- Rating display enhancements -------------------------------- //

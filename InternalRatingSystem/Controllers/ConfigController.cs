@@ -38,13 +38,20 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
                 .Split(new[] { ',' }, System.StringSplitOptions.RemoveEmptyEntries);
             for (var i = 0; i < hiddenViews.Length; i++) hiddenViews[i] = hiddenViews[i].Trim().ToLowerInvariant();
             Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+            var pill = cfg.RateButtonVisibility;
+            if (pill != "everywhere" && pill != "detail" && pill != "never")
+                pill = cfg.RateButtonOnlyInMediaItem ? "detail" : "everywhere";
+
             return Ok(new
             {
                 language                      = cfg.Language ?? "en",
                 hideRecentButton              = cfg.HideRecentButton,
                 hideLetterboxdButton          = cfg.HideLetterboxdButton,
                 hideExternalSyncButton        = cfg.HideExternalSyncButton,
-                rateButtonOnlyInMediaItem     = cfg.RateButtonOnlyInMediaItem,
+                rateButtonVisibility          = pill,
+                // A browser still running a widget from before the three-way
+                // setting reads this one; keep it true for both narrower choices.
+                rateButtonOnlyInMediaItem     = pill != "everywhere",
                 replaceMediaDetailsRating     = cfg.ReplaceMediaDetailsRating,
                 replaceMediaBarRating         = cfg.ReplaceMediaBarRating,
                 replaceMediaBarEnhancedRating = cfg.ReplaceMediaBarEnhancedRating,

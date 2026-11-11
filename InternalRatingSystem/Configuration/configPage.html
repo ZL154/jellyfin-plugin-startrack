@@ -114,13 +114,16 @@
                     <div class="st-group">
                         <div class="st-group-title" data-tr="Floating buttons">Floating buttons</div>
 
-                        <label class="st-row">
-                            <input type="checkbox" id="stRateOnlyInMedia" class="st-cb" />
+                        <div class="st-row" style="cursor:default">
                             <span class="st-row-body">
-                                <span class="st-row-title" data-tr="Only show the Rate pill inside movie / TV detail pages">Only show the Rate pill inside movie / TV detail pages</span>
-                                <span class="st-row-sub" data-tr="Hides the floating pill on Home, Library, and search screens.">Hides the floating pill on Home, Library, and search screens.</span>
+                                <label class="st-row-title" for="stRateButtonVisibility" data-tr="Where the floating Rate pill appears">Where the floating Rate pill appears</label>
+                                <select id="stRateButtonVisibility" style="margin-top:6px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:6px;padding:8px 12px;font-size:.9em;outline:none;display:block">
+                                    <option value="everywhere" data-tr="Everywhere (default)">Everywhere (default)</option>
+                                    <option value="detail" data-tr="Movie / TV detail pages only">Movie / TV detail pages only</option>
+                                    <option value="never" data-tr="Never">Never</option>
+                                </select>
                             </span>
-                        </label>
+                        </div>
 
                         <label class="st-row">
                             <input type="checkbox" id="stHideRecentButton" class="st-cb" />
