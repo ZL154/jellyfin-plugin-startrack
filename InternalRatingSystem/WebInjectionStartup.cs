@@ -38,6 +38,15 @@ namespace Jellyfin.Plugin.InternalRating
             // catches every client, not just the web UI.
             services.AddHostedService<PlaybackDiaryService>();
 
+            // Keeps ratings, diary, watchlist and lists attached to a title when
+            // Jellyfin gives it a new item id, which it does whenever the file
+            // is replaced (a Radarr or Sonarr upgrade). Jellyfin does the same
+            // for its own per-user data by keying it on provider ids.
+            services.AddSingleton<ItemIdentityLedger>(sp =>
+                new ItemIdentityLedger(sp.GetRequiredService<IApplicationPaths>()));
+            services.AddSingleton<LibraryRelinkService>();
+            services.AddHostedService(sp => sp.GetRequiredService<LibraryRelinkService>());
+
             // Expose the existing repositories as DI singletons so controllers
             // and services can request them via constructor injection. Both are
             // constructed by Plugin.cs with the ApplicationPaths the base class

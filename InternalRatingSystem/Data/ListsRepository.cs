@@ -141,6 +141,48 @@ namespace Jellyfin.Plugin.InternalRating.Data
             finally { _lock.Release(); }
         }
 
+        /// <summary>Every item id on any list.</summary>
+        public async Task<IReadOnlyCollection<string>> GetAllItemIdsAsync()
+        {
+            await _lock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                return _store.Lists
+                    .SelectMany(l => l.Items.Select(i => i.ItemId))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+            finally { _lock.Release(); }
+        }
+
+        /// <summary>
+        /// Moves list entries for <paramref name="oldId"/> to <paramref name="newId"/>
+        /// after the file was replaced. A list that already holds the new id drops
+        /// the old entry rather than listing the title twice. Returns the number
+        /// of entries changed.
+        /// </summary>
+        public async Task<int> RenameItemAsync(string oldId, string newId)
+        {
+            await _lock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                var n = 0;
+                foreach (var l in _store.Lists)
+                {
+                    var old = l.Items.FirstOrDefault(i => string.Equals(i.ItemId, oldId, StringComparison.OrdinalIgnoreCase));
+                    if (old == null) continue;
+                    if (l.Items.Any(i => string.Equals(i.ItemId, newId, StringComparison.OrdinalIgnoreCase)))
+                        l.Items.Remove(old);
+                    else
+                        old.ItemId = newId;
+                    n++;
+                }
+                if (n > 0) await SaveAsync().ConfigureAwait(false);
+                return n;
+            }
+            finally { _lock.Release(); }
+        }
+
         private static UserList Clone(UserList src) => new UserList
         {
             Id = src.Id,

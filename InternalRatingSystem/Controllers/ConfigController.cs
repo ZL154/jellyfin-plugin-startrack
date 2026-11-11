@@ -20,10 +20,27 @@ namespace Jellyfin.Plugin.InternalRating.Controllers
             { "en", "fr", "es", "de", "it", "pt", "zh", "ja" };
 
         private readonly IConfigurationManager _configManager;
+        private readonly LibraryRelinkService _relink;
 
-        public ConfigController(IConfigurationManager configManager)
+        public ConfigController(IConfigurationManager configManager, LibraryRelinkService relink)
         {
             _configManager = configManager;
+            _relink = relink;
+        }
+
+        /// <summary>
+        /// Runs the relink sweep now instead of waiting for the library to
+        /// change: stored ids the library no longer knows are moved to the
+        /// item that now carries the same provider ids.
+        /// </summary>
+        [HttpPost("Relink")]
+        [Authorize(Policy = "RequiresElevation")]
+        [Produces(MediaTypeNames.Application.Json)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async System.Threading.Tasks.Task<IActionResult> Relink()
+        {
+            var summary = await _relink.RunAsync(HttpContext.RequestAborted).ConfigureAwait(false);
+            return Ok(summary);
         }
 
         /// <summary>Admin-exposed flags used by widget.js.</summary>

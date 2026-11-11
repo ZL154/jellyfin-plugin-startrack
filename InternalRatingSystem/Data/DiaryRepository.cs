@@ -252,6 +252,45 @@ namespace Jellyfin.Plugin.InternalRating.Data
             return fixes.Count;
         }
 
+        /// <summary>Every item id that appears in any user's diary.</summary>
+        public async Task<IReadOnlyCollection<string>> GetAllItemIdsAsync()
+        {
+            await _lock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                return _store.Users.Values
+                    .SelectMany(d => d.Entries)
+                    .Select(e => e.ItemId)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+            finally { _lock.Release(); }
+        }
+
+        /// <summary>
+        /// Points every entry for <paramref name="oldId"/> at <paramref name="newId"/>
+        /// after the file was replaced. Rewatches stay separate rows, so nothing
+        /// collapses. Returns the number of rows changed.
+        /// </summary>
+        public async Task<int> RenameItemAsync(string oldId, string newId)
+        {
+            await _lock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                var n = 0;
+                foreach (var d in _store.Users.Values)
+                foreach (var e in d.Entries)
+                {
+                    if (!string.Equals(e.ItemId, oldId, StringComparison.OrdinalIgnoreCase)) continue;
+                    e.ItemId = newId;
+                    n++;
+                }
+                if (n > 0) await SaveAsync().ConfigureAwait(false);
+                return n;
+            }
+            finally { _lock.Release(); }
+        }
+
         private UserDiary GetOrInit(string userId)
         {
             if (!_store.Users.TryGetValue(userId, out var d))

@@ -226,6 +226,66 @@ namespace Jellyfin.Plugin.InternalRating.Data
             finally { _lock.Release(); }
         }
 
+        // ============================== Relink =================================== //
+
+        /// <summary>Every item id on any watchlist, liked list or favourites list.</summary>
+        public async Task<IReadOnlyCollection<string>> GetAllItemIdsAsync()
+        {
+            await _lock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                return _store.Users.Values
+                    .SelectMany(u => u.Watchlist.Select(e => e.ItemId)
+                        .Concat(u.Liked.Select(e => e.ItemId))
+                        .Concat(u.Favorites))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+            finally { _lock.Release(); }
+        }
+
+        /// <summary>
+        /// Moves watchlist, like and favourite entries for <paramref name="oldId"/>
+        /// to <paramref name="newId"/> after the file was replaced. Where a user
+        /// already has the new id in the same list, the old entry is dropped
+        /// rather than duplicated. Returns the number of entries changed.
+        /// </summary>
+        public async Task<int> RenameItemAsync(string oldId, string newId)
+        {
+            await _lock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                var n = 0;
+                foreach (var u in _store.Users.Values)
+                {
+                    n += Move(u.Watchlist, oldId, newId);
+                    n += Move(u.Liked, oldId, newId);
+
+                    var slot = u.Favorites.FindIndex(f => string.Equals(f, oldId, StringComparison.OrdinalIgnoreCase));
+                    if (slot < 0) continue;
+                    if (u.Favorites.Any(f => string.Equals(f, newId, StringComparison.OrdinalIgnoreCase)))
+                        u.Favorites.RemoveAt(slot);
+                    else
+                        u.Favorites[slot] = newId;
+                    n++;
+                }
+                if (n > 0) await SaveAsync().ConfigureAwait(false);
+                return n;
+            }
+            finally { _lock.Release(); }
+        }
+
+        private static int Move(List<InteractionEntry> entries, string oldId, string newId)
+        {
+            var old = entries.FirstOrDefault(e => string.Equals(e.ItemId, oldId, StringComparison.OrdinalIgnoreCase));
+            if (old == null) return 0;
+            if (entries.Any(e => string.Equals(e.ItemId, newId, StringComparison.OrdinalIgnoreCase)))
+                entries.Remove(old);
+            else
+                old.ItemId = newId;
+            return 1;
+        }
+
         // ============================== Private helpers ========================== //
 
         private UserInteractions GetOrInit(string userId)

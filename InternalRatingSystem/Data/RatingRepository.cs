@@ -246,6 +246,45 @@ namespace Jellyfin.Plugin.InternalRating.Data
             finally { _lock.Release(); }
         }
 
+        /// <summary>Every item id with at least one rating.</summary>
+        public async Task<IReadOnlyCollection<string>> GetAllItemIdsAsync()
+        {
+            await _lock.WaitAsync().ConfigureAwait(false);
+            try { return _store.Ratings.Keys.ToList(); }
+            finally { _lock.Release(); }
+        }
+
+        /// <summary>
+        /// Moves every rating on <paramref name="oldId"/> to <paramref name="newId"/>:
+        /// the file was replaced and Jellyfin gave the same title a new id. A user
+        /// who has rated both keeps the later rating. Returns the number moved.
+        /// </summary>
+        public async Task<int> RenameItemAsync(string oldId, string newId)
+        {
+            await _lock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                if (!_store.Ratings.Remove(oldId, out var old) || old.Count == 0) return 0;
+                var target = GetItemRatings(newId);
+                var moved = 0;
+                foreach (var r in old)
+                {
+                    var dup = target.FirstOrDefault(t => t.UserId == r.UserId);
+                    if (dup != null)
+                    {
+                        if (dup.RatedAt >= r.RatedAt) continue;
+                        target.Remove(dup);
+                    }
+                    target.Add(r);
+                    moved++;
+                }
+                _store.Ratings[newId] = target;
+                await SaveAsync().ConfigureAwait(false);
+                return moved;
+            }
+            finally { _lock.Release(); }
+        }
+
         // ------------------------------------------------------------------ //
         // Private helpers
         // ------------------------------------------------------------------ //
