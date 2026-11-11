@@ -7,7 +7,7 @@
 ![Jellyfin](https://img.shields.io/badge/Jellyfin-10.11%20%7C%2012-CC0000?style=for-the-badge&labelColor=0d0d0d&logo=jellyfin&logoColor=white)
 ![.NET](https://img.shields.io/badge/.NET-9%20%7C%2010-CC0000?style=for-the-badge&labelColor=0d0d0d&logo=dotnet&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-CC0000?style=for-the-badge&labelColor=0d0d0d)
-![Version](https://img.shields.io/badge/Version-1.8.1-CC0000?style=for-the-badge&labelColor=0d0d0d)
+![Version](https://img.shields.io/badge/Version-1.8.2-CC0000?style=for-the-badge&labelColor=0d0d0d)
 
 **Letterboxd-style ratings, watchlist, lists & social layer for Jellyfin**
 
@@ -29,7 +29,7 @@
 - [Data storage](#data-storage)
 - [Building from source](#building-from-source)
 - [Contributing](#contributing)
-- [Changelog](#changelog) - release notes from 1.8.0 back to 1.4
+- [Changelog](#changelog) - release notes from 1.8.1 back to 1.4
 - [Support the project](#-support-the-project)
 - [License](#license)
 
@@ -45,29 +45,23 @@ Designed to integrate cleanly with modern Jellyfin setups: desktop, mobile, TV/w
 
 ## Features
 
-### 🆕 New in 1.8.1
+### 🆕 New in 1.8.2
 
-A fix release for 1.8.0, almost all of it reported by users of it.
+**Your ratings survive a file replacement**
 
-**Jellyfin 12.1**
-
-- **StarTrack appears in the new top bar.** 12.1 moved navigation into a Material-UI app bar and the old nav drawer is not in that layout, so the *My Ratings* link had nowhere to go. It now sits in the toolbar beside your libraries ([#27](https://github.com/ZL154/jellyfin-plugin-startrack/issues/27)).
+- **A Radarr or Sonarr upgrade no longer loses everything you stored about a film** ([#32](https://github.com/ZL154/jellyfin-plugin-startrack/issues/32)). Jellyfin builds an item's id from its file path, so replacing a file removed the item and re-added it under a new id - and every rating, diary entry, watchlist and list entry stayed behind on an id nothing points at any more. StarTrack now records what each stored id refers to (Tmdb / Imdb / Tvdb, plus season and episode numbers) and reattaches them to the replacement within about half a minute of the scan. It never matches on a title: an item with no provider ids stays where it is, and if two candidates could be the right one, nothing moves and it says so in the log. Thanks @mysticalsoap, who reported it and wrote the fix.
 
 **Fixes**
 
-- **Opening a film from My Ratings no longer freezes page scrolling.** Six code paths closed the overlay and only one of them released the scroll lock, so clicking a film could leave the whole Jellyfin web UI unscrollable until you reloaded ([#27](https://github.com/ZL154/jellyfin-plugin-startrack/issues/27)).
-- **Back closes My Ratings** instead of navigating the page behind it while the overlay stays on screen ([#27](https://github.com/ZL154/jellyfin-plugin-startrack/issues/27)).
-- **Half stars are half.** The filled half of a half-star was cut past the middle of the glyph ([#27](https://github.com/ZL154/jellyfin-plugin-startrack/issues/27)).
-- **"Out of ten" now applies to your own ratings too**, not only community averages — the panel, the recent list, My Ratings cards, the diary and the comparison view all honour it ([#27](https://github.com/ZL154/jellyfin-plugin-startrack/issues/27)).
-- **Letterboxd "Verify login" works the way a push does.** It never used FlareSolverr, so a correctly configured server still failed it; and a stale pasted cookie was used forever and never questioned, which is worse than no cookie at all. It now retries without your cookies and on a freshly solved challenge, and says what actually fixes a Cloudflare block instead of asking you to paste more cookies ([#24](https://github.com/ZL154/jellyfin-plugin-startrack/issues/24)).
-- **The self-check stopped calling healthy servers broken.** "Injected into the web UI" reported a failure for a read-only `index.html` — the normal state in Docker — when the server was injecting perfectly well by its other route ([#20](https://github.com/ZL154/jellyfin-plugin-startrack/discussions/20)).
-- **A duplicate copy of a film in your library** no longer gets a second rating when an import runs; the copy you already rated is the one that is updated.
+- **The post-playback rating prompt works on Jellyfin 12 again** ([#34](https://github.com/ZL154/jellyfin-plugin-startrack/issues/34)). Jellyfin 12 keeps the player's OSD in the page for the whole session instead of building it when playback starts, so StarTrack thought something was playing from the first time you opened the player until you reloaded - and the prompt only appears when playback *stops*. It now checks whether the player is actually on screen.
+- **Removing a rating asks first** ([#29](https://github.com/ZL154/jellyfin-plugin-startrack/issues/29)). It used to delete the rating and its review on one click, with no undo.
+- **Un-like from the Liked view, and remove a film from a list inside that list** ([#29](https://github.com/ZL154/jellyfin-plugin-startrack/issues/29)) - both previously meant opening the film, or in the list's case deleting the whole list. The rating panel also gained **+ add to a list**.
+- **The hover on the first card of each row is no longer clipped** ([#29](https://github.com/ZL154/jellyfin-plugin-startrack/issues/29)), worst in Liked where the top was cut too. The scrolling area clips on both axes and the first card sat exactly on its edge.
+- **The language button and the list view's buttons line up** ([#29](https://github.com/ZL154/jellyfin-plugin-startrack/issues/29)).
 
 **New**
 
-- **StarTrack tells you when your browser is running an old copy of it.** If your browser has Jellyfin's page cached, a plugin update changes nothing for you — silently, for as long as the cache lives. One dismissible line now says so, with a Reload button. It never reloads on its own ([#20](https://github.com/ZL154/jellyfin-plugin-startrack/discussions/20)).
-- **A ★ My Ratings button in the rating panel**, so you can reach your profile without the sidebar ([#28](https://github.com/ZL154/jellyfin-plugin-startrack/issues/28)).
-- **Remove from watchlist straight from the watchlist**, instead of opening the film to do it ([#28](https://github.com/ZL154/jellyfin-plugin-startrack/issues/28)).
+- **The floating Rate pill can be turned off entirely** ([#30](https://github.com/ZL154/jellyfin-plugin-startrack/discussions/30)): *Everywhere* (default), *Movie / TV detail pages only*, or *Never*. Under *Never* the badge on a rated item still opens the rating panel. Thanks @mysticalsoap.
 
 ### ⭐ Ratings & reviews
 - **Half-star ratings** (0.5 – 5★) per item, per user
@@ -78,6 +72,7 @@ A fix release for 1.8.0, almost all of it reported by users of it.
 - **Per-user breakdown** - expandable list of every user's score and review on the detail panel
 - **Star tier colours** - five visual tiers (5★ glowing gold → 1★ muted red) so the rating grid is scannable at a glance
 - **Optional native mirror** - write StarTrack's 0.5–5★ value into Jellyfin's 0–10 per-user rating field, clear it when the StarTrack rating is removed, and backfill older ratings from the admin page
+- **Removing a rating asks first** - the Remove button arms on the first click and only deletes on the second, so a misclick cannot take a rating and its review with nothing to undo it
 - **How ratings are shown** - an admin choice of stars only (`3.5`, the default), both (`3.5 (7/10)`) or out of ten (`7/10`). It applies to every rating StarTrack prints, community averages *and* your own: the panel, the floating pill, poster badges, the recent list, My Ratings cards, the diary and the taste comparison. Display only - you still rate with five stars, nothing is converted, and a rating always lands on a real position of the scale (so `/10` shows `7`, never `7.0`)
 
 ### 📺 Media-page, TV & reverse-proxy compatibility
@@ -94,11 +89,11 @@ A fix release for 1.8.0, almost all of it reported by users of it.
 |---|---|
 | **★ Films** | Full poster grid of everything you've rated, with a pinned Top 4 row |
 | **☆ Watchlist** | Bookmark films to watch later, and remove them from the same screen - toggleable to show **everyone's combined watchlist** with per-user filtering |
-| **♡ Liked** | One-tap heart toggle, separate from your star rating |
+| **♡ Liked** | One-tap heart toggle, separate from your star rating; un-like from this view too |
 | **📖 Diary** | Chronological journal of every watch with **rewatch detection**, grouped by month, with visual star bars |
 | **✍ Reviews feed** | Server-wide vertical feed of every rating that has a review, with poster, reviewer, star bar, date and review text |
 | **✨ For you** | Personalised recommendations weighted by your top genres (movies + series). Reshuffle button rerolls 30 picks from a 60-candidate pool |
-| **📃 Lists** | Create collaborative film lists that other users on your server can contribute to. Owner-only delete |
+| **📃 Lists** | Create collaborative film lists that other users on your server can contribute to. Remove a film from inside the list; owner-only delete |
 
 ### 📖 Diary
 - **Automatic logging on playback** - finishing something records it, server-side, so every client counts and not just the web UI. Anything under two minutes (pre-rolls, idents, trailers) is not a viewing
@@ -115,6 +110,7 @@ A fix release for 1.8.0, almost all of it reported by users of it.
 - Hover any pinned slot to reveal an **× remove** button
 - Hover any film card to reveal **⭐ pin to Top 4** and **+ add to a list** buttons
 - On your own watchlist, hovering also reveals **✕ remove from watchlist**, so taking something off the list no longer means opening the film
+- The same **✕** appears on the Liked view and inside a list, so anything you can add you can take off where you see it
 
 ### 🔄 Letterboxd integration
 
@@ -240,6 +236,8 @@ Season ratings stay between StarTrack and Serializd. Trakt, Simkl, Yamtrack and 
 - **Runs on Jellyfin 10.11, 12.0 and 12.1** from one codebase, as two builds; the plugin repository picks the right one - see [Which build do I need?](#which-build-do-i-need)
 - **"Is StarTrack working?"** - a self-check on the plugin page: eight checks, server and browser side, with a paste-ready summary for bug reports. It names *which* route the script reaches the browser by (written into `index.html`, or added to each page as it is served - the normal one for Docker, where `index.html` is read-only), and flags a stale cached widget and a FlareSolverr behind a VPN
 - **Presentation controls** - badge position and size, compact media badge, poster overlays, native/Media Bar replacement and post-playback prompts
+- **Where the floating Rate pill appears** - *Everywhere*, *Movie / TV detail pages only*, or *Never*. Under *Never* the pill is gone but the badge on a rated item still opens the rating panel
+- **Ratings follow a file replacement** - when Radarr or Sonarr upgrades a file, Jellyfin gives the title a new item id; StarTrack reattaches ratings, diary entries, watchlist, likes and list entries to the replacement on its own, and `POST /Plugins/StarTrack/Relink` runs that sweep on demand
 - **Native Jellyfin integration** - opt-in live mirroring plus an elevation-gated, idempotent backfill for existing StarTrack ratings
 - **Review policy** - choose a maximum review length between 1 and 10,000 characters
 - **External service credentials** - configure Trakt and Simkl once while each user owns their connection and sync direction
@@ -402,8 +400,8 @@ StarTrack ships **two**, built from the same source:
 
 | Your Jellyfin | Version to install | Ends in | .NET |
 |---|---|---|---|
-| **10.11.x** | `1.8.1.0` | `.0` | 9 |
-| **12.x**    | `1.8.1.1` | `.1` | 10 |
+| **10.11.x** | `1.8.2.0` | `.0` | 9 |
+| **12.x**    | `1.8.2.1` | `.1` | 10 |
 
 **Installing from the repository? Ignore all of this** — the catalogue only
 offers your server the build it can run. This matters only for manual installs.
@@ -457,7 +455,7 @@ A floating pill appears at the bottom-right of every Movie / Series / Season / E
 - Set your rating (half-star precision)
 - Optionally write a review
 - See the community average and per-user breakdown
-- One-click **❤ like**, **☆ watchlist**, or **★ pin to Top 4**
+- One-click **❤ like**, **☆ watchlist**, **★ pin to Top 4**, or **+ add to a list**
 
 Admins can use a compact rating-only badge, move poster badges to any corner and choose Normal, Large or Large (TV only) sizing. Users can override the size for their current device from **My Ratings → ⚙ Preferences**. On TV, unrated media keeps a dimmed `☆ Rate` badge so the remote always has a focus target.
 
@@ -667,6 +665,7 @@ All data is stored as plain JSON in `<jellyfin-data>/data/InternalRating/`:
 | `follows.json` *(new in 1.5)* | Per-user follow graph |
 | `privacy.json` *(new in 1.5)* | Per-user privacy flags (hide stats / activity / followers / etc) |
 | `external-sync.json` *(new in 1.6)* | Per-user, per-provider external-sync settings: direction, OAuth tokens, last-sync state |
+| `item-identities.json` *(new in 1.8.2)* | What each stored item id refers to (Tmdb / Imdb / Tvdb, plus season and episode numbers), so entries can be reattached when a file replacement gives a title a new id |
 | `exports/<userId>-<date>.csv\|json` *(optional)* | Daily per-user rating backups when automatic export is enabled |
 
 Back them up or migrate them like any other data file - no database required. Native-rating mirroring supplements these files; StarTrack's JSON remains the source of truth.
@@ -699,6 +698,30 @@ Issues and pull requests are welcome.
 ## Changelog
 
 What is new in the current release stays at the top of [Features](#features); everything it describes is also folded into the feature sections above, so those read as a description of StarTrack today. Older release notes live here.
+
+### New in 1.8.1
+
+A fix release for 1.8.0, almost all of it reported by users of it.
+
+**Jellyfin 12.1**
+
+- **StarTrack appears in the new top bar.** 12.1 moved navigation into a Material-UI app bar and the old nav drawer is not in that layout, so the *My Ratings* link had nowhere to go. It now sits in the toolbar beside your libraries ([#27](https://github.com/ZL154/jellyfin-plugin-startrack/issues/27)).
+
+**Fixes**
+
+- **Opening a film from My Ratings no longer freezes page scrolling.** Six code paths closed the overlay and only one of them released the scroll lock, so clicking a film could leave the whole Jellyfin web UI unscrollable until you reloaded ([#27](https://github.com/ZL154/jellyfin-plugin-startrack/issues/27)).
+- **Back closes My Ratings** instead of navigating the page behind it while the overlay stays on screen ([#27](https://github.com/ZL154/jellyfin-plugin-startrack/issues/27)).
+- **Half stars are half.** The filled half of a half-star was cut past the middle of the glyph ([#27](https://github.com/ZL154/jellyfin-plugin-startrack/issues/27)).
+- **"Out of ten" now applies to your own ratings too**, not only community averages — the panel, the recent list, My Ratings cards, the diary and the comparison view all honour it ([#27](https://github.com/ZL154/jellyfin-plugin-startrack/issues/27)).
+- **Letterboxd "Verify login" works the way a push does.** It never used FlareSolverr, so a correctly configured server still failed it; and a stale pasted cookie was used forever and never questioned, which is worse than no cookie at all. It now retries without your cookies and on a freshly solved challenge, and says what actually fixes a Cloudflare block instead of asking you to paste more cookies ([#24](https://github.com/ZL154/jellyfin-plugin-startrack/issues/24)).
+- **The self-check stopped calling healthy servers broken.** "Injected into the web UI" reported a failure for a read-only `index.html` — the normal state in Docker — when the server was injecting perfectly well by its other route ([#20](https://github.com/ZL154/jellyfin-plugin-startrack/discussions/20)).
+- **A duplicate copy of a film in your library** no longer gets a second rating when an import runs; the copy you already rated is the one that is updated.
+
+**New**
+
+- **StarTrack tells you when your browser is running an old copy of it.** If your browser has Jellyfin's page cached, a plugin update changes nothing for you — silently, for as long as the cache lives. One dismissible line now says so, with a Reload button. It never reloads on its own ([#20](https://github.com/ZL154/jellyfin-plugin-startrack/discussions/20)).
+- **A ★ My Ratings button in the rating panel**, so you can reach your profile without the sidebar ([#28](https://github.com/ZL154/jellyfin-plugin-startrack/issues/28)).
+- **Remove from watchlist straight from the watchlist**, instead of opening the film to do it ([#28](https://github.com/ZL154/jellyfin-plugin-startrack/issues/28)).
 
 ### New in 1.8.0
 
