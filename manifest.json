@@ -13,7 +13,7 @@
         "changelog": "Ratings, diary, watchlist and lists now survive a file replacement: a Radarr or Sonarr upgrade changes an item's id, and everything stored for that title used to stay behind on the old id. StarTrack records what each stored id refers to (Tmdb/Imdb/Tvdb, plus season and episode numbers) and reattaches it to the replacement within about half a minute of the scan; it never matches on a title, and leaves entries alone when two candidates could be right (#32, thanks mysticalsoap). FIXES: the post-playback rating prompt works on Jellyfin 12 again - JF12 keeps the player OSD in the page for the whole session, so StarTrack believed something was playing from the first time the player was opened and the prompt only fires when playback stops (#34); removing a rating now asks before deleting it and its review (#29); un-like from the Liked view and remove a film from a list inside that list, and 'add to a list' from the rating panel (#29); the hover on the first card of each row is no longer clipped, worst in Liked (#29); the language button and the list view buttons line up (#29). NEW: the floating Rate pill can be set to Everywhere, detail pages only, or Never, with the page badge still opening the panel under Never (#30, thanks mysticalsoap).",
         "targetAbi": "12.0.0.0",
         "sourceUrl": "https://github.com/ZL154/jellyfin-plugin-startrack/releases/download/v1.8.2/Jellyfin.Plugin.InternalRating_1.8.2.1.zip",
-        "checksum": "",
+        "checksum": "4d604cafa3842c29d9416d38e5f8b407",
         "timestamp": "2026-11-11T17:30:00Z"
       },
       {
@@ -21,7 +21,7 @@
         "changelog": "Ratings, diary, watchlist and lists now survive a file replacement: a Radarr or Sonarr upgrade changes an item's id, and everything stored for that title used to stay behind on the old id. StarTrack records what each stored id refers to (Tmdb/Imdb/Tvdb, plus season and episode numbers) and reattaches it to the replacement within about half a minute of the scan; it never matches on a title, and leaves entries alone when two candidates could be right (#32, thanks mysticalsoap). FIXES: the post-playback rating prompt works on Jellyfin 12 again - JF12 keeps the player OSD in the page for the whole session, so StarTrack believed something was playing from the first time the player was opened and the prompt only fires when playback stops (#34); removing a rating now asks before deleting it and its review (#29); un-like from the Liked view and remove a film from a list inside that list, and 'add to a list' from the rating panel (#29); the hover on the first card of each row is no longer clipped, worst in Liked (#29); the language button and the list view buttons line up (#29). NEW: the floating Rate pill can be set to Everywhere, detail pages only, or Never, with the page badge still opening the panel under Never (#30, thanks mysticalsoap).",
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://github.com/ZL154/jellyfin-plugin-startrack/releases/download/v1.8.2/Jellyfin.Plugin.InternalRating_1.8.2.0.zip",
-        "checksum": "",
+        "checksum": "a4b33e19c72583e03fb122361f8b27e1",
         "timestamp": "2026-11-11T17:30:00Z"
       },
       {
